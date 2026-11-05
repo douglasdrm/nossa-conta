@@ -34,8 +34,36 @@ test("migration, household isolation, invitations and recurring month edits", as
   const migrations = (await readdir("supabase/migrations"))
     .filter((f) => f.endsWith(".sql"))
     .sort();
-  for (const file of migrations)
+  for (const file of migrations) {
+    if (file.includes("pending_expenses")) {
+      await db.exec(
+        "insert into public.nc_households(id,owner_id) values('10000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000001');insert into public.nc_entries(id,household_id,kind,description,amount,category,person,date,created_by) values('legacy-test','10000000-0000-4000-8000-000000000001','expense','Conta anterior',12345,'Contas','Alice','2026-01-05','00000000-0000-4000-8000-000000000001')",
+      );
+    }
     await db.exec(await readFile("supabase/migrations/" + file, "utf8"));
+    if (file.includes("pending_expenses")) {
+      await t.test(
+        "existing history remains confirmed with unknown payer after migration",
+        async () => {
+          const row = (
+            await db.query<{
+              confirmed: boolean;
+              payer: string | null;
+              amount: number;
+            }>(
+              "select confirmed,payer,amount::integer from public.nc_entries where id='legacy-test'",
+            )
+          ).rows[0];
+          assert.equal(row.confirmed, true);
+          assert.equal(row.payer, null);
+          assert.equal(row.amount, 12345);
+        },
+      );
+      await db.exec(
+        "delete from public.nc_households where id='10000000-0000-4000-8000-000000000001'",
+      );
+    }
+  }
   async function as(id: string, role = "authenticated") {
     await db.exec("reset role");
     await db.query("select set_config('request.jwt.claim.sub',$1,false)", [id]);
@@ -365,6 +393,180 @@ test("migration, household isolation, invitations and recurring month edits", as
       await assert.rejects(
         () => rpc("ensure_household"),
         /confirmed_account_required/,
+      );
+    },
+  );
+  await t.test(
+    "pending payment confirmation is isolated, idempotent, reversible and recurring months stay pending",
+    async () => {
+      await as(alice);
+      const saved = await rpc<{
+        id: string;
+        confirmed: boolean;
+        confirmed_at: string | null;
+      }>("add_entry", [
+        {
+          ...base,
+          repeats: true,
+          confirmed: false,
+          date: "2028-01-31",
+          description: "Conta pendente",
+        },
+      ]);
+      assert.equal(saved.confirmed, false);
+      assert.equal(saved.confirmed_at, null);
+      await rpc("sync_month", ["2028-02-01"]);
+      const feb = saved.id.replace("2028-01", "2028-02");
+      assert.equal(
+        (
+          await db.query<{ confirmed: boolean }>(
+            "select confirmed from nc_entries where id=$1",
+            [feb],
+          )
+        ).rows[0].confirmed,
+        false,
+      );
+      await rpc("confirm_entry", [saved.id, true]);
+      const paid = (
+        await db.query<{ confirmed: boolean; at: string }>(
+          "select confirmed,confirmed_at::text as at from nc_entries where id=$1",
+          [saved.id],
+        )
+      ).rows[0];
+      assert.equal(paid.confirmed, true);
+      assert.ok(paid.at);
+      await rpc("confirm_entry", [saved.id, true]);
+      assert.equal(
+        (
+          await db.query<{ at: string }>(
+            "select confirmed_at::text as at from nc_entries where id=$1",
+            [saved.id],
+          )
+        ).rows[0].at,
+        paid.at,
+      );
+      assert.equal(
+        (
+          await db.query<{ confirmed: boolean }>(
+            "select confirmed from nc_entries where id=$1",
+            [feb],
+          )
+        ).rows[0].confirmed,
+        false,
+      );
+      await rpc("edit_entry", [
+        feb,
+        { ...base, date: "2028-02-29", amount: 19999 },
+        false,
+      ]);
+      assert.equal(
+        (
+          await db.query<{ confirmed: boolean }>(
+            "select confirmed from nc_entries where id=$1",
+            [feb],
+          )
+        ).rows[0].confirmed,
+        false,
+      );
+      await as(outsider);
+      await assert.rejects(() => rpc("confirm_entry", [saved.id, true]));
+      await as(alice);
+      await rpc("confirm_entry", [saved.id, false]);
+      assert.equal(
+        (
+          await db.query<{ confirmed: boolean; at: string | null }>(
+            "select confirmed,confirmed_at::text as at from nc_entries where id=$1",
+            [saved.id],
+          )
+        ).rows[0].at,
+        null,
+      );
+      const income = await rpc<{ id: string; confirmed: boolean }>(
+        "add_entry",
+        [
+          {
+            ...base,
+            kind: "income",
+            repeats: false,
+            confirmed: false,
+            date: "2028-01-05",
+          },
+        ],
+      );
+      assert.equal(income.confirmed, true);
+      await assert.rejects(() => rpc("confirm_entry", [income.id, false]));
+      const paidNew = await rpc<{ id: string; confirmed: boolean }>(
+        "add_entry",
+        [{ ...base, repeats: false, confirmed: true, date: "2028-01-05" }],
+      );
+      assert.equal(paidNew.confirmed, true);
+      await rpc("delete_entry", [paidNew.id]);
+      await assert.rejects(() => rpc("confirm_entry", [paidNew.id, true]));
+    },
+  );
+  await t.test(
+    "the payer can differ from the creator and responsible person, with no income required",
+    async () => {
+      await as(alice);
+      const entry = await rpc<{ id: string }>("add_entry", [
+        {
+          ...base,
+          confirmed: false,
+          repeats: false,
+          person: "Alice",
+          date: "2029-01-05",
+        },
+      ]);
+      await rpc("edit_entry", [
+        entry.id,
+        {
+          ...base,
+          repeats: false,
+          person: "Alice",
+          date: "2029-01-05",
+          confirmed: true,
+          payer: "Bob",
+          amount: 12345,
+        },
+        false,
+      ]);
+      let row = (
+        await db.query<{
+          payer: string;
+          person: string;
+          created_by: string;
+          confirmed: boolean;
+        }>(
+          "select payer,person,created_by,confirmed from nc_entries where id=$1",
+          [entry.id],
+        )
+      ).rows[0];
+      assert.equal(row.payer, "Bob");
+      assert.equal(row.person, "Alice");
+      assert.equal(row.created_by, alice);
+      assert.equal(row.confirmed, true);
+      await rpc("edit_entry", [
+        entry.id,
+        { ...base, person: "Alice", date: "2029-01-05", confirmed: false },
+        false,
+      ]);
+      row = (
+        await db.query(
+          "select payer,person,created_by,confirmed from nc_entries where id=$1",
+          [entry.id],
+        )
+      ).rows[0] as typeof row;
+      assert.equal(row.payer, null);
+      assert.equal(row.confirmed, false);
+      await rpc("confirm_entry", [entry.id, true, "Samantha"]);
+      assert.equal(
+        (
+          await db.query<{ payer: string }>(
+            "select payer from nc_entries where id=$1",
+            [entry.id],
+          )
+        ).rows[0].payer,
+        "Samantha",
       );
     },
   );

@@ -19,6 +19,8 @@ export const entrySchema = z
     person: label(60),
     date: dateSchema,
     repeats: z.boolean().optional().default(false),
+    confirmed: z.boolean().optional().default(false),
+    payer: label(60).optional(),
   })
   .refine(
     (v) => !v.repeats || v.kind === "expense",
@@ -32,6 +34,8 @@ export const editSchema = z.object({
   person: label(60),
   date: dateSchema,
   future: z.boolean().optional().default(false),
+  confirmed: z.boolean().optional(),
+  payer: label(60).optional(),
 });
 export const inviteSchema = z.object({
   email: z

@@ -1,16 +1,35 @@
 import { authenticated, checkOrigin, failure, ApiError } from "@/lib/api";
 import { entrySchema, editSchema, monthSchema } from "@/lib/validation";
+import { dateInSaoPaulo } from "@/lib/finance";
 export const dynamic = "force-dynamic";
 export async function GET(r: Request) {
   try {
     const { db } = await authenticated();
+    if (new URL(r.url).searchParams.get("due") === "true") {
+      const { data, error } = await db
+        .from("nc_entries")
+        .select(
+          "id,kind,description,amount,category,person,date,confirmed,confirmed_at,payer",
+        )
+        .eq("kind", "expense")
+        .eq("confirmed", false)
+        .is("deleted_at", null)
+        .lte("date", dateInSaoPaulo())
+        .order("date");
+      if (error) throw error;
+      return Response.json(data, {
+        headers: { "Cache-Control": "private, no-store" },
+      });
+    }
     const month = monthSchema.safeParse(
       new URL(r.url).searchParams.get("month"),
     );
     if (!month.success) throw new ApiError("Selecione um mês válido.", 400);
     const { data, error } = await db
       .from("nc_entries")
-      .select("id,kind,description,amount,category,person,date")
+      .select(
+        "id,kind,description,amount,category,person,date,confirmed,confirmed_at,payer",
+      )
       .gte("date", month.data + "-01")
       .lt("date", nextMonth(month.data))
       .is("deleted_at", null)
@@ -58,6 +77,25 @@ export async function PATCH(r: Request) {
     checkOrigin(r);
     const { db } = await authenticated();
     const body = await r.json();
+    if (body.action === "confirm") {
+      if (
+        typeof body.id !== "string" ||
+        body.id.length > 100 ||
+        typeof body.confirmed !== "boolean"
+      )
+        throw new ApiError("Lançamento inválido.", 400);
+      const { error } = await db.rpc("nc_confirm_entry", {
+        p_id: body.id,
+        p_confirmed: body.confirmed,
+        p_payer:
+          typeof body.payer === "string"
+            ? body.payer.trim().slice(0, 60)
+            : null,
+      });
+      if (error)
+        throw new ApiError("Não foi possível atualizar a confirmação.", 400);
+      return Response.json({ ok: true });
+    }
     if (body.action === "stop") {
       if (typeof body.id !== "string" || body.id.length > 100)
         throw new ApiError("Lançamento inválido.", 400);

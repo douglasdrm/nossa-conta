@@ -49,3 +49,14 @@ test("auth redirects remain same-origin paths", () => {
     assert.equal(safeNext(path), "/");
   assert.equal(safeNext("/invite?token=abc"), "/invite?token=abc");
 });
+
+test("payment status is a boolean and edits can preserve the original status", () => {
+  assert.equal(
+    entrySchema.parse({ ...entry, confirmed: false }).confirmed,
+    false,
+  );
+  assert.equal(
+    entrySchema.safeParse({ ...entry, confirmed: "false" }).success,
+    false,
+  );
+});

@@ -101,7 +101,7 @@ Cada conta participa de um espaço por vez. Um espaço pessoal recém-criado e v
 - Marcar **Usar este valor como padrão nos próximos meses** cria um novo valor padrão a partir do mês seguinte. Meses já materializados permanecem iguais; meses antigos nunca abertos usam a versão histórica correta.
 - Encerrar recorrência impede a criação de novas ocorrências após o mês selecionado. Registros futuros que já existam são preservados e podem ser excluídos separadamente.
 - Excluir uma ocorrência deixa uma marca de exclusão no banco para impedir que ela seja gerada novamente.
-- Os totais somam todos os lançamentos registrados. Ainda não há distinção entre conta prevista, pendente e paga, nem saldo bancário conciliado.
+- Os totais distinguem pagamentos confirmados de despesas pendentes. O saldo calculado não é um saldo bancário conciliado.
 
 ## Verificação
 
@@ -138,3 +138,13 @@ Referências: [Next.js na Vercel](https://vercel.com/docs/frameworks/full-stack/
 A separação para outro projeto exige: exportar/restaurar apenas tabelas `nc_*` (incluindo ocorrências excluídas e versões de recorrências), instalar as funções `nc_*` e o schema `nossa_conta_private`, e migrar ou remapear os IDs dos usuários referenciados em `auth.users`. Depois, configurar os provedores/callbacks de Auth e alterar as duas variáveis de ambiente do Nossa Conta na Vercel, com novo deploy. A migração das contas pode exigir novo login ou redefinição de senha. Não copie dados de viagens do Juntô.
 
 Ao gerenciar migrações neste projeto compartilhado, aplique somente a migração revisada do Nossa Conta. Não rode reset, migração automática de todo o projeto nem altere o histórico de migrações do Juntô. A migração inicial genérica distribuída na primeira versão deste repositório foi substituída antes de sua primeira instalação: não use o ZIP antigo para instalar no banco compartilhado.
+
+## Pagamentos, pagadores e avisos de vencimento
+
+Informar renda é opcional. É possível usar somente despesas; sem receitas no mês, o saldo fica sem cálculo em vez de assumir renda zero. As despesas podem ser salvas como **Ainda vou pagar** ou **Já paguei**. A lista e o resumo separam **Pago** de **A pagar**. Responsável e pagador são campos distintos; quem adicionou a conta fica registrado em `created_by`, e `payer` identifica quem efetivamente pagou. Contas antigas mantêm o histórico e mostram pagador não informado até serem editadas.
+
+Ao confirmar um pagamento, o formulário permite ajustar o valor e informar quem pagou. A confirmação é manual e usa o horário do servidor; chegar ao vencimento não confirma automaticamente. As próximas ocorrências mensais são criadas pendentes, sem copiar o pagador do mês anterior. Editar ou confirmar uma ocorrência não confirma outras.
+
+O app destaca contas pendentes vencidas ou vencendo hoje, inclusive cadastradas em meses anteriores, usando a data de São Paulo. É possível ativar notificações genéricas neste navegador, mediante permissão. **Os avisos funcionam ao abrir/voltar ao app ou enquanto ele estiver aberto; esta versão não envia push com o app fechado, e-mail ou WhatsApp.** Recorrências são materializadas ao consultar o mês; não há agendador externo. A abertura do app também consulta o mês atual para preparar os avisos.
+
+O campo de valores preenche centavos automaticamente: `12345` vira `123,45`, e o banco recebe `12345` centavos inteiros. A exportação CSV inclui a situação e o pagador.

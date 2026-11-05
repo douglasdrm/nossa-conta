@@ -1,6 +1,14 @@
 "use client";
 import { useEffect, useState, useRef } from "react";
 import SharePanel from "@/components/share-panel";
+import MoneyInput from "@/components/money-input";
+import DuePanel from "@/components/due-panel";
+import {
+  dateInSaoPaulo,
+  moneyInputToCents,
+  financeTotals,
+  paymentState,
+} from "@/lib/finance";
 import {
   Wallet,
   LayoutDashboard,
@@ -25,6 +33,9 @@ type Entry = {
   category: string;
   person: string;
   date: string;
+  confirmed: boolean;
+  payer: string | null;
+  confirmed_at: string | null;
 };
 const cats = [
   "Mercado",
@@ -54,10 +65,11 @@ const money = (n: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
     n / 100,
   );
-const today = () =>
-  new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+const today = dateInSaoPaulo;
 export default function Dashboard({ name }: { name: string }) {
   const [editing, setEditing] = useState<Entry | null>(null);
+  const [paymentMode, setPaymentMode] = useState(false),
+    [paymentStatus, setPaymentStatus] = useState("pending");
   const [data, setData] = useState<Entry[]>([]),
     [month, setMonth] = useState(today().slice(0, 7)),
     [modal, setModal] = useState(""),
@@ -67,22 +79,46 @@ export default function Dashboard({ name }: { name: string }) {
     [filter, setFilter] = useState("all"),
     [person, setPerson] = useState("Todos"),
     [query, setQuery] = useState("");
+  const [due, setDue] = useState<Entry[]>([]),
+    [day, setDay] = useState(today());
   const requestId = useRef(0);
+  useEffect(() => {
+    setPaymentStatus(
+      modal === "income" || paymentMode || editing?.confirmed
+        ? "confirmed"
+        : "pending",
+    );
+  }, [modal, editing?.id, paymentMode]);
+  useEffect(() => {
+    const timer = setInterval(() => setDay(today()), 30000);
+    return () => clearInterval(timer);
+  }, []);
   async function reload(target = month) {
     const seq = ++requestId.current;
     setLoading(true);
     setError("");
     try {
-      const sync = await fetch("/api/entries", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "sync", month: target }),
-      });
-      if (!sync.ok) throw Error();
-      const r = await fetch("/api/entries?month=" + encodeURIComponent(target));
-      if (!r.ok) throw Error();
-      const records = await r.json();
-      if (seq === requestId.current) setData(records);
+      const months = [...new Set([target, today().slice(0, 7)])];
+      const syncs = await Promise.all(
+        months.map((m) =>
+          fetch("/api/entries", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "sync", month: m }),
+          }),
+        ),
+      );
+      if (syncs.some((r) => !r.ok)) throw Error();
+      const [r, alerts] = await Promise.all([
+        fetch("/api/entries?month=" + encodeURIComponent(target)),
+        fetch("/api/entries?due=true"),
+      ]);
+      if (!r.ok || !alerts.ok) throw Error();
+      const [records, reminders] = await Promise.all([r.json(), alerts.json()]);
+      if (seq === requestId.current) {
+        setData(records);
+        setDue(reminders);
+      }
     } catch {
       if (seq === requestId.current)
         setError(
@@ -94,7 +130,7 @@ export default function Dashboard({ name }: { name: string }) {
   }
   useEffect(() => {
     reload(month);
-  }, [month]);
+  }, [month, day]);
   useEffect(() => {
     const refresh = () => {
       if (document.visibilityState === "visible") reload(month);
@@ -108,27 +144,49 @@ export default function Dashboard({ name }: { name: string }) {
   }, [month]);
 
   const rows = loading ? [] : data.filter((e) => e.date.startsWith(month)),
-    income = rows
-      .filter((e) => e.kind === "income")
-      .reduce((a, e) => a + e.amount, 0),
-    expense = rows
-      .filter((e) => e.kind === "expense")
-      .reduce((a, e) => a + e.amount, 0),
+    totals = financeTotals(rows),
+    income = totals.income,
+    expense = totals.paid,
+    pending = totals.pending,
     groups = cats
       .map((c, i) => ({
         name: c,
         color: colors[i],
         value: rows
-          .filter((e) => e.kind === "expense" && e.category === c)
+          .filter(
+            (e) => e.kind === "expense" && e.confirmed && e.category === c,
+          )
           .reduce((a, e) => a + e.amount, 0),
       }))
       .filter((c) => c.value)
       .sort((a, b) => b.value - a.value),
-    people = [...new Set(data.map((e) => e.person))];
+    people = [
+      ...new Set([
+        name,
+        ...data
+          .flatMap((e) => [e.person, e.payer])
+          .filter((p): p is string => Boolean(p)),
+      ]),
+    ];
+  const paidBy = Object.entries(
+    rows
+      .filter((e) => e.kind === "expense" && e.confirmed)
+      .reduce(
+        (r, e) => {
+          const p = e.payer || "Não informado";
+          r[p] = (r[p] || 0) + e.amount;
+          return r;
+        },
+        {} as Record<string, number>,
+      ),
+  ).sort((a, b) => b[1] - a[1]);
   const shown = rows
     .filter(
       (e) =>
-        (filter === "all" || e.kind === filter) &&
+        (filter === "all" ||
+          e.kind === filter ||
+          (filter === "pending" && e.kind === "expense" && !e.confirmed) ||
+          (filter === "paid" && e.kind === "expense" && e.confirmed)) &&
         (person === "Todos" || e.person === person) &&
         e.description.toLowerCase().includes(query.toLowerCase()),
     )
@@ -144,9 +202,7 @@ export default function Dashboard({ name }: { name: string }) {
     setError("");
     const f = new FormData(ev.currentTarget);
     try {
-      const amount = Math.round(
-        Number(String(f.get("amount")).replace(",", ".")) * 100,
-      );
+      const amount = moneyInputToCents(String(f.get("amount")));
       const r = await fetch("/api/entries", {
         method: editing ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
@@ -154,6 +210,12 @@ export default function Dashboard({ name }: { name: string }) {
           ...Object.fromEntries(f),
           kind: modal,
           amount,
+          confirmed:
+            modal === "income" || f.get("paymentStatus") === "confirmed",
+          payer:
+            modal === "expense" && f.get("paymentStatus") === "confirmed"
+              ? String(f.get("payer") || name).trim()
+              : undefined,
           id: editing?.id,
           repeats: f.get("repeats") === "on",
           future: f.get("future") === "on",
@@ -166,6 +228,7 @@ export default function Dashboard({ name }: { name: string }) {
       setMonth(String(f.get("date")).slice(0, 7));
       setModal("");
       setEditing(null);
+      setPaymentMode(false);
       await reload(String(f.get("date")).slice(0, 7));
     } catch (e) {
       setError(
@@ -176,6 +239,23 @@ export default function Dashboard({ name }: { name: string }) {
     } finally {
       setBusy(false);
     }
+  }
+  function confirmPayment(id: string) {
+    const e = [...data, ...due].find((e) => e.id === id);
+    if (!e || busy) return;
+    setEditing(e);
+    setError("");
+    setPaymentMode(true);
+    setPaymentStatus("confirmed");
+    setModal("expense");
+  }
+  function editDue(id: string) {
+    const e = due.find((e) => e.id === id);
+    if (!e) return;
+    setEditing(e);
+    setPaymentMode(false);
+    setError("");
+    setModal("expense");
   }
   async function remove(id: string) {
     if (
@@ -198,7 +278,7 @@ export default function Dashboard({ name }: { name: string }) {
   }
   function exportCsv() {
     const text =
-      "\uFEFFData;Descrição;Tipo;Categoria;Pessoa;Valor\n" +
+      "\uFEFFData;Descrição;Tipo;Categoria;Pessoa;Valor;Situação;Pago por\n" +
       rows
         .map((e) =>
           [
@@ -208,6 +288,14 @@ export default function Dashboard({ name }: { name: string }) {
             e.category,
             e.person,
             (e.amount / 100).toFixed(2).replace(".", ","),
+            e.kind === "income"
+              ? "Recebido"
+              : e.confirmed
+                ? "Pago"
+                : "Pendente",
+            e.kind === "expense" && e.confirmed
+              ? e.payer || "Não informado"
+              : "",
           ]
             .map((x) => '"' + x.replaceAll('"', '""') + '"')
             .join(";"),
@@ -305,11 +393,11 @@ export default function Dashboard({ name }: { name: string }) {
             <div>
               Saldo do mês <Wallet size={20} />
             </div>
-            <strong>{money(income - expense)}</strong>
+            <strong>{income ? money(income - expense) : "—"}</strong>
             <small>
-              {income || expense
-                ? "Entradas menos os gastos registrados"
-                : "Vamos começar a organizar?"}
+              {income
+                ? "Entradas menos os gastos pagos"
+                : "Renda opcional. Informe se quiser calcular o saldo."}
             </small>
             <div className="balance-line" />
           </article>
@@ -320,12 +408,14 @@ export default function Dashboard({ name }: { name: string }) {
                 <ArrowDownLeft size={18} />
               </span>
             </div>
-            <strong>{money(income)}</strong>
-            <small>Salários e outras receitas</small>
+            <strong className={!income ? "no-income" : ""}>
+              {income ? money(income) : "Não informada"}
+            </strong>
+            <small>Opcional · salários e outras receitas</small>
           </article>
           <article>
             <div>
-              Saiu{" "}
+              Pago{" "}
               <span className="icon expense">
                 <ArrowUpRight size={18} />
               </span>
@@ -334,10 +424,28 @@ export default function Dashboard({ name }: { name: string }) {
             <small>
               {income
                 ? `${Math.round((expense / income) * 100)}% da renda do mês`
-                : "Seus gastos neste mês"}
+                : "Seus gastos pagos neste mês"}
+            </small>
+          </article>
+          <article className="pending-card">
+            <div>
+              A pagar <Repeat2 size={19} />
+            </div>
+            <strong>{money(pending)}</strong>
+            <small>
+              {income
+                ? `Saldo após pagar: ${money(income - expense - pending)}`
+                : "Só entra no pago quando confirmar"}
             </small>
           </article>
         </section>
+        <DuePanel
+          entries={due}
+          today={day}
+          onConfirm={confirmPayment}
+          onEdit={editDue}
+          busyId={busy ? editing?.id || null : null}
+        />
         <div className="actionbar">
           <span>
             Uma compra, um Pix, um salário. <b>Registre aqui.</b>
@@ -348,6 +456,7 @@ export default function Dashboard({ name }: { name: string }) {
               onClick={() => {
                 setError("");
                 setEditing(null);
+                setPaymentMode(false);
                 setModal("income");
               }}
             >
@@ -358,6 +467,7 @@ export default function Dashboard({ name }: { name: string }) {
               onClick={() => {
                 setError("");
                 setEditing(null);
+                setPaymentMode(false);
                 setModal("expense");
               }}
             >
@@ -369,7 +479,7 @@ export default function Dashboard({ name }: { name: string }) {
           <article className="panel categories">
             <div className="panel-title">
               <h2>Para onde foi o dinheiro?</h2>
-              <span>Gastos por categoria</span>
+              <span>Gastos pagos por categoria</span>
             </div>
             {groups.length ? (
               <div className="category-content">
@@ -435,12 +545,23 @@ export default function Dashboard({ name }: { name: string }) {
                 ? `${groups[0].name} é a maior categoria de gastos: ${money(groups[0].value)} neste mês.`
                 : "Anotem o que entra e o que sai, mesmo os pequenos valores. Logo fica mais fácil entender os hábitos da casa."}
             </p>
+            {paidBy.length > 0 && (
+              <div className="payer-summary">
+                <h3>Quem pagou neste mês</h3>
+                {paidBy.map(([payer, total]) => (
+                  <div key={payer}>
+                    <span>{payer}</span>
+                    <b>{money(total)}</b>
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="tip">
               <Leaf size={22} />
               <span>
                 {income > expense && income
                   ? "Vocês gastaram menos do que receberam neste mês."
-                  : expense > income
+                  : income && expense > income
                     ? "Os gastos registrados superam as entradas. Confiram se falta registrar alguma receita."
                     : "Não precisa ser perfeito. Precisa fazer parte da rotina."}
               </span>
@@ -467,6 +588,8 @@ export default function Dashboard({ name }: { name: string }) {
                 ["all", "Todos"],
                 ["expense", "Gastos"],
                 ["income", "Entradas"],
+                ["pending", "A pagar"],
+                ["paid", "Pagos"],
               ].map(([v, l]) => (
                 <button
                   key={v}
@@ -500,8 +623,10 @@ export default function Dashboard({ name }: { name: string }) {
                 <tr>
                   <th>Descrição</th>
                   <th>Categoria</th>
-                  <th>Pessoa</th>
-                  <th>Data</th>
+                  <th>Responsável</th>
+                  <th>Pago por</th>
+                  <th>Data / vencimento</th>
+                  <th>Situação</th>
                   <th className="amount">Valor</th>
                   <th />
                 </tr>
@@ -531,7 +656,34 @@ export default function Dashboard({ name }: { name: string }) {
                       <span className="pill">{e.category}</span>
                     </td>
                     <td>{e.person}</td>
+                    <td>
+                      {e.kind === "expense" && e.confirmed
+                        ? e.payer || "Não informado"
+                        : "—"}
+                    </td>
                     <td>{e.date.split("-").reverse().join("/")}</td>
+                    <td>
+                      <span className={"status-pill " + paymentState(e, day)}>
+                        {
+                          {
+                            received: "Recebido",
+                            paid: "Pago",
+                            pending: "Pendente",
+                            due: "Vence hoje",
+                            overdue: "Vencido",
+                          }[paymentState(e, day)]
+                        }
+                      </span>
+                      {e.kind === "expense" && !e.confirmed && (
+                        <button
+                          className="confirm-inline"
+                          disabled={busy}
+                          onClick={() => confirmPayment(e.id)}
+                        >
+                          Confirmar pagamento
+                        </button>
+                      )}
+                    </td>
                     <td className={`amount ${e.kind}`}>
                       {e.kind === "income" ? "+" : "−"} {money(e.amount)}
                     </td>
@@ -541,6 +693,7 @@ export default function Dashboard({ name }: { name: string }) {
                         aria-label={`Editar ${e.description}`}
                         onClick={() => {
                           setEditing(e);
+                          setPaymentMode(false);
                           setError("");
                           setModal(e.kind);
                         }}
@@ -579,6 +732,7 @@ export default function Dashboard({ name }: { name: string }) {
                 <button
                   onClick={() => {
                     setEditing(null);
+                    setPaymentMode(false);
                     setModal("expense");
                   }}
                   className="text-button"
@@ -619,11 +773,13 @@ export default function Dashboard({ name }: { name: string }) {
               <>
                 <span className="tag">NOVO LANÇAMENTO</span>
                 <h2>
-                  {editing
-                    ? "Editar lançamento"
-                    : modal === "income"
-                      ? "Adicionar entrada"
-                      : "Adicionar gasto"}
+                  {paymentMode
+                    ? "Confirmar pagamento"
+                    : editing
+                      ? "Editar lançamento"
+                      : modal === "income"
+                        ? "Adicionar entrada"
+                        : "Adicionar gasto"}
                 </h2>
                 <p>
                   {modal === "income"
@@ -649,24 +805,16 @@ export default function Dashboard({ name }: { name: string }) {
                   <div className="formgrid">
                     <label>
                       Valor (R$)
-                      <input
-                        name="amount"
-                        defaultValue={
-                          editing
-                            ? (editing.amount / 100)
-                                .toFixed(2)
-                                .replace(".", ",")
-                            : undefined
-                        }
-                        required
-                        inputMode="decimal"
-                        type="text"
-                        pattern="[0-9]+([.,][0-9]{1,2})?"
-                        placeholder="0,00"
+                      <MoneyInput
+                        key={editing?.id || modal}
+                        defaultCents={editing?.amount}
                       />
+                      <small id="money-help" className="field-hint">
+                        Digite só os números; os centavos são automáticos.
+                      </small>
                     </label>
                     <label>
-                      Data
+                      {modal === "expense" ? "Vencimento" : "Data"}
                       <input
                         name="date"
                         required
@@ -697,7 +845,9 @@ export default function Dashboard({ name }: { name: string }) {
                     </select>
                   </label>
                   <label>
-                    De quem é este lançamento?
+                    {modal === "income"
+                      ? "De quem é esta entrada?"
+                      : "Responsável pela conta"}
                     <input
                       name="person"
                       list="people"
@@ -712,11 +862,47 @@ export default function Dashboard({ name }: { name: string }) {
                       ))}
                     </datalist>
                   </label>
+                  {modal === "expense" && (
+                    <label>
+                      Pagamento
+                      <select
+                        name="paymentStatus"
+                        value={paymentStatus}
+                        onChange={(e) => setPaymentStatus(e.target.value)}
+                      >
+                        <option value="pending">Ainda vou pagar</option>
+                        <option value="confirmed">Já paguei</option>
+                      </select>
+                      <small className="field-hint">
+                        Pendente não sai do saldo. Confirme depois que pagar.
+                      </small>
+                    </label>
+                  )}
+                  {modal === "expense" && paymentStatus === "confirmed" && (
+                    <label>
+                      Quem pagou?
+                      <input
+                        name="payer"
+                        list="people"
+                        required
+                        maxLength={60}
+                        defaultValue={editing?.payer || name}
+                        placeholder="Nome de quem fez o pagamento"
+                      />
+                      <small className="field-hint">
+                        Pode ser outra pessoa, mesmo que a conta tenha sido
+                        cadastrada por você.
+                      </small>
+                    </label>
+                  )}
                   {modal === "expense" && !editing && (
                     <label className="check">
                       <input type="checkbox" name="repeats" /> Repetir esta
                       despesa todo mês
-                      <small>O valor poderá ser ajustado em cada mês.</small>
+                      <small>
+                        O valor poderá ser ajustado em cada mês. Os próximos
+                        meses ficam pendentes até a confirmação.
+                      </small>
                     </label>
                   )}
                   {editing?.id.includes(":") && (
@@ -761,7 +947,11 @@ export default function Dashboard({ name }: { name: string }) {
                   )}
                   {error && <p className="error">{error}</p>}
                   <button className="primary save" disabled={busy}>
-                    {busy ? "Salvando..." : "Salvar lançamento"}
+                    {busy
+                      ? "Salvando..."
+                      : paymentMode && paymentStatus === "confirmed"
+                        ? "Confirmar pagamento"
+                        : "Salvar lançamento"}
                   </button>
                 </form>
               </>
