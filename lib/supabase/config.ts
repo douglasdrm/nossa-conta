@@ -13,3 +13,5 @@ export function supabaseConfig() {
     );
   return { url, key };
 }
+
+export const authCookieOptions = { name: "nossa-conta-auth" };

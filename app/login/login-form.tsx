@@ -13,6 +13,24 @@ export default function LoginForm() {
         ? "O link expirou ou não pôde ser confirmado. Tente entrar novamente."
         : "",
     );
+  async function googleLogin() {
+    setBusy(true);
+    setMessage("");
+    try {
+      const db = createClient();
+      const { error } = await db.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo:
+            location.origin + "/auth/callback?next=" + encodeURIComponent(next),
+        },
+      });
+      if (error) throw error;
+    } catch {
+      setMessage("Não foi possível entrar com Google. Tente novamente.");
+      setBusy(false);
+    }
+  }
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
@@ -84,6 +102,30 @@ export default function LoginForm() {
             convidado para continuar.
           </p>
         )}
+        {mode !== "reset" && (
+          <>
+            <button
+              type="button"
+              className="secondary google-login"
+              disabled={busy}
+              onClick={googleLogin}
+            >
+              <svg
+                aria-hidden="true"
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  fill="currentColor"
+                  d="M21.6 12.23c0-.71-.06-1.39-.18-2.05H12v3.88h5.38a4.6 4.6 0 0 1-2 3.03v2.52h3.25c1.9-1.75 2.97-4.33 2.97-7.38ZM12 22c2.7 0 4.96-.9 6.62-2.42l-3.25-2.52c-.9.6-2.05.96-3.37.96-2.6 0-4.8-1.76-5.58-4.13H3.06v2.6A10 10 0 0 0 12 22ZM6.42 13.89a6 6 0 0 1 0-3.78V7.5H3.06a10 10 0 0 0 0 9l3.36-2.61ZM12 5.98c1.47 0 2.79.51 3.83 1.52l2.88-2.88A9.6 9.6 0 0 0 12 2a10 10 0 0 0-8.94 5.5l3.36 2.61C7.2 7.74 9.4 5.98 12 5.98Z"
+                />
+              </svg>{" "}
+              Continuar com Google
+            </button>
+            <div className="auth-divider">ou use seu e-mail</div>
+          </>
+        )}
         <form onSubmit={submit}>
           {mode === "signup" && (
             <label>
@@ -136,6 +178,10 @@ export default function LoginForm() {
                   : "Entrar"}
           </button>
         </form>
+        <p className="shared-account-note">
+          Já usa o Juntô? Você pode entrar com a mesma conta. Os espaços e
+          lançamentos do Nossa Conta são separados.
+        </p>
         <div className="auth-links">
           <button
             onClick={() => {

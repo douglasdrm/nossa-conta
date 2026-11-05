@@ -10,8 +10,9 @@ export default async function Page() {
   const {
     data: { user },
   } = await db.auth.getUser();
-  if (!user) redirect("/login");
-  const { error } = await db.rpc("ensure_household");
+  if (!user || user.is_anonymous || !user.email_confirmed_at)
+    redirect("/login");
+  const { error } = await db.rpc("nc_ensure_household");
   if (error)
     throw new Error(
       "Não foi possível abrir o espaço da família. Verifique a configuração do banco.",

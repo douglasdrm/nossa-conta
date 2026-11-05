@@ -26,12 +26,14 @@ npm run dev
 
 Abra http://localhost:3000. Sem as variáveis, o aplicativo mostra uma tela de configuração; isso permite verificar o build antes de conectar o Supabase.
 
-## 2. Criar um projeto Supabase separado
+## 2. Banco compartilhado com o Juntô
 
-Use um projeto dedicado para estas finanças. Não aplique esta migração ao banco de outro sistema, como o Juntô.
+Nesta instalação, o Nossa Conta usa o projeto Supabase do Juntô. A migração cria somente tabelas e funções públicas com prefixo `nc_` e o schema interno `nossa_conta_private`. Não cria funções genéricas nem altera tabelas, políticas, dados ou triggers do Juntô.
 
-1. Crie o projeto no Supabase.
-2. Abra **SQL Editor** e execute, uma única vez em um banco novo, o arquivo `supabase/migrations/20261105120528_initial_finances.sql`.
+O banco e a base de contas do Supabase Auth são compartilhados. Cada família tem autorização própria no Nossa Conta; ter conta no Juntô não dá acesso a outra família. Contas anônimas ou sem e-mail confirmado não podem usar as finanças. Cookies do Nossa Conta têm nome próprio, e o logout é apenas da sessão atual. Alterações de senha e configurações globais de Auth continuam compartilhadas.
+
+1. Selecione o projeto Supabase do Juntô, ou um projeto novo caso prefira uma instalação separada.
+2. Abra **SQL Editor** e execute, uma única vez, depois de verificar que não existem objetos `nc_*` nem o schema `nossa_conta_private`, o arquivo os arquivos de `supabase/migrations/` em ordem de nome (a instalação principal e o bloqueio explícito de contas anônimas).
 3. Em **Project Settings > API**, copie a URL e a chave pública **publishable** para `.env.local`:
 
 ```dotenv
@@ -45,11 +47,11 @@ As duas variáveis são públicas por definição. A segurança dos registros es
 
 Em **Authentication**:
 
-- Habilite o provedor **Email** com senha; mantenha a confirmação de e-mail ligada.
-- Em **URL Configuration**, configure o **Site URL** com o endereço final na Vercel.
+- Preserve os provedores existentes. O aplicativo suporta **Google** (já configurado no Juntô) e **Email** com senha; mantenha a confirmação de e-mail ligada.
+- Em **URL Configuration**, preserve o **Site URL do Juntô** e acrescente os callbacks do Nossa Conta aos endereços permitidos. Não substitua as URLs existentes.
 - Adicione aos **Redirect URLs** `http://localhost:3000/auth/callback**` para desenvolvimento e `https://SEU-PROJETO.vercel.app/auth/callback**` para produção. Ao usar um domínio próprio, adicione também seu callback exato. Só adicione previews da Vercel que você realmente usar.
 - Configure **SMTP próprio** para enviar confirmação e recuperação para os e-mails de vocês. O envio padrão do Supabase possui restrições de destinatários e limites, portanto não deve ser presumido como entrega de produção.
-- Use os templates padrão com o link `{{ .ConfirmationURL }}`. A aplicação troca o código PKCE na rota `/auth/callback`. Abra o link de confirmação/recuperação no mesmo navegador em que iniciou o fluxo.
+- Não substitua os templates de e-mail do Juntô. Confira se eles respeitam o destino solicitado em `{{ .ConfirmationURL }}` / `{{ .RedirectTo }}`. A aplicação troca o código PKCE na rota `/auth/callback`. Abra o link de confirmação/recuperação no mesmo navegador em que iniciou o fluxo.
 
 Se usar CLI para as próximas alterações, a migração inicial já está no formato do Supabase. Vincule explicitamente o projeto correto antes de executar qualquer comando remoto. Aplique alterações de esquema como novas migrações; não reexecute a migração inicial em um banco existente.
 
@@ -127,6 +129,12 @@ tests/                   Validação e testes de integração do banco
 .github/workflows/       Verificações automáticas
 ```
 
-Não há migração automática dos dados ou usuários da prévia anterior. O projeto parte de um banco dedicado novo. O arquivo de código não contém credenciais ou registros financeiros reais.
+Não há migração automática dos dados ou usuários da prévia anterior. Nesta instalação, o projeto usa tabelas próprias no banco do Juntô. O arquivo de código não contém credenciais ou registros financeiros reais.
 
 Referências: [Next.js na Vercel](https://vercel.com/docs/frameworks/full-stack/nextjs), [Supabase SSR](https://supabase.com/docs/guides/auth/server-side/creating-a-client?framework=nextjs), [RLS](https://supabase.com/docs/guides/database/postgres/row-level-security), [SMTP](https://supabase.com/docs/guides/auth/auth-smtp).
+
+## Separar o banco futuramente
+
+A separação para outro projeto exige: exportar/restaurar apenas tabelas `nc_*` (incluindo ocorrências excluídas e versões de recorrências), instalar as funções `nc_*` e o schema `nossa_conta_private`, e migrar ou remapear os IDs dos usuários referenciados em `auth.users`. Depois, configurar os provedores/callbacks de Auth e alterar as duas variáveis de ambiente do Nossa Conta na Vercel, com novo deploy. A migração das contas pode exigir novo login ou redefinição de senha. Não copie dados de viagens do Juntô.
+
+Ao gerenciar migrações neste projeto compartilhado, aplique somente a migração revisada do Nossa Conta. Não rode reset, migração automática de todo o projeto nem altere o histórico de migrações do Juntô. A migração inicial genérica distribuída na primeira versão deste repositório foi substituída antes de sua primeira instalação: não use o ZIP antigo para instalar no banco compartilhado.

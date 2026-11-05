@@ -9,7 +9,7 @@ export async function GET(r: Request) {
     );
     if (!month.success) throw new ApiError("Selecione um mês válido.", 400);
     const { data, error } = await db
-      .from("entries")
+      .from("nc_entries")
       .select("id,kind,description,amount,category,person,date")
       .gte("date", month.data + "-01")
       .lt("date", nextMonth(month.data))
@@ -35,7 +35,7 @@ export async function POST(r: Request) {
     if (body.action === "sync") {
       const month = monthSchema.safeParse(body.month);
       if (!month.success) throw new ApiError("Mês inválido.", 400);
-      const { error } = await db.rpc("sync_month", {
+      const { error } = await db.rpc("nc_sync_month", {
         p_month: month.data + "-01",
       });
       if (error) throw error;
@@ -44,7 +44,9 @@ export async function POST(r: Request) {
     const parsed = entrySchema.safeParse(body);
     if (!parsed.success)
       throw new ApiError("Confira os campos do lançamento.", 400);
-    const { data, error } = await db.rpc("add_entry", { p_entry: parsed.data });
+    const { data, error } = await db.rpc("nc_add_entry", {
+      p_entry: parsed.data,
+    });
     if (error) throw error;
     return Response.json(data, { status: 201 });
   } catch (e) {
@@ -59,7 +61,7 @@ export async function PATCH(r: Request) {
     if (body.action === "stop") {
       if (typeof body.id !== "string" || body.id.length > 100)
         throw new ApiError("Lançamento inválido.", 400);
-      const { error } = await db.rpc("stop_recurring", { p_id: body.id });
+      const { error } = await db.rpc("nc_stop_recurring", { p_id: body.id });
       if (error)
         throw new ApiError("Não foi possível encerrar esta recorrência.", 400);
       return Response.json({ ok: true });
@@ -67,7 +69,7 @@ export async function PATCH(r: Request) {
     const parsed = editSchema.safeParse(body);
     if (!parsed.success)
       throw new ApiError("Confira os campos do lançamento.", 400);
-    const { error } = await db.rpc("edit_entry", {
+    const { error } = await db.rpc("nc_edit_entry", {
       p_id: parsed.data.id,
       p_entry: parsed.data,
       p_future: parsed.data.future,
@@ -89,7 +91,7 @@ export async function DELETE(r: Request) {
     const { id } = await r.json();
     if (typeof id !== "string" || id.length > 100)
       throw new ApiError("Lançamento inválido.", 400);
-    const { error } = await db.rpc("delete_entry", { p_id: id });
+    const { error } = await db.rpc("nc_delete_entry", { p_id: id });
     if (error) throw new ApiError("Lançamento não encontrado.", 404);
     return Response.json({ ok: true });
   } catch (e) {

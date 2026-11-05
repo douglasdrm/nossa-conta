@@ -36,7 +36,7 @@ export default function AcceptInvite({
             setBusy(true);
             try {
               const db = createClient();
-              const { error } = await db.rpc("accept_household_invite", {
+              const { error } = await db.rpc("nc_accept_household_invite", {
                 p_token: token,
               });
               if (error) {
