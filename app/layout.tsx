@@ -1,14 +1,18 @@
 import "./globals.css";
+import type { Viewport } from "next";
+import InstallApp from "@/components/install-app";
+export const viewport: Viewport = { themeColor: "#286653" };
 export const metadata = {
   title: "Nossa Conta • Finanças em conjunto",
   description: "Um lugar para entender e organizar as finanças da casa.",
   robots: { index: false, follow: false },
-  icons: { icon: "/favicon.svg" },
+  icons: { icon: "/favicon.svg", apple: "/icons/apple-touch-icon.png" },
+  appleWebApp: { capable: true, title: "Nossa Conta", statusBarStyle: "default" },
 };
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-BR">
-      <body>{children}</body>
+      <body>{children}<InstallApp /></body>
     </html>
   );
 }

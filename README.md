@@ -148,3 +148,9 @@ Ao confirmar um pagamento, o formulário permite ajustar o valor e informar quem
 O app destaca contas pendentes vencidas ou vencendo hoje, inclusive cadastradas em meses anteriores, usando a data de São Paulo. É possível ativar notificações genéricas neste navegador, mediante permissão. **Os avisos funcionam ao abrir/voltar ao app ou enquanto ele estiver aberto; esta versão não envia push com o app fechado, e-mail ou WhatsApp.** Recorrências são materializadas ao consultar o mês; não há agendador externo. A abertura do app também consulta o mês atual para preparar os avisos.
 
 O campo de valores preenche centavos automaticamente: `12345` vira `123,45`, e o banco recebe `12345` centavos inteiros. A exportação CSV inclui a situação e o pagador.
+
+### Instalação como app
+
+O manifesto em `/manifest.webmanifest` permite instalar o Nossa Conta com ícone próprio e abertura em janela independente. O botão **Instalar app** abre a confirmação nativa quando o navegador a disponibiliza; caso contrário, mostra instruções para o dispositivo. No iPhone/iPad, use Safari → Compartilhar → Adicionar à Tela de Início. No app já aberto em modo independente, o botão fica oculto.
+
+A instalação mantém o login e os dados online existentes. Consultas e alterações precisam de internet; nenhum dado financeiro é armazenado em cache por um service worker. Os ícones PNG derivam do símbolo de carteira em `public/favicon.svg`, com uma versão maskable para Android.
