@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, useRef } from "react";
+import CategoryPicker from "@/components/category-picker";
 import SharePanel from "@/components/share-panel";
 import MoneyInput from "@/components/money-input";
 import DuePanel from "@/components/due-panel";
@@ -88,6 +89,7 @@ export default function Dashboard({ name }: { name: string }) {
     [query, setQuery] = useState("");
   const [due, setDue] = useState<Entry[]>([]),
     [day, setDay] = useState(today());
+  const [categoryPending, setCategoryPending] = useState(false);
   const requestId = useRef(0);
   const installmentGroup = useRef("");
   const [expenseMode, setExpenseMode] = useState("single");
@@ -173,10 +175,15 @@ export default function Dashboard({ name }: { name: string }) {
     income = totals.income,
     expense = totals.paid,
     pending = totals.pending,
-    groups = cats
+    groups = [
+      ...new Set([
+        ...cats,
+        ...rows.filter((e) => e.kind === "expense").map((e) => e.category),
+      ]),
+    ]
       .map((c, i) => ({
         name: c,
-        color: colors[i],
+        color: colors[i % colors.length],
         value: rows
           .filter(
             (e) => e.kind === "expense" && e.confirmed && e.category === c,
@@ -223,7 +230,7 @@ export default function Dashboard({ name }: { name: string }) {
   }
   async function save(ev: React.FormEvent<HTMLFormElement>) {
     ev.preventDefault();
-    if (busy) return;
+    if (busy || categoryPending) return;
     setBusy(true);
     setError("");
     const f = new FormData(ev.currentTarget);
@@ -997,10 +1004,13 @@ export default function Dashboard({ name }: { name: string }) {
                       </small>
                     </div>
                   )}
-                  <label>
-                    Categoria
-                    <select name="category" defaultValue={editing?.category}>
-                      {(modal === "income"
+                  <CategoryPicker
+                    onPendingChange={setCategoryPending}
+                    key={editing?.id || modal}
+                    kind={modal}
+                    initial={editing?.category}
+                    defaults={
+                      modal === "income"
                         ? [
                             "Salário",
                             "Freelance",
@@ -1008,11 +1018,8 @@ export default function Dashboard({ name }: { name: string }) {
                             "Outras receitas",
                           ]
                         : cats
-                      ).map((c) => (
-                        <option key={c}>{c}</option>
-                      ))}
-                    </select>
-                  </label>
+                    }
+                  />
                   <label>
                     {modal === "income"
                       ? "De quem é esta entrada?"
@@ -1118,7 +1125,7 @@ export default function Dashboard({ name }: { name: string }) {
                     </>
                   )}
                   {error && <p className="error">{error}</p>}
-                  <button className="primary save" disabled={busy}>
+                  <button className="primary save" disabled={busy || categoryPending}>
                     {busy
                       ? "Salvando..."
                       : paymentMode && paymentStatus === "confirmed"

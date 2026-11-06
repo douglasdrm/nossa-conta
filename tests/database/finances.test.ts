@@ -330,7 +330,7 @@ test("migration, household isolation, invitations and recurring month edits", as
           "select relname,relrowsecurity from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='r' and c.relname like 'nc_%'",
         )
       ).rows;
-      assert.equal(tables.length, 6);
+      assert.equal(tables.length, 7);
       assert.ok(tables.every((t) => t.relrowsecurity));
       const unsafe = (
         await db.query(
@@ -737,6 +737,60 @@ test("migration, household isolation, invitations and recurring month edits", as
       await as("00000000-0000-4000-8000-000000000006");
       await assert.rejects(
         () => rpc("add_installments", [parcel]),
+        /confirmed_account_required/,
+      );
+    },
+  );
+  await t.test(
+    "custom categories persist for shared members and remain household-isolated",
+    async () => {
+      await as(alice);
+      assert.deepEqual(await rpc("add_category", ["expense", "  Pets  "]), {
+        kind: "expense",
+        name: "Pets",
+      });
+      assert.deepEqual(await rpc("add_category", ["expense", "pets"]), {
+        kind: "expense",
+        name: "Pets",
+      });
+      assert.equal(
+        (await db.query("select * from nc_categories")).rows.length,
+        1,
+      );
+      for (const args of [
+        ["expense", " "],
+        ["expense", "x".repeat(61)],
+        ["other", "Pets"],
+      ])
+        await assert.rejects(() => rpc("add_category", args));
+      await as(bob);
+      assert.equal(
+        (await db.query<{ name: string }>("select name from nc_categories"))
+          .rows[0].name,
+        "Pets",
+      );
+      await rpc("add_category", ["income", "Presentes"]);
+      await as(alice);
+      assert.equal(
+        (await db.query("select * from nc_categories")).rows.length,
+        2,
+      );
+      await as(outsider);
+      assert.equal(
+        (await db.query("select * from nc_categories")).rows.length,
+        0,
+      );
+      await rpc("add_category", ["expense", "Pets"]);
+      assert.equal(
+        (await db.query("select * from nc_categories")).rows.length,
+        1,
+      );
+      await as("", "anon");
+      await assert.rejects(() => rpc("add_category", ["expense", "Pets"]));
+      await assert.rejects(() => db.query("select * from nc_categories"));
+      await as("00000000-0000-4000-8000-000000000006");
+      await assert.rejects(
+        () => rpc("add_category", ["expense", "Pets"]),
         /confirmed_account_required/,
       );
     },

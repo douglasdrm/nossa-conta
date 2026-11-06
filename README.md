@@ -162,3 +162,7 @@ Em **Adicionar gasto → Tipo de gasto → Gasto parcelado**, informe o total da
 O **Saldo previsto do mês** considera entradas registradas menos todos os gastos do mês (pagos e pendentes, incluindo as parcelas que vencem naquele mês). Uma previsão negativa exibe quanto faltará sem novas entradas. A renda continua opcional; sem ela, a previsão explica que considera zero em entradas. Não há transporte automático de saldo entre meses.
 
 Migração necessária: `supabase/migrations/20261106140204_installment_expenses.sql`. A função pública `nc_add_installments` é invoker; a implementação privada valida a conta confirmada e o espaço compartilhado, gera a compra em transação e usa o identificador da operação para impedir duplicatas em tentativas repetidas. Não modifica objetos do Juntô.
+
+### Categorias personalizadas
+
+Em um lançamento, clique em **Adicionar categoria**, informe o nome e confirme em **Criar categoria**. A nova opção é selecionada e fica salva para todos os membros do espaço, separada entre entradas e gastos. Nomes iguais sem distinguir maiúsculas/minúsculas são reutilizados. O gráfico também inclui categorias personalizadas. A tabela `nc_categories` usa RLS; a criação ocorre pelo RPC `nc_add_category`, com validação de conta confirmada e vínculo ao espaço.
