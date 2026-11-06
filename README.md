@@ -166,3 +166,11 @@ Migração necessária: `supabase/migrations/20261106140204_installment_expenses
 ### Categorias personalizadas
 
 Em um lançamento, clique em **Adicionar categoria**, informe o nome e confirme em **Criar categoria**. A nova opção é selecionada e fica salva para todos os membros do espaço, separada entre entradas e gastos. Nomes iguais sem distinguir maiúsculas/minúsculas são reutilizados. O gráfico também inclui categorias personalizadas. A tabela `nc_categories` usa RLS; a criação ocorre pelo RPC `nc_add_category`, com validação de conta confirmada e vínculo ao espaço.
+
+### Meu perfil
+
+A página `/profile`, acessível no menu e no cabeçalho, permite editar nome e nome de usuário, enviar/remover foto, solicitar troca de e-mail e alterar a senha. Nome de usuário é opcional, único e normalizado para letras minúsculas (3–30 letras ASCII, números ou `_`); não substitui o e-mail no login. Nome/foto/usuário são próprios do Nossa Conta e não alteram os dados históricos dos lançamentos nem a tabela de perfis do Juntô.
+
+E-mail e senha usam `auth.updateUser` na sessão do próprio usuário; por compartilharem o Supabase Auth, essas alterações também afetam o acesso ao Juntô. A confirmação de e-mail usa o callback PKCE existente. A tela suporta a senha atual e o código de reautenticação exigidos pelas configurações do projeto. Não altera essas configurações, e nenhuma credencial é gravada nas tabelas da aplicação.
+
+Migração `20261106145403_user_profiles.sql`: tabela `nc_user_profiles` com leitura própria e escrita por RPCs invoker/implementações privadas, e bucket privado `nc-avatars` com acesso apenas à pasta do próprio usuário confirmado. Fotos de até 3 MB são validadas e convertidas para WebP de 512×512 no servidor, sem EXIF. O perfil usa URLs temporárias assinadas. `sharp` é dependência explícita e fixada no lockfile.

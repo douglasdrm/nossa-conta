@@ -31,6 +31,13 @@ test("migration, household isolation, invitations and recurring month edits", as
   await db.exec(
     `create table public.trips(id integer primary key, title text);insert into public.trips values(1,'Sentinela Junto');alter table public.trips enable row level security;create policy trip_sentinel on public.trips for select to authenticated using(false);create function public.sync_month(p_month date) returns text language sql as $$select 'junto-sentinel'::text$$;grant select on public.trips to authenticated;`,
   );
+  await db.exec(`create schema storage;
+    create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);
+    create table storage.objects(id uuid primary key default gen_random_uuid(),bucket_id text,name text);
+    alter table storage.objects enable row level security;
+    grant usage on schema storage to authenticated,anon;
+    grant select,insert,delete on storage.objects to authenticated;
+  `);
   const migrations = (await readdir("supabase/migrations"))
     .filter((f) => f.endsWith(".sql"))
     .sort();
@@ -330,7 +337,7 @@ test("migration, household isolation, invitations and recurring month edits", as
           "select relname,relrowsecurity from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='r' and c.relname like 'nc_%'",
         )
       ).rows;
-      assert.equal(tables.length, 7);
+      assert.equal(tables.length, 8);
       assert.ok(tables.every((t) => t.relrowsecurity));
       const unsafe = (
         await db.query(
@@ -791,6 +798,92 @@ test("migration, household isolation, invitations and recurring month edits", as
       await as("00000000-0000-4000-8000-000000000006");
       await assert.rejects(
         () => rpc("add_category", ["expense", "Pets"]),
+        /confirmed_account_required/,
+      );
+    },
+  );
+  await t.test(
+    "profiles and private avatars only allow the confirmed account owner",
+    async () => {
+      await as(alice);
+      assert.deepEqual(
+        await rpc("save_profile", ["Alice Nova", "ALICE_NOVA"]),
+        { display_name: "Alice Nova", username: "alice_nova" },
+      );
+      await assert.rejects(() => rpc("save_profile", ["", "valid_name"]));
+      await assert.rejects(() => rpc("save_profile", ["Alice", "bad name"]));
+      const ownPath = alice + "/11111111-1111-4111-8111-111111111111.webp";
+      await rpc("set_avatar", [ownPath]);
+      assert.equal(
+        (
+          await db.query<{ avatar_path: string }>(
+            "select avatar_path from nc_user_profiles",
+          )
+        ).rows[0].avatar_path,
+        ownPath,
+      );
+      await rpc("save_profile", ["Alice Atualizada", "alice_nova"]);
+      assert.equal(
+        (
+          await db.query<{ avatar_path: string }>(
+            "select avatar_path from nc_user_profiles",
+          )
+        ).rows[0].avatar_path,
+        ownPath,
+        "name edit retains photo",
+      );
+      await assert.rejects(() =>
+        rpc("set_avatar", [bob + "/11111111-1111-4111-8111-111111111111.webp"]),
+      );
+      await assert.rejects(() =>
+        rpc("set_avatar", ["https://outside.test/photo.png"]),
+      );
+      await db.query(
+        "insert into storage.objects(bucket_id,name) values('nc-avatars',$1)",
+        [ownPath],
+      );
+      await assert.rejects(() =>
+        db.query(
+          "insert into storage.objects(bucket_id,name) values('nc-avatars',$1)",
+          [bob + "/photo.webp"],
+        ),
+      );
+      await as(bob);
+      assert.equal(
+        (await db.query("select * from nc_user_profiles")).rows.length,
+        0,
+        "shared finances do not grant editing or reading private profile details",
+      );
+      assert.equal(
+        (await db.query("select * from storage.objects")).rows.length,
+        0,
+      );
+      await assert.rejects(() => rpc("save_profile", ["Bob", "alice_nova"]));
+      await rpc("save_profile", ["Bob", "bob_novo"]);
+      await as(alice);
+      assert.equal(
+        (
+          await db.query<{ display_name: string }>(
+            "select display_name from nc_user_profiles",
+          )
+        ).rows[0].display_name,
+        "Alice Atualizada",
+      );
+      await rpc("set_avatar", [null]);
+      assert.equal(
+        (
+          await db.query<{ avatar_path: string | null }>(
+            "select avatar_path from nc_user_profiles",
+          )
+        ).rows[0].avatar_path,
+        null,
+      );
+      await as("", "anon");
+      await assert.rejects(() => rpc("save_profile", ["Anon", "anonymous"]));
+      await assert.rejects(() => db.query("select * from nc_user_profiles"));
+      await as("00000000-0000-4000-8000-000000000006");
+      await assert.rejects(
+        () => rpc("set_avatar", [null]),
         /confirmed_account_required/,
       );
     },

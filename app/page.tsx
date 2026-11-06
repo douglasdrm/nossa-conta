@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isConfigured } from "@/lib/supabase/config";
 import Setup from "@/components/setup";
+import { myProfile } from "@/lib/my-profile";
 import Dashboard from "./dashboard";
 export const dynamic = "force-dynamic";
 export default async function Page() {
@@ -17,11 +18,6 @@ export default async function Page() {
     throw new Error(
       "Não foi possível abrir o espaço da família. Verifique a configuração do banco.",
     );
-  const displayName =
-    typeof user.user_metadata?.display_name === "string"
-      ? user.user_metadata.display_name.trim().slice(0, 60)
-      : "";
-  return (
-    <Dashboard name={displayName || user.email?.split("@")[0] || "Você"} />
-  );
+  const profile = await myProfile(db, user);
+  return <Dashboard name={profile.name} photo={profile.photo} />;
 }

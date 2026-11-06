@@ -27,6 +27,7 @@ import {
   ChevronRight,
   Download,
   Leaf,
+  UserRound,
   TriangleAlert,
   CalendarRange,
 } from "lucide-react";
@@ -74,7 +75,13 @@ const money = (n: number) =>
     n / 100,
   );
 const today = dateInSaoPaulo;
-export default function Dashboard({ name }: { name: string }) {
+export default function Dashboard({
+  name,
+  photo,
+}: {
+  name: string;
+  photo?: string;
+}) {
   const [editing, setEditing] = useState<Entry | null>(null);
   const [paymentMode, setPaymentMode] = useState(false),
     [paymentStatus, setPaymentStatus] = useState("pending");
@@ -373,6 +380,9 @@ export default function Dashboard({ name }: { name: string }) {
         <button className="nav" onClick={() => setModal("share")}>
           <Users size={19} /> Compartilhar
         </button>
+        <a className="nav" href="/profile">
+          <UserRound size={19} /> Meu perfil
+        </a>
         <div className="aside-note">
           <Leaf size={25} />
           <h3>
@@ -383,7 +393,17 @@ export default function Dashboard({ name }: { name: string }) {
           <p>Entender o presente é o primeiro passo para planejar juntos.</p>
         </div>
         <div className="profile">
-          <span>{name[0]}</span>
+          <a
+            href="/profile"
+            className="profile-avatar-link"
+            aria-label="Editar meu perfil"
+          >
+            {photo ? (
+              <img src={photo} alt="" width={36} height={36} />
+            ) : (
+              <span>{name[0]}</span>
+            )}
+          </a>
           <div>
             {name}
             <small>Finanças da casa</small>
@@ -400,6 +420,9 @@ export default function Dashboard({ name }: { name: string }) {
           <div className="breadcrumb">
             Nosso espaço <span>/</span> Visão geral
           </div>
+          <a className="profile-header-link" href="/profile">
+            <UserRound size={16} /> Meu perfil
+          </a>
           <button className="share" onClick={() => setModal("share")}>
             <Users size={16} /> Espaço compartilhado
           </button>
@@ -1125,7 +1148,10 @@ export default function Dashboard({ name }: { name: string }) {
                     </>
                   )}
                   {error && <p className="error">{error}</p>}
-                  <button className="primary save" disabled={busy || categoryPending}>
+                  <button
+                    className="primary save"
+                    disabled={busy || categoryPending}
+                  >
                     {busy
                       ? "Salvando..."
                       : paymentMode && paymentStatus === "confirmed"
