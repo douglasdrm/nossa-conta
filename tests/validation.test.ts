@@ -60,3 +60,38 @@ test("payment status is a boolean and edits can preserve the original status", (
     false,
   );
 });
+
+test("installment payloads reject incompatible modes, totals, counts and out-of-range final dates", async () => {
+  const { installmentSchema } = await import("../lib/validation");
+  const parcel = {
+    ...entry,
+    installmentCount: 3,
+    installmentMode: "total",
+    installmentGroup: "00000000-0000-4000-8000-000000000007",
+  };
+  assert.equal(installmentSchema.safeParse(parcel).success, true);
+  assert.equal(
+    installmentSchema.safeParse({
+      ...parcel,
+      installmentMode: "per_installment",
+    }).success,
+    true,
+  );
+  for (const change of [
+    { kind: "income" },
+    { repeats: true },
+    { installmentCount: 1 },
+    { installmentCount: 2.5 },
+    { installmentCount: 121 },
+    { amount: 2 },
+    { date: "2099-12-01" },
+    { installmentGroup: "invalid" },
+    { installmentMode: "unknown" },
+    { amount: 1_000_000_000, installmentMode: "per_installment" },
+  ])
+    assert.equal(
+      installmentSchema.safeParse({ ...parcel, ...change }).success,
+      false,
+      JSON.stringify(change),
+    );
+});

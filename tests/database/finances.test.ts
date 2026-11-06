@@ -570,5 +570,176 @@ test("migration, household isolation, invitations and recurring month edits", as
       );
     },
   );
+  await t.test(
+    "installments are atomic, cent-exact, independently payable, retry-safe and tenant-isolated",
+    async () => {
+      await as(alice);
+      const group = "20000000-0000-4000-8000-000000000001";
+      const parcel = {
+        ...base,
+        date: "2030-01-31",
+        description: "Compra parcelada",
+        repeats: false,
+        confirmed: true,
+        payer: "Bob",
+        amount: 10000,
+        installmentCount: 3,
+        installmentMode: "total",
+        installmentGroup: group,
+      };
+      const created = await rpc<{ id: string }>("add_installments", [parcel]);
+      let rows = (
+        await db.query<{
+          id: string;
+          amount: number;
+          date: string;
+          confirmed: boolean;
+          payer: string | null;
+          installment_number: number;
+        }>(
+          "select id,amount::integer,date::text,confirmed,payer,installment_number from nc_entries where installment_group=$1 order by installment_number",
+          [group],
+        )
+      ).rows;
+      assert.deepEqual(
+        rows.map((r) => r.amount),
+        [3334, 3333, 3333],
+      );
+      assert.deepEqual(
+        rows.map((r) => r.date),
+        ["2030-01-31", "2030-02-28", "2030-03-31"],
+      );
+      assert.deepEqual(
+        rows.map((r) => r.confirmed),
+        [true, false, false],
+      );
+      assert.deepEqual(
+        rows.map((r) => r.payer),
+        ["Bob", null, null],
+      );
+      await rpc("add_installments", [parcel]);
+      assert.equal(
+        (
+          await db.query(
+            "select id from nc_entries where installment_group=$1",
+            [group],
+          )
+        ).rows.length,
+        3,
+      );
+      const second = rows[1].id,
+        third = rows[2].id;
+      await rpc("edit_entry", [
+        second,
+        { ...base, date: "2030-02-28", amount: 4000 },
+        false,
+      ]);
+      await rpc("confirm_entry", [second, true, "Samantha"]);
+      assert.equal(
+        (
+          await db.query<{ amount: number }>(
+            "select amount::integer from nc_entries where id=$1",
+            [third],
+          )
+        ).rows[0].amount,
+        3333,
+      );
+      await rpc("delete_entry", [second]);
+      await rpc("sync_month", ["2030-02-01"]);
+      assert.equal(
+        (
+          await db.query(
+            "select id from nc_entries where id=$1 and deleted_at is null",
+            [second],
+          )
+        ).rows.length,
+        0,
+      );
+      assert.equal(
+        (
+          await db.query(
+            "select id from nc_entries where id=$1 and deleted_at is null",
+            [third],
+          )
+        ).rows.length,
+        1,
+      );
+      const group2 = "20000000-0000-4000-8000-000000000002";
+      await rpc("add_installments", [
+        {
+          ...parcel,
+          installmentGroup: group2,
+          installmentMode: "per_installment",
+          confirmed: false,
+        },
+      ]);
+      assert.equal(
+        (
+          await db.query<{ total: number }>(
+            "select sum(amount)::integer total from nc_entries where installment_group=$1",
+            [group2],
+          )
+        ).rows[0].total,
+        30000,
+      );
+      const invalidGroup = "20000000-0000-4000-8000-000000000003";
+      for (const change of [
+        { amount: 2 },
+        { repeats: true },
+        { kind: "income" },
+        { installmentCount: 121 },
+        { installmentCount: 1 },
+        { date: "2099-12-31" },
+        { amount: 1000000000, installmentMode: "per_installment" },
+        { payer: "x".repeat(61) },
+      ])
+        await assert.rejects(() =>
+          rpc("add_installments", [
+            { ...parcel, installmentGroup: invalidGroup, ...change },
+          ]),
+        );
+      assert.equal(
+        (
+          await db.query(
+            "select id from nc_entries where installment_group=$1",
+            [invalidGroup],
+          )
+        ).rows.length,
+        0,
+        "invalid creation cannot leave partial installments",
+      );
+      await as(outsider);
+      assert.equal(
+        (
+          await db.query(
+            "select id from nc_entries where installment_group=$1",
+            [group],
+          )
+        ).rows.length,
+        0,
+      );
+      await assert.rejects(() =>
+        rpc("confirm_entry", [created.id, true, "Outsider"]),
+      );
+      await as(bob);
+      assert.equal(
+        (
+          await db.query(
+            "select id from nc_entries where installment_group=$1",
+            [group],
+          )
+        ).rows.length,
+        3,
+        "shared members see the same installments",
+      );
+      await as("", "anon");
+      await assert.rejects(() => rpc("add_installments", [parcel]));
+      await as("00000000-0000-4000-8000-000000000006");
+      await assert.rejects(
+        () => rpc("add_installments", [parcel]),
+        /confirmed_account_required/,
+      );
+    },
+  );
   await db.close();
 });

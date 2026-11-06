@@ -60,3 +60,42 @@ test("due and overdue reminders respect Sao Paulo dates and exclude paid entries
   assert.equal(paymentState(row, "2026-11-06"), "overdue");
   assert.equal(paymentState({ ...row, confirmed: true }, "2026-11-06"), "paid");
 });
+
+test("month forecast includes all unpaid commitments without subtracting paid expenses twice", async () => {
+  const { monthForecast } = await import("../lib/finance");
+  const rows = [
+    { kind: "income", amount: 300000, date: "2026-11-01", confirmed: true },
+    { kind: "expense", amount: 50000, date: "2026-11-02", confirmed: true },
+    { kind: "expense", amount: 280000, date: "2026-11-30", confirmed: false },
+  ];
+  assert.equal(monthForecast(rows).current, 250000);
+  assert.equal(monthForecast(rows).projected, -30000);
+  rows[2].confirmed = true;
+  assert.equal(monthForecast(rows).projected, -30000);
+  assert.equal(monthForecast(rows.slice(1)).projected, -330000);
+  assert.equal(monthForecast([]).projected, 0);
+});
+
+test("installments preserve every cent and original monthly due day", async () => {
+  const { installmentAmounts, installmentDate } = await import(
+    "../lib/finance"
+  );
+  assert.deepEqual(installmentAmounts(10000, 3, "total"), {
+    total: 10000,
+    amounts: [3334, 3333, 3333],
+  });
+  assert.deepEqual(installmentAmounts(10000, 3, "per_installment"), {
+    total: 30000,
+    amounts: [10000, 10000, 10000],
+  });
+  assert.deepEqual(
+    [0, 1, 2].map((i) => installmentDate("2027-01-31", i)),
+    ["2027-01-31", "2027-02-28", "2027-03-31"],
+  );
+  assert.equal(installmentDate("2028-01-31", 1), "2028-02-29");
+  assert.equal(installmentDate("2026-12-15", 1), "2027-01-15");
+  for (const count of [0, 1, 121, 2.5, NaN])
+    assert.equal(installmentAmounts(10000, count, "total"), null);
+  assert.equal(installmentAmounts(2, 3, "total"), null);
+  assert.equal(installmentAmounts(1_000_000_000, 3, "per_installment"), null);
+});

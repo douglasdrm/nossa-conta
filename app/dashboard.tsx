@@ -6,7 +6,9 @@ import DuePanel from "@/components/due-panel";
 import {
   dateInSaoPaulo,
   moneyInputToCents,
-  financeTotals,
+  monthForecast,
+  installmentAmounts,
+  type InstallmentMode,
   paymentState,
 } from "@/lib/finance";
 import {
@@ -24,6 +26,8 @@ import {
   ChevronRight,
   Download,
   Leaf,
+  TriangleAlert,
+  CalendarRange,
 } from "lucide-react";
 type Entry = {
   id: string;
@@ -36,6 +40,9 @@ type Entry = {
   confirmed: boolean;
   payer: string | null;
   confirmed_at: string | null;
+  installment_group: string | null;
+  installment_number: number | null;
+  installment_count: number | null;
 };
 const cats = [
   "Mercado",
@@ -82,6 +89,24 @@ export default function Dashboard({ name }: { name: string }) {
   const [due, setDue] = useState<Entry[]>([]),
     [day, setDay] = useState(today());
   const requestId = useRef(0);
+  const installmentGroup = useRef("");
+  const [expenseMode, setExpenseMode] = useState("single");
+  const [installmentMode, setInstallmentMode] =
+    useState<InstallmentMode>("total");
+  const [installmentCount, setInstallmentCount] = useState(3);
+  const [inputAmount, setInputAmount] = useState(0);
+  useEffect(() => {
+    setExpenseMode("single");
+    setInstallmentMode("total");
+    setInstallmentCount(3);
+    setInputAmount(editing?.amount || 0);
+    installmentGroup.current = crypto.randomUUID();
+  }, [modal, editing?.id]);
+  const isInstallment =
+    modal === "expense" && !editing && expenseMode === "installment";
+  const installmentPreview = isInstallment
+    ? installmentAmounts(inputAmount, installmentCount, installmentMode)
+    : null;
   useEffect(() => {
     setPaymentStatus(
       modal === "income" || paymentMode || editing?.confirmed
@@ -144,7 +169,7 @@ export default function Dashboard({ name }: { name: string }) {
   }, [month]);
 
   const rows = loading ? [] : data.filter((e) => e.date.startsWith(month)),
-    totals = financeTotals(rows),
+    totals = monthForecast(rows),
     income = totals.income,
     expense = totals.paid,
     pending = totals.pending,
@@ -198,6 +223,7 @@ export default function Dashboard({ name }: { name: string }) {
   }
   async function save(ev: React.FormEvent<HTMLFormElement>) {
     ev.preventDefault();
+    if (busy) return;
     setBusy(true);
     setError("");
     const f = new FormData(ev.currentTarget);
@@ -217,7 +243,15 @@ export default function Dashboard({ name }: { name: string }) {
               ? String(f.get("payer") || name).trim()
               : undefined,
           id: editing?.id,
-          repeats: f.get("repeats") === "on",
+          repeats:
+            !editing && modal === "expense" && expenseMode === "recurring",
+          ...(isInstallment
+            ? {
+                installmentCount,
+                installmentMode,
+                installmentGroup: installmentGroup.current,
+              }
+            : {}),
           future: f.get("future") === "on",
         }),
       });
@@ -260,7 +294,7 @@ export default function Dashboard({ name }: { name: string }) {
   async function remove(id: string) {
     if (
       !confirm(
-        "Excluir este lançamento? Em uma conta recorrente, apenas este mês será excluído.",
+        "Excluir este lançamento? Em contas recorrentes ou parceladas, apenas este lançamento será excluído.",
       )
     )
       return;
@@ -283,7 +317,10 @@ export default function Dashboard({ name }: { name: string }) {
         .map((e) =>
           [
             e.date,
-            e.description,
+            e.description +
+              (e.installment_count
+                ? ` (${e.installment_number}/${e.installment_count})`
+                : ""),
             e.kind === "income" ? "Entrada" : "Saída",
             e.category,
             e.person,
@@ -391,7 +428,7 @@ export default function Dashboard({ name }: { name: string }) {
         <section className="stats">
           <article className="balance">
             <div>
-              Saldo do mês <Wallet size={20} />
+              Saldo atual do mês <Wallet size={20} />
             </div>
             <strong>{income ? money(income - expense) : "—"}</strong>
             <small>
@@ -438,6 +475,42 @@ export default function Dashboard({ name }: { name: string }) {
                 : "Só entra no pago quando confirmar"}
             </small>
           </article>
+        </section>
+        <section
+          className={`forecast ${!loading && totals.projected < 0 ? "forecast-negative" : ""}`}
+          aria-label="Previsão do mês"
+        >
+          <div className="forecast-heading">
+            <CalendarRange size={22} aria-hidden="true" />
+            <div>
+              <h2>Saldo previsto do mês</h2>
+              <p>Considerando apenas as entradas já registradas.</p>
+            </div>
+          </div>
+          <strong className="forecast-value">
+            {loading ? "—" : money(totals.projected)}
+          </strong>
+          <p className="forecast-calculation">
+            {loading
+              ? "Calculando…"
+              : `${money(income)} recebidos − ${money(totals.totalExpense)} em gastos do mês (${money(expense)} pagos + ${money(pending)} a pagar)`}
+          </p>
+          {!loading && totals.projected < 0 ? (
+            <p className="forecast-warning" role="alert">
+              <TriangleAlert size={19} aria-hidden="true" />
+              <span>
+                {income
+                  ? `Atenção: se não entrar mais dinheiro, faltarão ${money(-totals.projected)} para cobrir os gastos deste mês.`
+                  : `Nenhuma renda foi informada. Com os gastos registrados, faltam ${money(-totals.projected)} em entradas para cobrir este mês. Informar sua renda continua sendo opcional.`}
+              </span>
+            </p>
+          ) : !loading ? (
+            <p className="forecast-note">
+              {totals.totalExpense || income
+                ? "Essa é a previsão após pagar todas as contas lançadas, incluindo as parcelas deste mês."
+                : "Adicione entradas e gastos para acompanhar a previsão."}
+            </p>
+          ) : null}
         </section>
         <DuePanel
           entries={due}
@@ -643,6 +716,11 @@ export default function Dashboard({ name }: { name: string }) {
                         )}
                       </span>
                       <b>{e.description}</b>
+                      {e.installment_count && (
+                        <span className="installment-badge">
+                          {e.installment_number}/{e.installment_count}
+                        </span>
+                      )}
                       {e.id.includes(":") && (
                         <span
                           title="Despesa recorrente"
@@ -787,6 +865,61 @@ export default function Dashboard({ name }: { name: string }) {
                     : "Anote agora, entenda melhor depois."}
                 </p>
                 <form onSubmit={save}>
+                  {editing?.installment_count && (
+                    <div className="installment-summary">
+                      Parcela {editing.installment_number} de{" "}
+                      {editing.installment_count}. As alterações afetam somente
+                      esta parcela.
+                    </div>
+                  )}
+                  {modal === "expense" && !editing && (
+                    <label>
+                      Tipo de gasto
+                      <select
+                        value={expenseMode}
+                        onChange={(e) => setExpenseMode(e.target.value)}
+                      >
+                        <option value="single">Gasto único</option>
+                        <option value="recurring">Recorrente todo mês</option>
+                        <option value="installment">Gasto parcelado</option>
+                      </select>
+                    </label>
+                  )}
+                  {isInstallment && (
+                    <div className="formgrid">
+                      <label>
+                        Como informar o valor?
+                        <select
+                          value={installmentMode}
+                          onChange={(e) =>
+                            setInstallmentMode(
+                              e.target.value as InstallmentMode,
+                            )
+                          }
+                        >
+                          <option value="total">Valor total da compra</option>
+                          <option value="per_installment">
+                            Valor de cada parcela
+                          </option>
+                        </select>
+                      </label>
+                      <label>
+                        Quantidade de parcelas
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          min={2}
+                          max={120}
+                          step={1}
+                          required
+                          value={installmentCount || ""}
+                          onChange={(e) =>
+                            setInstallmentCount(Number(e.target.value))
+                          }
+                        />
+                      </label>
+                    </div>
+                  )}
                   <label>
                     Descrição
                     <input
@@ -804,17 +937,26 @@ export default function Dashboard({ name }: { name: string }) {
                   </label>
                   <div className="formgrid">
                     <label>
-                      Valor (R$)
+                      {isInstallment
+                        ? installmentMode === "total"
+                          ? "Valor total da compra (R$)"
+                          : "Valor de cada parcela (R$)"
+                        : "Valor (R$)"}
                       <MoneyInput
                         key={editing?.id || modal}
                         defaultCents={editing?.amount}
+                        onValueChange={setInputAmount}
                       />
                       <small id="money-help" className="field-hint">
                         Digite só os números; os centavos são automáticos.
                       </small>
                     </label>
                     <label>
-                      {modal === "expense" ? "Vencimento" : "Data"}
+                      {isInstallment
+                        ? "Vencimento da primeira parcela"
+                        : modal === "expense"
+                          ? "Vencimento"
+                          : "Data"}
                       <input
                         name="date"
                         required
@@ -828,6 +970,33 @@ export default function Dashboard({ name }: { name: string }) {
                       />
                     </label>
                   </div>
+                  {isInstallment && (
+                    <div className="installment-summary" role="status">
+                      {installmentPreview ? (
+                        <>
+                          <strong>
+                            Total: {money(installmentPreview.total)}
+                          </strong>
+                          <p>
+                            {installmentCount} parcelas de{" "}
+                            {money(installmentPreview.amounts[0])}
+                            {installmentPreview.amounts[0] !==
+                            installmentPreview.amounts[installmentCount - 1]
+                              ? ` a ${money(installmentPreview.amounts[installmentCount - 1])}, com ajuste de centavos para fechar o total`
+                              : ""}
+                            .
+                          </p>
+                        </>
+                      ) : (
+                        <p>Informe um valor válido e de 2 a 120 parcelas.</p>
+                      )}
+                      <small>
+                        Uma parcela por mês a partir do vencimento acima. Cada
+                        pagamento será confirmado separadamente. Em meses mais
+                        curtos, o vencimento será no último dia.
+                      </small>
+                    </div>
+                  )}
                   <label>
                     Categoria
                     <select name="category" defaultValue={editing?.category}>
@@ -864,7 +1033,9 @@ export default function Dashboard({ name }: { name: string }) {
                   </label>
                   {modal === "expense" && (
                     <label>
-                      Pagamento
+                      {isInstallment
+                        ? "Pagamento da primeira parcela"
+                        : "Pagamento"}
                       <select
                         name="paymentStatus"
                         value={paymentStatus}
@@ -874,7 +1045,9 @@ export default function Dashboard({ name }: { name: string }) {
                         <option value="confirmed">Já paguei</option>
                       </select>
                       <small className="field-hint">
-                        Pendente não sai do saldo. Confirme depois que pagar.
+                        {isInstallment
+                          ? "Somente a primeira parcela pode ser marcada como paga agora. As demais ficam a pagar."
+                          : "Pendente não sai do saldo atual, mas entra no saldo previsto. Confirme depois que pagar."}
                       </small>
                     </label>
                   )}
@@ -895,16 +1068,15 @@ export default function Dashboard({ name }: { name: string }) {
                       </small>
                     </label>
                   )}
-                  {modal === "expense" && !editing && (
-                    <label className="check">
-                      <input type="checkbox" name="repeats" /> Repetir esta
-                      despesa todo mês
-                      <small>
-                        O valor poderá ser ajustado em cada mês. Os próximos
-                        meses ficam pendentes até a confirmação.
-                      </small>
-                    </label>
-                  )}
+                  {modal === "expense" &&
+                    !editing &&
+                    expenseMode === "recurring" && (
+                      <p className="field-hint">
+                        Esta conta será repetida todo mês. O valor poderá ser
+                        ajustado por mês; os próximos ficam a pagar até a
+                        confirmação.
+                      </p>
+                    )}
                   {editing?.id.includes(":") && (
                     <>
                       <label className="check">

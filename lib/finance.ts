@@ -49,3 +49,53 @@ export function financeTotals(entries: FinanceEntry[]) {
     { income: 0, paid: 0, pending: 0 },
   );
 }
+
+export function monthForecast(entries: FinanceEntry[]) {
+  const { income, paid, pending } = financeTotals(entries);
+  return {
+    income,
+    paid,
+    pending,
+    totalExpense: paid + pending,
+    current: income - paid,
+    projected: income - paid - pending,
+  };
+}
+
+export type InstallmentMode = "total" | "per_installment";
+export function installmentAmounts(
+  amount: number,
+  count: number,
+  mode: InstallmentMode,
+) {
+  if (
+    !Number.isSafeInteger(amount) ||
+    amount < 1 ||
+    amount > 1_000_000_000 ||
+    !Number.isInteger(count) ||
+    count < 2 ||
+    count > 120 ||
+    !["total", "per_installment"].includes(mode)
+  )
+    return null;
+  const total = mode === "total" ? amount : amount * count;
+  if (total > 1_000_000_000 || total < count) return null;
+  const base = Math.floor(total / count),
+    remainder = total % count;
+  return {
+    total,
+    amounts: Array.from(
+      { length: count },
+      (_, i) => base + (i < remainder ? 1 : 0),
+    ),
+  };
+}
+export function installmentDate(first: string, index: number) {
+  const [year, month, day] = first.split("-").map(Number);
+  const target = new Date(Date.UTC(year, month - 1 + index, 1));
+  const last = new Date(
+    Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0),
+  ).getUTCDate();
+  target.setUTCDate(Math.min(day, last));
+  return target.toISOString().slice(0, 10);
+}

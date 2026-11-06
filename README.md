@@ -154,3 +154,11 @@ O campo de valores preenche centavos automaticamente: `12345` vira `123,45`, e o
 O manifesto em `/manifest.webmanifest` permite instalar o Nossa Conta com ícone próprio e abertura em janela independente. O botão **Instalar app** abre a confirmação nativa quando o navegador a disponibiliza; caso contrário, mostra instruções para o dispositivo. No iPhone/iPad, use Safari → Compartilhar → Adicionar à Tela de Início. No app já aberto em modo independente, o botão fica oculto.
 
 A instalação mantém o login e os dados online existentes. Consultas e alterações precisam de internet; nenhum dado financeiro é armazenado em cache por um service worker. Os ícones PNG derivam do símbolo de carteira em `public/favicon.svg`, com uma versão maskable para Android.
+
+### Gastos parcelados e previsão do mês
+
+Em **Adicionar gasto → Tipo de gasto → Gasto parcelado**, informe o total da compra ou o valor de cada parcela, a quantidade (2 a 120) e o vencimento da primeira. As parcelas mensais são gravadas de uma vez e identificadas por número; centavos indivisíveis ficam nas primeiras parcelas para preservar o total. O vencimento usa o dia original, limitado ao último dia de cada mês. Apenas a primeira parcela pode ser confirmada na criação; as demais começam pendentes. Editar ou excluir uma parcela afeta somente ela.
+
+O **Saldo previsto do mês** considera entradas registradas menos todos os gastos do mês (pagos e pendentes, incluindo as parcelas que vencem naquele mês). Uma previsão negativa exibe quanto faltará sem novas entradas. A renda continua opcional; sem ela, a previsão explica que considera zero em entradas. Não há transporte automático de saldo entre meses.
+
+Migração necessária: `supabase/migrations/20261106140204_installment_expenses.sql`. A função pública `nc_add_installments` é invoker; a implementação privada valida a conta confirmada e o espaço compartilhado, gera a compra em transação e usa o identificador da operação para impedir duplicatas em tentativas repetidas. Não modifica objetos do Juntô.

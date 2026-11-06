@@ -1,5 +1,10 @@
 import { authenticated, checkOrigin, failure, ApiError } from "@/lib/api";
-import { entrySchema, editSchema, monthSchema } from "@/lib/validation";
+import {
+  entrySchema,
+  editSchema,
+  monthSchema,
+  installmentSchema,
+} from "@/lib/validation";
 import { dateInSaoPaulo } from "@/lib/finance";
 export const dynamic = "force-dynamic";
 export async function GET(r: Request) {
@@ -9,7 +14,7 @@ export async function GET(r: Request) {
       const { data, error } = await db
         .from("nc_entries")
         .select(
-          "id,kind,description,amount,category,person,date,confirmed,confirmed_at,payer",
+          "id,kind,description,amount,category,person,date,confirmed,confirmed_at,payer,installment_group,installment_number,installment_count",
         )
         .eq("kind", "expense")
         .eq("confirmed", false)
@@ -28,7 +33,7 @@ export async function GET(r: Request) {
     const { data, error } = await db
       .from("nc_entries")
       .select(
-        "id,kind,description,amount,category,person,date,confirmed,confirmed_at,payer",
+        "id,kind,description,amount,category,person,date,confirmed,confirmed_at,payer,installment_group,installment_number,installment_count",
       )
       .gte("date", month.data + "-01")
       .lt("date", nextMonth(month.data))
@@ -59,6 +64,27 @@ export async function POST(r: Request) {
       });
       if (error) throw error;
       return Response.json({ ok: true });
+    }
+    if (
+      body.installmentCount !== undefined ||
+      body.installmentMode !== undefined ||
+      body.installmentGroup !== undefined
+    ) {
+      const parsed = installmentSchema.safeParse(body);
+      if (!parsed.success)
+        throw new ApiError(
+          "Confira o valor, a quantidade de parcelas (2 a 120) e a data da primeira parcela.",
+          400,
+        );
+      const { data, error } = await db.rpc("nc_add_installments", {
+        p_entry: parsed.data,
+      });
+      if (error)
+        throw new ApiError(
+          "Não foi possível salvar o parcelamento. Confira os dados e tente novamente.",
+          400,
+        );
+      return Response.json(data, { status: 201 });
     }
     const parsed = entrySchema.safeParse(body);
     if (!parsed.success)

@@ -1329,3 +1329,10 @@ label select {
 .app-install-dialog .app-install-note { color: #63746b; font-size: 12px; }
 .app-install-close { position: absolute; top: 14px; right: 14px; display: grid; place-items: center; width: 34px; height: 34px; border: 0; border-radius: 50%; background: #e8eee8; color: #263d34; }
 @media (max-width: 600px) { .app-install { right: 12px; bottom: max(12px, env(safe-area-inset-bottom)); } body { padding-bottom: 65px; } }
+
+.forecast { display: grid; grid-template-columns: 1fr auto; gap: 10px 24px; padding: 24px 26px; margin: 0 0 24px; border: 1px solid #dce7dd; border-radius: 18px; background: #eef4ee; }
+.forecast-heading { display: flex; align-items: center; gap: 12px; color: #286653; }.forecast-heading h2 { margin: 0 0 4px; font-size: 16px; }.forecast-heading p { margin: 0; color: #64766b; font-size: 12px; }
+.forecast-value { font-size: 28px; letter-spacing: -1px; align-self: center; }.forecast-calculation,.forecast-note { grid-column: 1/-1; margin: 0; line-height: 1.6; font-size: 12px; color: #64766b; }
+.forecast-negative { background: #fff4ef; border-color: #eac9bb; }.forecast-negative .forecast-value { color: #a64432; }.forecast-warning { grid-column: 1/-1; display: flex; align-items: flex-start; gap: 9px; margin: 4px 0 0; line-height: 1.6; color: #963c2b; font-size: 13px; }.forecast-warning svg { flex-shrink: 0; margin-top: 2px; }
+.installment-summary { padding: 14px 16px; margin: 8px 0 18px; border: 1px solid #dae5dd; border-radius: 12px; background: #f0f5ef; font-size: 13px; line-height: 1.6; }.installment-summary p { margin: 5px 0; }.installment-summary small { color: #64766b; }.installment-badge { display: inline-block; white-space: nowrap; margin-left: 8px; padding: 3px 7px; border-radius: 7px; background: #edf2fa; color: #46618b; font-size: 11px; }
+@media(max-width:600px) { .forecast { grid-template-columns: 1fr; padding: 20px; gap: 12px; }.forecast-value { font-size: 27px; } }

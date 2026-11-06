@@ -7,6 +7,8 @@ export type DueEntry = {
   amount: number;
   date: string;
   person: string;
+  installment_number?: number | null;
+  installment_count?: number | null;
 };
 const money = (n: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
@@ -145,7 +147,12 @@ export default function DuePanel({
                   )}
                 </span>
                 <div className="due-details">
-                  <b>{e.description}</b>
+                  <b>
+                    {e.description}
+                    {e.installment_count
+                      ? ` (${e.installment_number}/${e.installment_count})`
+                      : ""}
+                  </b>
                   <small>
                     {e.date < today
                       ? "Venceu em " + e.date.split("-").reverse().join("/")
