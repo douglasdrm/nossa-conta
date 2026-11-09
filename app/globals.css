@@ -1490,7 +1490,7 @@ label select {
 .report-modes button, .monthly-series button { min-height: 44px; border: 1px solid #dce2ef; border-radius: 9px; color: #354764; background: #f5f7fc; }
 .report-modes button { padding: 8px 14px; }
 .report-modes button[aria-pressed="true"] { background: #3d5483; color: #fff; border-color: #3d5483; }
-.monthly-series { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%, 118px),1fr)); gap: 8px; margin: 0 0 18px; }
+.monthly-series { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; margin: 0 0 18px; }
 .monthly-series button { display: grid; gap: 5px; min-width: 0; padding: 8px 10px; text-align: left; }
 .monthly-series button[aria-pressed="true"] { border-color: #607db2; background: #eaf0fd; }
 .monthly-series button strong { overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
@@ -1506,3 +1506,39 @@ body { background: #f6f7fa; color: #293745; }
 .panel.together p, .aside-note p { color: #55647a; }
 aside .nav.active[href="/caixinhas"], .savings-shortcut[href="/caixinhas"] { color: var(--tone-savings); background: var(--tone-savings-bg); border-color: #e8def5; }
 aside .nav.active[href="/relatorio-anual"], .savings-shortcut[href="/relatorio-anual"] { color: #354764; background: #edf1fa; border-color: #dae2f0; }
+
+.mobile-menu { display: none; }
+@media (max-width: 800px) {
+  header { position: relative; }
+  header > .breadcrumb { display: none; }
+  .mobile-menu { display: block; position: relative; }
+  .mobile-menu summary {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+    padding: 0 10px;
+    border: 1px solid #dce3e9;
+    border-radius: 9px;
+    background: #fff;
+    color: #286653;
+    font-weight: 600;
+    cursor: pointer;
+    list-style: none;
+  }
+  .mobile-menu summary::-webkit-details-marker { display: none; }
+  .mobile-menu-links {
+    position: absolute;
+    z-index: 20;
+    top: calc(100% + 6px);
+    left: 0;
+    width: min(245px, calc(100vw - 36px));
+    padding: 6px;
+    border: 1px solid #e0e5ec;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 12px 28px #20334420;
+  }
+  .mobile-menu-links .nav { display: flex; min-height: 44px; }
+  .monthly-series { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}

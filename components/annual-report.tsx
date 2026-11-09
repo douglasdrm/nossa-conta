@@ -78,6 +78,10 @@ export default function AnnualSpending({ today }: { today: string }) {
       : String(year - 1);
   const visibleMonths =
     monthly && series?.[0]?.month.startsWith(`${year}-`) ? series : [];
+  const displayMonths = Array.from({ length: 12 }, (_, index) => {
+    const key = `${year}-${String(index + 1).padStart(2, "0")}`;
+    return { month: key, total: visibleMonths[index]?.total ?? null };
+  });
   const maxMonth = Math.max(1, ...visibleMonths.map((item) => item.total));
 
   return (
@@ -169,10 +173,11 @@ export default function AnnualSpending({ today }: { today: string }) {
           className="monthly-series"
           aria-label={`Gasto total por mês em ${year}`}
         >
-          {visibleMonths.map((item) => (
+          {displayMonths.map((item) => (
             <button
               type="button"
               key={item.month}
+              disabled={item.total === null}
               aria-pressed={item.month === month}
               onClick={() => {
                 if (item.month !== month) {
@@ -182,9 +187,13 @@ export default function AnnualSpending({ today }: { today: string }) {
               }}
             >
               <span>{monthLabel(item.month)}</span>
-              <strong>{money(item.total)}</strong>
+              <strong>
+                {item.total === null ? "Futuro" : money(item.total)}
+              </strong>
               <span className="month-bar" aria-hidden="true">
-                <i style={{ width: `${(100 * item.total) / maxMonth}%` }} />
+                <i
+                  style={{ width: `${(100 * (item.total ?? 0)) / maxMonth}%` }}
+                />
               </span>
             </button>
           ))}

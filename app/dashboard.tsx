@@ -32,6 +32,7 @@ import {
   ChevronRight,
   Download,
   Leaf,
+  Menu,
   PiggyBank,
   UserRound,
   TriangleAlert,
@@ -99,6 +100,7 @@ export default function Dashboard({
   const overview = view === "overview";
   const [upcoming, setUpcoming] = useState<Entry[]>([]);
   const [upcomingError, setUpcomingError] = useState(false);
+  const mobileMenu = useRef<HTMLDetailsElement>(null);
   const [editing, setEditing] = useState<Entry | null>(null);
   const [paymentMode, setPaymentMode] = useState(false),
     [paymentStatus, setPaymentStatus] = useState("pending");
@@ -631,6 +633,50 @@ export default function Dashboard({
       </footer>
     </section>
   );
+  const navigation = (
+    <>
+      <a
+        className={overview ? "nav active" : "nav"}
+        href="/"
+        aria-current={overview ? "page" : undefined}
+      >
+        <LayoutDashboard size={19} /> Visão geral
+      </a>
+      <a
+        className={view === "entries" ? "nav active" : "nav"}
+        href={`/lancamentos?mes=${month}`}
+        aria-current={view === "entries" ? "page" : undefined}
+      >
+        <ArrowUpRight size={19} /> Lançamentos
+      </a>
+      <a
+        className={view === "savings" ? "nav active" : "nav"}
+        href="/caixinhas"
+        aria-current={view === "savings" ? "page" : undefined}
+      >
+        <PiggyBank size={19} /> Caixinhas
+      </a>
+      <a
+        className={view === "annual" ? "nav active" : "nav"}
+        href="/relatorio-anual"
+        aria-current={view === "annual" ? "page" : undefined}
+      >
+        <CalendarRange size={19} /> Relatórios
+      </a>
+      <button
+        className="nav"
+        onClick={() => {
+          mobileMenu.current?.removeAttribute("open");
+          setModal("share");
+        }}
+      >
+        <Users size={19} /> Compartilhar
+      </button>
+      <a className="nav" href="/profile">
+        <UserRound size={19} /> Meu perfil
+      </a>
+    </>
+  );
   return (
     <div className="shell">
       <aside>
@@ -641,40 +687,7 @@ export default function Dashboard({
           Nossa Conta<span className="dot">.</span>
         </a>
         <div className="home-label">ESPAÇO DA FAMÍLIA</div>
-        <a
-          className={overview ? "nav active" : "nav"}
-          href="/"
-          aria-current={overview ? "page" : undefined}
-        >
-          <LayoutDashboard size={19} /> Visão geral
-        </a>
-        <a
-          className={view === "entries" ? "nav active" : "nav"}
-          href={`/lancamentos?mes=${month}`}
-          aria-current={view === "entries" ? "page" : undefined}
-        >
-          <ArrowUpRight size={19} /> Lançamentos
-        </a>
-        <a
-          className={view === "savings" ? "nav active" : "nav"}
-          href="/caixinhas"
-          aria-current={view === "savings" ? "page" : undefined}
-        >
-          <PiggyBank size={19} /> Caixinhas
-        </a>
-        <a
-          className={view === "annual" ? "nav active" : "nav"}
-          href="/relatorio-anual"
-          aria-current={view === "annual" ? "page" : undefined}
-        >
-          <CalendarRange size={19} /> Relatórios
-        </a>
-        <button className="nav" onClick={() => setModal("share")}>
-          <Users size={19} /> Compartilhar
-        </button>
-        <a className="nav" href="/profile">
-          <UserRound size={19} /> Meu perfil
-        </a>
+        {navigation}
         <div className="aside-note">
           <Leaf size={25} />
           <h3>
@@ -709,6 +722,28 @@ export default function Dashboard({
       </aside>
       <main>
         <header>
+          <details
+            className="mobile-menu"
+            ref={mobileMenu}
+            onKeyDown={(event) => {
+              if (event.key === "Escape" && event.currentTarget.open) {
+                event.currentTarget.open = false;
+                event.currentTarget.querySelector("summary")?.focus();
+              }
+            }}
+          >
+            <summary>
+              <Menu size={19} aria-hidden="true" /> Menu
+            </summary>
+            <nav className="mobile-menu-links" aria-label="Menu principal">
+              {navigation}
+              <form action="/auth/signout" method="post">
+                <button className="nav" type="submit">
+                  Sair da conta
+                </button>
+              </form>
+            </nav>
+          </details>
           <div className="breadcrumb">
             Nosso espaço <span>/</span>{" "}
             {
