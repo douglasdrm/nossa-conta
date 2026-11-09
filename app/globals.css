@@ -1542,3 +1542,12 @@ aside .nav.active[href="/relatorio-anual"], .savings-shortcut[href="/relatorio-a
   .mobile-menu-links .nav { display: flex; min-height: 44px; }
   .monthly-series { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
+
+.month-radar { margin: 20px 0; padding: 20px; border: 1px solid #dce3ee; border-radius: 16px; background: #fff; }
+.month-radar h2 { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; color: #324c75; font-size: 16px; }
+.month-radar article { padding: 12px 14px; border-radius: 10px; background: #edf2fa; color: #263f67; }
+.month-radar article + article { margin-top: 8px; }
+.month-radar article.radar-caution { background: #fff4df; color: #684817; }
+.month-radar article.radar-shortfall { background: #fff0eb; color: #873729; }
+.month-radar h3 { margin: 0 0 4px; font-size: 14px; }
+.month-radar p { margin: 0; font-size: 13px; line-height: 1.55; }

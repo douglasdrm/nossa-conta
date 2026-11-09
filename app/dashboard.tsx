@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useState, useRef } from "react";
 import AnnualSpending from "@/components/annual-report";
+import RadarPanel from "@/components/radar-panel";
+import type { RadarPattern } from "@/lib/radar";
 import UpcomingPanel from "@/components/upcoming-panel";
 import { upcomingEnd } from "@/lib/finance-reports";
 import SavingsPanel from "@/components/savings-panel";
@@ -98,6 +100,10 @@ export default function Dashboard({
   initialMonth?: string;
 }) {
   const overview = view === "overview";
+  const [radar, setRadar] = useState<{
+    buffer: number;
+    patterns: RadarPattern[];
+  } | null>(null);
   const [upcoming, setUpcoming] = useState<Entry[]>([]);
   const [upcomingError, setUpcomingError] = useState(false);
   const mobileMenu = useRef<HTMLDetailsElement>(null);
@@ -166,19 +172,26 @@ export default function Dashboard({
         ),
       );
       if (syncs.some((r) => !r.ok)) throw Error();
-      const [r, alerts, soon] = await Promise.all([
+      const [r, alerts, soon, history] = await Promise.all([
         fetch("/api/entries?month=" + encodeURIComponent(target)),
         overview ? fetch("/api/entries?due=true") : null,
         overview ? fetch("/api/entries?upcoming=true").catch(() => null) : null,
+        overview && target === now.slice(0, 7)
+          ? fetch("/api/reports/radar").catch(() => null)
+          : null,
       ]);
       if (!r.ok || (alerts && !alerts.ok)) throw Error();
-      const [records, reminders, commitments] = await Promise.all([
-        r.json(),
-        alerts ? alerts.json() : [],
-        soon?.ok ? soon.json().catch(() => null) : null,
-      ]);
+      const [records, reminders, commitments, radarContext] = await Promise.all(
+        [
+          r.json(),
+          alerts ? alerts.json() : [],
+          soon?.ok ? soon.json().catch(() => null) : null,
+          history?.ok ? history.json().catch(() => null) : null,
+        ],
+      );
       if (seq === requestId.current) {
         setData(records);
+        setRadar(radarContext);
         setDue(reminders);
         setUpcoming(commitments ?? []);
         setUpcomingError(overview && commitments === null);
@@ -925,6 +938,17 @@ export default function Dashboard({
                 </p>
               ) : null}
             </section>
+            {!loading &&
+              !error &&
+              month === day.slice(0, 7) &&
+              totals.totalIncome > 0 && (
+                <RadarPanel
+                  today={day}
+                  entries={rows}
+                  totals={totals}
+                  context={radar}
+                />
+              )}
             <a className="savings-shortcut" href="/caixinhas">
               <PiggyBank size={19} aria-hidden="true" />
               <span>Ver caixinhas</span>
