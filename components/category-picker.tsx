@@ -1,29 +1,31 @@
 "use client";
 import { useEffect, useState } from "react";
 import { budgetGroups, budgetKeys, type BudgetGroup } from "@/lib/budget-plan";
-import { Plus } from "lucide-react";
+import { Pencil, Plus } from "lucide-react";
 export default function CategoryPicker({
   kind,
   defaults,
   initial,
   onPendingChange,
+  onRename,
 }: {
   kind: string;
   defaults: string[];
   initial?: string;
   onPendingChange: (pending: boolean) => void;
+  onRename: () => void;
 }) {
   const [group, setGroup] = useState<BudgetGroup | "">("");
   const [custom, setCustom] = useState<string[]>([]);
   const [selected, setSelected] = useState(initial || defaults[0]);
-  const [adding, setAdding] = useState(false),
+  const [mode, setMode] = useState<"add" | "rename" | null>(null),
     [name, setName] = useState(""),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   useEffect(() => {
-    onPendingChange(adding || busy);
+    onPendingChange(mode !== null || busy);
     return () => onPendingChange(false);
-  }, [adding, busy, onPendingChange]);
+  }, [mode, busy, onPendingChange]);
   useEffect(() => {
     let active = true;
     fetch("/api/categories")
@@ -46,7 +48,7 @@ export default function CategoryPicker({
   const options = [
     ...new Set([...defaults, ...custom, selected].filter(Boolean)),
   ];
-  async function add() {
+  async function saveCategory() {
     if (busy) return;
     const clean = name.trim();
     if (!clean || clean.length > 60) {
@@ -56,14 +58,14 @@ export default function CategoryPicker({
     const existing = options.find(
       (c) => c.toLocaleLowerCase("pt-BR") === clean.toLocaleLowerCase("pt-BR"),
     );
-    if (existing) {
+    if (mode === "add" && existing) {
       setSelected(existing);
-      setAdding(false);
+      setMode(null);
       setName("");
       setError("");
       return;
     }
-    if (kind === "expense" && !group) {
+    if (mode === "add" && kind === "expense" && !group) {
       setError("Escolha o grupo financeiro da despesa.");
       return;
     }
@@ -71,24 +73,33 @@ export default function CategoryPicker({
     setError("");
     try {
       const r = await fetch("/api/categories", {
-        method: "POST",
+        method: mode === "rename" ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           kind,
           name: clean,
-          group: kind === "expense" ? group : null,
+          ...(mode === "rename"
+            ? { oldName: selected }
+            : { group: kind === "expense" ? group : null }),
         }),
       });
       const data = await r.json();
       if (!r.ok)
-        throw Error(data.error || "Não foi possível criar a categoria.");
-      setCustom((current) => [...current, data.name]);
+        throw Error(data.error || "Não foi possível salvar a categoria.");
+      setCustom((current) =>
+        mode === "rename"
+          ? current.map((category) =>
+              category === selected ? data.name : category,
+            )
+          : [...current, data.name],
+      );
+      if (mode === "rename") onRename();
       setSelected(data.name);
-      setAdding(false);
+      setMode(null);
       setName("");
     } catch (e) {
       setError(
-        e instanceof Error ? e.message : "Não foi possível criar a categoria.",
+        e instanceof Error ? e.message : "Não foi possível salvar a categoria.",
       );
     } finally {
       setBusy(false);
@@ -101,6 +112,7 @@ export default function CategoryPicker({
         <select
           name="category"
           value={selected}
+          disabled={mode !== null}
           onChange={(e) => setSelected(e.target.value)}
         >
           {options.map((c) => (
@@ -108,22 +120,39 @@ export default function CategoryPicker({
           ))}
         </select>
       </label>
-      {!adding ? (
-        <button
-          type="button"
-          className="text-button"
-          onClick={() => {
-            setGroup("");
-            setAdding(true);
-            setError("");
-          }}
-        >
-          <Plus size={14} aria-hidden="true" /> Adicionar categoria
-        </button>
+      {!mode ? (
+        <div className="entry-actions">
+          <button
+            type="button"
+            className="text-button"
+            onClick={() => {
+              setGroup("");
+              setMode("add");
+              setError("");
+            }}
+          >
+            <Plus size={14} aria-hidden="true" /> Adicionar categoria
+          </button>
+          {custom.includes(selected) && !defaults.includes(selected) && (
+            <button
+              type="button"
+              className="text-button"
+              onClick={() => {
+                setName(selected);
+                setMode("rename");
+                setError("");
+              }}
+            >
+              <Pencil size={14} aria-hidden="true" /> Editar categoria
+            </button>
+          )}
+        </div>
       ) : (
         <div className="new-category">
           <label>
-            Nome da nova categoria
+            {mode === "rename"
+              ? "Novo nome da categoria"
+              : "Nome da nova categoria"}
             <input
               autoFocus
               value={name}
@@ -133,13 +162,13 @@ export default function CategoryPicker({
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();
-                  void add();
+                  void saveCategory();
                 }
               }}
               disabled={busy}
             />
           </label>
-          {kind === "expense" && (
+          {mode === "add" && kind === "expense" && (
             <label>
               Grupo financeiro
               <select
@@ -162,17 +191,21 @@ export default function CategoryPicker({
             <button
               type="button"
               className="secondary"
-              onClick={() => void add()}
+              onClick={() => void saveCategory()}
               disabled={busy}
             >
-              {busy ? "Criando…" : "Criar categoria"}
+              {busy
+                ? "Salvando…"
+                : mode === "rename"
+                  ? "Salvar nome"
+                  : "Criar categoria"}
             </button>
             <button
               type="button"
               className="text-button"
               disabled={busy}
               onClick={() => {
-                setAdding(false);
+                setMode(null);
                 setName("");
                 setError("");
               }}
@@ -181,7 +214,9 @@ export default function CategoryPicker({
             </button>
           </div>
           <small className="field-hint">
-            Disponível para todos no espaço compartilhado.
+            {mode === "rename"
+              ? "O novo nome também aparece nos lançamentos já registrados."
+              : "Disponível para todos no espaço compartilhado."}
           </small>
         </div>
       )}

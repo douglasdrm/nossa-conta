@@ -8,6 +8,7 @@ import type { RadarPattern } from "@/lib/radar";
 import UpcomingPanel from "@/components/upcoming-panel";
 import { upcomingEnd } from "@/lib/finance-reports";
 import SavingsPanel from "@/components/savings-panel";
+import { expenseCategories, incomeCategories } from "@/lib/categories";
 import CategoryPicker from "@/components/category-picker";
 import SharePanel from "@/components/share-panel";
 import MoneyInput from "@/components/money-input";
@@ -60,18 +61,6 @@ type Entry = {
   installment_number: number | null;
   installment_count: number | null;
 };
-const cats = [
-  "Mercado",
-  "Moradia",
-  "Alimentação",
-  "Transporte",
-  "Saúde",
-  "Lazer",
-  "Compras",
-  "Educação",
-  "Contas e serviços",
-  "Outros",
-];
 const colors = [
   "#286653",
   "#d9a65d",
@@ -251,7 +240,7 @@ export default function Dashboard({
     pending = totals.pending,
     groups = [
       ...new Set([
-        ...cats,
+        ...expenseCategories,
         ...rows.filter((e) => e.kind === "expense").map((e) => e.category),
       ]),
     ]
@@ -1320,15 +1309,11 @@ export default function Dashboard({
                     kind={modal}
                     initial={editing?.category}
                     defaults={
-                      modal === "income"
-                        ? [
-                            "Salário",
-                            "Freelance",
-                            "Rendimentos",
-                            "Outras receitas",
-                          ]
-                        : cats
+                      modal === "income" ? incomeCategories : expenseCategories
                     }
+                    onRename={() => {
+                      void reload();
+                    }}
                   />
                   <label>
                     {modal === "income"

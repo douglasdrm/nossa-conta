@@ -1,4 +1,5 @@
 import { authenticated, checkOrigin, failure, ApiError } from "@/lib/api";
+import { expenseCategories, incomeCategories } from "@/lib/categories";
 import { z } from "zod";
 export const dynamic = "force-dynamic";
 const group = z.enum(["essentials", "future", "leisure", "development"]);
@@ -47,5 +48,50 @@ export async function POST(r: Request) {
     return Response.json(data, { status: 201 });
   } catch (e) {
     return failure(e);
+  }
+}
+
+const renameSchema = z.object({
+  kind: z.enum(["income", "expense"]),
+  oldName: z.string().trim().min(1).max(60),
+  name: z.string().trim().min(1).max(60),
+});
+
+export async function PATCH(request: Request) {
+  try {
+    checkOrigin(request);
+    const { db } = await authenticated();
+    const parsed = renameSchema.safeParse(
+      await request.json().catch(() => null),
+    );
+    if (!parsed.success)
+      throw new ApiError("Informe um nome de até 60 caracteres.", 400);
+    const { kind, oldName, name } = parsed.data;
+    const defaults = kind === "income" ? incomeCategories : expenseCategories;
+    const reserved = (value: string) =>
+      defaults.some(
+        (label) =>
+          label.toLocaleLowerCase("pt-BR") === value.toLocaleLowerCase("pt-BR"),
+      );
+    if (reserved(oldName) || reserved(name))
+      throw new ApiError("As categorias padrão têm nomes reservados.", 409);
+    const { data, error } = await db.rpc("nc_rename_category", {
+      p_kind: kind,
+      p_old_name: oldName,
+      p_name: name,
+    });
+    if (error?.message === "category_name_taken" || error?.code === "23505")
+      throw new ApiError("Já existe uma categoria com esse nome.", 409);
+    if (error?.message === "category_not_found")
+      throw new ApiError(
+        "A categoria foi alterada. Reabra o lançamento e tente novamente.",
+        409,
+      );
+    if (error) throw error;
+    return Response.json(data, {
+      headers: { "Cache-Control": "private, no-store" },
+    });
+  } catch (error) {
+    return failure(error);
   }
 }

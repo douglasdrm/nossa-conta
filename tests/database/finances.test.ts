@@ -1011,6 +1011,57 @@ test("migration, household isolation, invitations and recurring month edits", as
     },
   );
   await t.test(
+    "renames a custom category across entries and recurring rules",
+    async () => {
+      await as(alice);
+      await rpc("add_category", ["expense", "Reparos", "essentials"]);
+      await rpc("add_category", ["expense", "Oficina", "essentials"]);
+      const entry = await rpc<{ id: string }>("add_entry", [
+        { ...base, category: "Reparos", date: "2026-08-01" },
+      ]);
+      await as(outsider);
+      await assert.rejects(
+        () => rpc("rename_category", ["expense", "Reparos", "Manutenção"]),
+        /category_not_found/,
+      );
+      await as(bob);
+      await assert.rejects(
+        () => rpc("rename_category", ["expense", "Reparos", "OFICINA"]),
+        /category_name_taken/,
+      );
+      assert.deepEqual(
+        await rpc("rename_category", ["expense", "Reparos", "Manutenção"]),
+        { kind: "expense", name: "Manutenção" },
+      );
+      await as(alice);
+      assert.deepEqual(
+        (
+          await db.query("select category from nc_entries where id=$1", [
+            entry.id,
+          ])
+        ).rows,
+        [{ category: "Manutenção" }],
+      );
+      assert.deepEqual(
+        (
+          await db.query(
+            "select budget_group from nc_categories where name='Manutenção'",
+          )
+        ).rows,
+        [{ budget_group: "essentials" }],
+      );
+      await rpc("sync_month", ["2026-09-01"]);
+      assert.deepEqual(
+        (
+          await db.query("select category from nc_entries where id=$1", [
+            entry.id.replace(/2026-08$/, "2026-09"),
+          ])
+        ).rows,
+        [{ category: "Manutenção" }],
+      );
+    },
+  );
+  await t.test(
     "shared savings plans become reserves only when confirmed",
     async () => {
       const goalId = "80000000-0000-4000-8000-000000000001";
