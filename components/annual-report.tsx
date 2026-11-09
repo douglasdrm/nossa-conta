@@ -89,7 +89,9 @@ export default function AnnualSpending({ today }: { today: string }) {
       <div className="annual-heading">
         <div>
           <h2 id="annual-heading">Gastos por categoria</h2>
-          <p>Despesas confirmadas, pela data do lançamento.</p>
+          <p>
+            Despesas pagas, pela data do lançamento. Meses considerados por inteiro.
+          </p>
         </div>
         <div className="report-pickers">
           <label>

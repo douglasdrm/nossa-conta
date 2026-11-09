@@ -31,7 +31,7 @@ export async function GET(request: Request) {
 
     const yearPeriod = annualPeriods(year, today).current;
     const periods = month
-      ? monthlyPeriods(month, today)
+      ? monthlyPeriods(month)
       : annualPeriods(year, today);
     const monthTotals = new Map<string, number>();
     if (month) {

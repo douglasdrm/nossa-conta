@@ -4,18 +4,20 @@ export function upcomingEnd(day: string) {
   return end.toISOString().slice(0, 10);
 }
 
+function monthEnd(month: string) {
+  const [year, number] = month.split("-").map(Number);
+  return new Date(Date.UTC(year, number, 0)).toISOString().slice(0, 10);
+}
+
 export function annualPeriods(year: number, today: string) {
-  const end = year === Number(today.slice(0, 4)) ? today : `${year}-12-31`;
-  const month = Number(end.slice(5, 7));
-  const previousDay = Math.min(
-    Number(end.slice(8, 10)),
-    new Date(Date.UTC(year - 1, month, 0)).getUTCDate(),
-  );
+  // Confirmed expenses may have a due date later in the current month.
+  // Use the same complete months as the dashboard and monthly report.
+  const month = year === Number(today.slice(0, 4)) ? today.slice(5, 7) : "12";
   return {
-    current: { start: `${year}-01-01`, end },
+    current: { start: `${year}-01-01`, end: monthEnd(`${year}-${month}`) },
     previous: {
       start: `${year - 1}-01-01`,
-      end: `${year - 1}-${end.slice(5, 7)}-${String(previousDay).padStart(2, "0")}`,
+      end: monthEnd(`${year - 1}-${month}`),
     },
   };
 }
@@ -54,29 +56,19 @@ export function annualTotals(
   };
 }
 
-export function monthlyPeriods(
-  month: string,
-  today: string,
-): AnnualReport["periods"] {
+export function monthlyPeriods(month: string): AnnualReport["periods"] {
   const [year, number] = month.split("-").map(Number);
   const previous = new Date(Date.UTC(year, number - 2, 1))
     .toISOString()
     .slice(0, 7);
-  const previousLastDay = new Date(Date.UTC(year, number - 1, 0)).getUTCDate();
-  const isCurrent = month === today.slice(0, 7);
-  const previousDay = isCurrent
-    ? Math.min(Number(today.slice(8, 10)), previousLastDay)
-    : previousLastDay;
   return {
     current: {
       start: month + "-01",
-      end: isCurrent
-        ? today
-        : new Date(Date.UTC(year, number, 0)).toISOString().slice(0, 10),
+      end: monthEnd(month),
     },
     previous: {
       start: previous + "-01",
-      end: `${previous}-${String(previousDay).padStart(2, "0")}`,
+      end: monthEnd(previous),
     },
   };
 }

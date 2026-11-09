@@ -12,12 +12,17 @@ test("seven-day window includes today and crosses month and year boundaries", ()
   assert.equal(upcomingEnd("2026-12-29"), "2027-01-04");
 });
 
-test("annual comparison uses equivalent cutoffs and clips leap day", () => {
+test("annual comparison includes complete months and handles leap years", () => {
   assert.deepEqual(annualPeriods(2028, "2028-02-29"), {
     current: { start: "2028-01-01", end: "2028-02-29" },
     previous: { start: "2027-01-01", end: "2027-02-28" },
   });
   assert.equal(annualPeriods(2027, "2028-02-29").current.end, "2027-12-31");
+  assert.deepEqual(annualPeriods(2026, "2026-11-09"), {
+    current: { start: "2026-01-01", end: "2026-11-30" },
+    previous: { start: "2025-01-01", end: "2025-11-30" },
+  });
+  assert.equal(annualPeriods(2028, "2028-02-09").current.end, "2028-02-29");
 });
 
 test("annual totals include categories present in only one period", () => {
@@ -44,17 +49,16 @@ test("annual totals include categories present in only one period", () => {
   );
 });
 
-test("monthly comparisons use equal days in the current month and complete closed months", () => {
-  assert.deepEqual(monthlyPeriods("2026-01", "2026-01-09"), {
-    current: { start: "2026-01-01", end: "2026-01-09" },
-    previous: { start: "2025-12-01", end: "2025-12-09" },
+test("monthly comparisons include the complete selected and previous months", () => {
+  assert.deepEqual(monthlyPeriods("2026-01"), {
+    current: { start: "2026-01-01", end: "2026-01-31" },
+    previous: { start: "2025-12-01", end: "2025-12-31" },
   });
-  assert.equal(
-    monthlyPeriods("2026-03", "2026-03-30").previous.end,
-    "2026-02-28",
-  );
-  assert.equal(
-    monthlyPeriods("2026-04", "2026-05-05").previous.end,
-    "2026-03-31",
-  );
+  assert.equal(monthlyPeriods("2026-03").previous.end, "2026-02-28");
+  assert.equal(monthlyPeriods("2026-04").previous.end, "2026-03-31");
+  assert.equal(monthlyPeriods("2028-03").previous.end, "2028-02-29");
+  assert.deepEqual(monthlyPeriods("2026-11"), {
+    current: { start: "2026-11-01", end: "2026-11-30" },
+    previous: { start: "2026-10-01", end: "2026-10-31" },
+  });
 });
