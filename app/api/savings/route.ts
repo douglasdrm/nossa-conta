@@ -13,7 +13,7 @@ const actionSchema = z.discriminatedUnion("action", [
     name: z.string().trim().min(1).max(80),
     target: cents.min(1),
     deadline: dateSchema,
-    priority: z.number().int().min(1).max(999),
+    priority: z.number().int().min(1).max(3),
   }),
   z.object({
     action: z.literal("movement"),

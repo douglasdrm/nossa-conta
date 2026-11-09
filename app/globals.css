@@ -1396,3 +1396,19 @@ label select {
   outline-offset: 2px;
   border-radius: 4px;
 }
+
+.savings-shortcut {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  margin-bottom: 18px;
+  padding: 7px 13px;
+  border: 1px solid #dbe5d8;
+  border-radius: 10px;
+  color: #286653;
+  background: #f7faf5;
+  text-decoration: none;
+  font-weight: 600;
+}
+.savings-shortcut:hover { background: #edf3e9; }

@@ -22,6 +22,20 @@ export type SavingsGoal = {
 
 export type SavingsOverview = { buffer: number; goals: SavingsGoal[] };
 
+export const savingsPriorities = [
+  { value: 1, label: "Alta" },
+  { value: 2, label: "Média" },
+  { value: 3, label: "Baixa" },
+] as const;
+
+export function savingsPriority(value: number) {
+  return value === 1
+    ? savingsPriorities[0]
+    : value === 2
+      ? savingsPriorities[1]
+      : savingsPriorities[2];
+}
+
 export function savingsPlan(
   overview: SavingsOverview,
   income: number,
@@ -38,8 +52,12 @@ export function savingsPlan(
   const planned = overview.goals.reduce((sum, goal) => sum + goal.planned, 0);
   const free = income - expenses - reserved;
   let available = Math.max(0, free - overview.buffer - planned);
-  // The API orders goals by priority and creation order.
-  const goals = overview.goals.map((goal) => {
+  const orderedGoals = [...overview.goals].sort(
+    (a, b) =>
+      savingsPriority(a.priority).value - savingsPriority(b.priority).value ||
+      a.deadline.localeCompare(b.deadline),
+  );
+  const goals = orderedGoals.map((goal) => {
     const missing = Math.max(0, goal.target - goal.saved);
     const expired = goal.deadline < today && missing > 0;
     const months = Math.max(

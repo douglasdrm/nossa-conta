@@ -29,6 +29,7 @@ import {
   ChevronRight,
   Download,
   Leaf,
+  PiggyBank,
   UserRound,
   TriangleAlert,
   CalendarRange,
@@ -82,9 +83,11 @@ const today = dateInSaoPaulo;
 export default function Dashboard({
   name,
   photo,
+  savingsView = false,
 }: {
   name: string;
   photo?: string;
+  savingsView?: boolean;
 }) {
   const [editing, setEditing] = useState<Entry | null>(null);
   const [paymentMode, setPaymentMode] = useState(false),
@@ -136,7 +139,9 @@ export default function Dashboard({
     setLoading(true);
     setError("");
     try {
-      const months = [...new Set([target, today().slice(0, 7)])];
+      const months = savingsView
+        ? [target]
+        : [...new Set([target, today().slice(0, 7)])];
       const syncs = await Promise.all(
         months.map((m) =>
           fetch("/api/entries", {
@@ -149,10 +154,13 @@ export default function Dashboard({
       if (syncs.some((r) => !r.ok)) throw Error();
       const [r, alerts] = await Promise.all([
         fetch("/api/entries?month=" + encodeURIComponent(target)),
-        fetch("/api/entries?due=true"),
+        savingsView ? null : fetch("/api/entries?due=true"),
       ]);
-      if (!r.ok || !alerts.ok) throw Error();
-      const [records, reminders] = await Promise.all([r.json(), alerts.json()]);
+      if (!r.ok || (alerts && !alerts.ok)) throw Error();
+      const [records, reminders] = await Promise.all([
+        r.json(),
+        alerts ? alerts.json() : [],
+      ]);
       if (seq === requestId.current) {
         setData(records);
         setDue(reminders);
@@ -365,6 +373,24 @@ export default function Dashboard({
     a.click();
     URL.revokeObjectURL(url);
   }
+  const monthPicker = (
+    <div className="month">
+      <button aria-label="Mês anterior" onClick={() => move(-1)}>
+        <ChevronLeft size={18} />
+      </button>
+      <input
+        aria-label="Mês"
+        type="month"
+        min="2000-01"
+        max="2099-12"
+        value={month}
+        onChange={(e) => e.target.value && setMonth(e.target.value)}
+      />
+      <button aria-label="Próximo mês" onClick={() => move(1)}>
+        <ChevronRight size={18} />
+      </button>
+    </div>
+  );
   return (
     <div className="shell">
       <aside>
@@ -375,11 +401,22 @@ export default function Dashboard({
           Nossa Conta<span className="dot">.</span>
         </a>
         <div className="home-label">ESPAÇO DA FAMÍLIA</div>
-        <a className="nav active" href="#">
+        <a
+          className={savingsView ? "nav" : "nav active"}
+          href="/"
+          aria-current={savingsView ? undefined : "page"}
+        >
           <LayoutDashboard size={19} /> Visão geral
         </a>
-        <a className="nav" href="#records">
+        <a className="nav" href="/#records">
           <ArrowUpRight size={19} /> Lançamentos
+        </a>
+        <a
+          className={savingsView ? "nav active" : "nav"}
+          href="/caixinhas"
+          aria-current={savingsView ? "page" : undefined}
+        >
+          <PiggyBank size={19} /> Caixinhas
         </a>
         <button className="nav" onClick={() => setModal("share")}>
           <Users size={19} /> Compartilhar
@@ -422,7 +459,8 @@ export default function Dashboard({
       <main>
         <header>
           <div className="breadcrumb">
-            Nosso espaço <span>/</span> Visão geral
+            Nosso espaço <span>/</span>{" "}
+            {savingsView ? "Caixinhas" : "Visão geral"}
           </div>
           <a className="profile-header-link" href="/profile">
             <UserRound size={16} /> Meu perfil
@@ -431,454 +469,478 @@ export default function Dashboard({
             <Users size={16} /> Espaço compartilhado
           </button>
         </header>
-        <section className="heading">
-          <div>
-            <p className="eyebrow">CADA ESCOLHA CONTA</p>
-            <h1>O dinheiro da casa, às claras.</h1>
-            <p>Mais organização hoje. Mais planos juntos amanhã.</p>
-          </div>
-          <div className="month">
-            <button aria-label="Mês anterior" onClick={() => move(-1)}>
-              <ChevronLeft size={18} />
-            </button>
-            <input
-              aria-label="Mês"
-              type="month"
-              min="2000-01"
-              max="2099-12"
-              value={month}
-              onChange={(e) => e.target.value && setMonth(e.target.value)}
+        {savingsView ? (
+          <>
+            <section className="heading">
+              <div>
+                <a className="text-button" href="/">
+                  Voltar para visão geral
+                </a>
+                <h1>Metas da casa</h1>
+              </div>
+              {monthPicker}
+            </section>
+            {error && (
+              <div className="error" role="alert">
+                {error}
+              </div>
+            )}
+            <SavingsPanel
+              month={month}
+              today={day}
+              income={income}
+              expenses={totals.totalExpense}
+              balancesLoading={loading || Boolean(error)}
             />
-            <button aria-label="Próximo mês" onClick={() => move(1)}>
-              <ChevronRight size={18} />
-            </button>
-          </div>
-        </section>
-        {error && (
-          <div role="alert" className="error">
-            {error}
-          </div>
-        )}
-        <section className="stats">
-          <article className="balance">
-            <div>
-              Saldo atual do mês <Wallet size={20} />
-            </div>
-            <strong>{income ? money(income - expense) : "—"}</strong>
-            <small>
-              {income
-                ? "Receitas recebidas menos gastos pagos"
-                : "Renda opcional. Informe se quiser calcular o saldo."}
-            </small>
-            <div className="balance-line" />
-          </article>
-          <article>
-            <div>
-              Entrou{" "}
-              <span className="icon income">
-                <ArrowDownLeft size={18} />
-              </span>
-            </div>
-            <strong className={!income ? "no-income" : ""}>
-              {income ? money(income) : "Não informada"}
-            </strong>
-            <small>
-              {totals.pendingIncome
-                ? `${money(totals.pendingIncome)} a receber`
-                : "Opcional · salários e outras receitas"}
-            </small>
-          </article>
-          <article>
-            <div>
-              Pago{" "}
-              <span className="icon expense">
-                <ArrowUpRight size={18} />
-              </span>
-            </div>
-            <strong>{money(expense)}</strong>
-            <small>
-              {income
-                ? `${Math.round((expense / income) * 100)}% da renda do mês`
-                : "Seus gastos pagos neste mês"}
-            </small>
-          </article>
-          <article className="pending-card">
-            <div>
-              A pagar <Repeat2 size={19} />
-            </div>
-            <strong>{money(pending)}</strong>
-            <small>
-              {income
-                ? `Saldo após pagar: ${money(income - expense - pending)}`
-                : "Só entra no pago quando confirmar"}
-            </small>
-          </article>
-        </section>
-        <section
-          className={`forecast ${!loading && totals.projected < 0 ? "forecast-negative" : ""}`}
-          aria-label="Previsão do mês"
-        >
-          <div className="forecast-heading">
-            <CalendarRange size={22} aria-hidden="true" />
-            <div>
-              <h2>Saldo previsto do mês</h2>
-              <p>Receitas e gastos lançados no mês, incluindo os pendentes.</p>
-            </div>
-          </div>
-          <strong className="forecast-value">
-            {loading ? "—" : money(totals.projected)}
-          </strong>
-          <p className="forecast-calculation">
-            {loading
-              ? "Calculando…"
-              : `${money(totals.totalIncome)} em receitas previstas − ${money(totals.totalExpense)} em gastos previstos`}
-          </p>
-          {!loading && totals.projected < 0 ? (
-            <p className="forecast-warning" role="alert">
-              <TriangleAlert size={19} aria-hidden="true" />
+          </>
+        ) : (
+          <>
+            <section className="heading">
+              <div>
+                <p className="eyebrow">CADA ESCOLHA CONTA</p>
+                <h1>O dinheiro da casa, às claras.</h1>
+                <p>Mais organização hoje. Mais planos juntos amanhã.</p>
+              </div>
+              {monthPicker}
+            </section>
+            {error && (
+              <div role="alert" className="error">
+                {error}
+              </div>
+            )}
+            <section className="stats">
+              <article className="balance">
+                <div>
+                  Saldo atual do mês <Wallet size={20} />
+                </div>
+                <strong>{income ? money(income - expense) : "—"}</strong>
+                <small>
+                  {income
+                    ? "Receitas recebidas menos gastos pagos"
+                    : "Renda opcional. Informe se quiser calcular o saldo."}
+                </small>
+                <div className="balance-line" />
+              </article>
+              <article>
+                <div>
+                  Entrou{" "}
+                  <span className="icon income">
+                    <ArrowDownLeft size={18} />
+                  </span>
+                </div>
+                <strong className={!income ? "no-income" : ""}>
+                  {income ? money(income) : "Não informada"}
+                </strong>
+                <small>
+                  {totals.pendingIncome
+                    ? `${money(totals.pendingIncome)} a receber`
+                    : "Opcional · salários e outras receitas"}
+                </small>
+              </article>
+              <article>
+                <div>
+                  Pago{" "}
+                  <span className="icon expense">
+                    <ArrowUpRight size={18} />
+                  </span>
+                </div>
+                <strong>{money(expense)}</strong>
+                <small>
+                  {income
+                    ? `${Math.round((expense / income) * 100)}% da renda do mês`
+                    : "Seus gastos pagos neste mês"}
+                </small>
+              </article>
+              <article className="pending-card">
+                <div>
+                  A pagar <Repeat2 size={19} />
+                </div>
+                <strong>{money(pending)}</strong>
+                <small>
+                  {income
+                    ? `Saldo após pagar: ${money(income - expense - pending)}`
+                    : "Só entra no pago quando confirmar"}
+                </small>
+              </article>
+            </section>
+            <section
+              className={`forecast ${!loading && totals.projected < 0 ? "forecast-negative" : ""}`}
+              aria-label="Previsão do mês"
+            >
+              <div className="forecast-heading">
+                <CalendarRange size={22} aria-hidden="true" />
+                <div>
+                  <h2>Saldo previsto do mês</h2>
+                  <p>
+                    Receitas e gastos lançados no mês, incluindo os pendentes.
+                  </p>
+                </div>
+              </div>
+              <strong className="forecast-value">
+                {loading ? "—" : money(totals.projected)}
+              </strong>
+              <p className="forecast-calculation">
+                {loading
+                  ? "Calculando…"
+                  : `${money(totals.totalIncome)} em receitas previstas − ${money(totals.totalExpense)} em gastos previstos`}
+              </p>
+              {!loading && totals.projected < 0 ? (
+                <p className="forecast-warning" role="alert">
+                  <TriangleAlert size={19} aria-hidden="true" />
+                  <span>
+                    {totals.totalIncome
+                      ? `Com as receitas previstas, ainda faltarão ${money(-totals.projected)} para cobrir os gastos deste mês.`
+                      : `Nenhuma renda foi informada. Com os gastos registrados, faltam ${money(-totals.projected)} em entradas para cobrir este mês. Informar sua renda continua sendo opcional.`}
+                  </span>
+                </p>
+              ) : !loading ? (
+                <p className="forecast-note">
+                  {totals.totalExpense || totals.totalIncome
+                    ? "Previsão após receber as entradas e pagar as contas lançadas, incluindo as parcelas deste mês."
+                    : "Adicione entradas e gastos para acompanhar a previsão."}
+                </p>
+              ) : null}
+            </section>
+            <a className="savings-shortcut" href="/caixinhas">
+              <PiggyBank size={19} aria-hidden="true" />
+              <span>Ver caixinhas</span>
+              <ArrowUpRight size={15} aria-hidden="true" />
+            </a>
+            <DuePanel
+              entries={due}
+              today={day}
+              onConfirm={confirmPayment}
+              onEdit={editDue}
+              busyId={busy ? editing?.id || null : null}
+            />
+            <div className="actionbar">
               <span>
-                {totals.totalIncome
-                  ? `Com as receitas previstas, ainda faltarão ${money(-totals.projected)} para cobrir os gastos deste mês.`
-                  : `Nenhuma renda foi informada. Com os gastos registrados, faltam ${money(-totals.projected)} em entradas para cobrir este mês. Informar sua renda continua sendo opcional.`}
+                Uma compra, um Pix, um salário. <b>Registre aqui.</b>
               </span>
-            </p>
-          ) : !loading ? (
-            <p className="forecast-note">
-              {totals.totalExpense || totals.totalIncome
-                ? "Previsão após receber as entradas e pagar as contas lançadas, incluindo as parcelas deste mês."
-                : "Adicione entradas e gastos para acompanhar a previsão."}
-            </p>
-          ) : null}
-        </section>
-        <SavingsPanel
-          month={month}
-          today={day}
-          income={income}
-          expenses={totals.totalExpense}
-          balancesLoading={loading}
-        />
-        <DuePanel
-          entries={due}
-          today={day}
-          onConfirm={confirmPayment}
-          onEdit={editDue}
-          busyId={busy ? editing?.id || null : null}
-        />
-        <div className="actionbar">
-          <span>
-            Uma compra, um Pix, um salário. <b>Registre aqui.</b>
-          </span>
-          <div>
-            <button
-              className="secondary"
-              onClick={() => {
-                setError("");
-                setEditing(null);
-                setPaymentMode(false);
-                setModal("income");
-              }}
-            >
-              <Plus size={17} /> Adicionar entrada
-            </button>
-            <button
-              className="primary"
-              onClick={() => {
-                setError("");
-                setEditing(null);
-                setPaymentMode(false);
-                setModal("expense");
-              }}
-            >
-              <Plus size={17} /> Adicionar gasto
-            </button>
-          </div>
-        </div>
-        <section className="insights">
-          <article className="panel categories">
-            <div className="panel-title">
-              <h2>Para onde foi o dinheiro?</h2>
-              <span>Gastos pagos por categoria</span>
-            </div>
-            {groups.length ? (
-              <div className="category-content">
-                <div
-                  className="donut"
-                  style={{
-                    background: `conic-gradient(${groups
-                      .map((g, i) => {
-                        const start =
-                          (groups.slice(0, i).reduce((a, c) => a + c.value, 0) /
-                            expense) *
-                          100;
-                        return `${g.color} ${start}% ${start + (g.value / expense) * 100}%`;
-                      })
-                      .join(",")})`,
+              <div>
+                <button
+                  className="secondary"
+                  onClick={() => {
+                    setError("");
+                    setEditing(null);
+                    setPaymentMode(false);
+                    setModal("income");
                   }}
                 >
-                  <div>
-                    <small>Total de gastos</small>
-                    <b>{money(expense)}</b>
-                  </div>
-                </div>
-                <div className="legend">
-                  {groups.map((g) => (
-                    <div key={g.name}>
-                      <span>
-                        <i style={{ background: g.color }} />
-                        {g.name}
-                      </span>
-                      <b>
-                        {money(g.value)}{" "}
-                        <small>{Math.round((g.value / expense) * 100)}%</small>
-                      </b>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="empty-chart">
-                <div className="donut blank">
-                  <div>
-                    <small>Total de gastos</small>
-                    <b>R$ 0,00</b>
-                  </div>
-                </div>
-                <p>
-                  Seu primeiro gasto vai dar
-                  <br />
-                  forma a este resumo.
-                </p>
-              </div>
-            )}
-          </article>
-          <article className="panel together">
-            <span className="tag">OLHAR DO MÊS</span>
-            <h2>
-              {groups.length
-                ? "Os números contam uma história."
-                : "Começa com um registro."}
-            </h2>
-            <p>
-              {groups.length
-                ? `${groups[0].name} é a maior categoria de gastos: ${money(groups[0].value)} neste mês.`
-                : "Anotem o que entra e o que sai, mesmo os pequenos valores. Logo fica mais fácil entender os hábitos da casa."}
-            </p>
-            {paidBy.length > 0 && (
-              <div className="payer-summary">
-                <h3>Quem pagou neste mês</h3>
-                {paidBy.map(([key, { label: payer, total }]) => (
-                  <div key={key}>
-                    <span>{payer}</span>
-                    <b>{money(total)}</b>
-                  </div>
-                ))}
-              </div>
-            )}
-            <div className="tip">
-              <Leaf size={22} />
-              <span>
-                {income > expense && income
-                  ? "Vocês gastaram menos do que receberam neste mês."
-                  : income && expense > income
-                    ? "Os gastos registrados superam as entradas. Confiram se falta registrar alguma receita."
-                    : "Não precisa ser perfeito. Precisa fazer parte da rotina."}
-              </span>
-            </div>
-          </article>
-        </section>
-        <section id="records" className="panel records">
-          <div className="panel-title">
-            <div>
-              <h2>Lançamentos do mês</h2>
-              <span>Tudo em um lugar, sem perder os detalhes.</span>
-            </div>
-            <button
-              className="export"
-              disabled={!rows.length}
-              onClick={exportCsv}
-            >
-              <Download size={15} /> Exportar
-            </button>
-          </div>
-          <div className="filters">
-            <div className="tabs">
-              {[
-                ["all", "Todos"],
-                ["expense", "Gastos"],
-                ["income", "Entradas"],
-                ["pending", "A pagar"],
-                ["paid", "Pagos"],
-              ].map(([v, l]) => (
-                <button
-                  key={v}
-                  className={filter === v ? "selected" : ""}
-                  onClick={() => setFilter(v)}
-                >
-                  {l}
+                  <Plus size={17} /> Adicionar entrada
                 </button>
-              ))}
-            </div>
-            <input
-              aria-label="Buscar lançamento"
-              placeholder="Buscar lançamento..."
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
-            <select
-              aria-label="Pessoa"
-              value={person}
-              onChange={(e) => setPerson(e.target.value)}
-            >
-              <option>Todos</option>
-              {people.map((p) => (
-                <option key={p}>{p}</option>
-              ))}
-            </select>
-          </div>
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Descrição</th>
-                  <th>Categoria</th>
-                  <th>Responsável / Pago por</th>
-                  <th>Data / vencimento</th>
-                  <th>Situação</th>
-                  <th className="amount">Valor</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {shown.map((e) => (
-                  <tr key={e.id}>
-                    <td>
-                      <span className={`row-icon ${e.kind}`}>
-                        {e.kind === "income" ? (
-                          <ArrowDownLeft size={16} />
-                        ) : (
-                          <ArrowUpRight size={16} />
-                        )}
-                      </span>
-                      <b>{e.description}</b>
-                      {e.installment_count && (
-                        <span className="installment-badge">
-                          {e.installment_number}/{e.installment_count}
-                        </span>
-                      )}
-                      {e.id.includes(":") && (
-                        <span
-                          title="Despesa recorrente"
-                          className="recurring-mark"
-                        >
-                          <Repeat2 size={12} />
-                        </span>
-                      )}
-                    </td>
-                    <td>
-                      <span className="pill">{e.category}</span>
-                    </td>
-                    <td>
-                      <span className="entry-responsible">{e.person}</span>
-                      <small className="entry-payer">
-                        Pago por: {e.kind === "expense" && e.confirmed
-                          ? e.payer_display || e.payer || "Não informado"
-                          : "—"}
-                      </small>
-                    </td>
-                    <td>{e.date.split("-").reverse().join("/")}</td>
-                    <td>
-                      <span className={"status-pill " + paymentState(e, day)}>
-                        {
-                          {
-                            received: "Recebido",
-                            expected: "A receber",
-                            paid: "Pago",
-                            pending: "Pendente",
-                            due: "Vence hoje",
-                            overdue: "Vencido",
-                          }[paymentState(e, day)]
-                        }
-                      </span>
-                    </td>
-                    <td className={`amount ${e.kind}`}>
-                      {e.kind === "income" ? "+" : "−"} {money(e.amount)}
-                    </td>
-                    <td>
-                      <div className="entry-actions">
-                        {!e.confirmed && (
-                          <button
-                            className="confirm-payment"
-                            disabled={busy}
-                            title={e.kind === "income" ? "Confirmar recebimento" : "Confirmar pagamento"}
-                            aria-label={`${e.kind === "income" ? "Confirmar recebimento" : "Confirmar pagamento"}: ${e.description}`}
-                            onClick={() => confirmPayment(e.id)}
-                          >
-                            <Banknote size={15} aria-hidden="true" />
-                          </button>
-                        )}
-                        <button
-                          className="delete"
-                          aria-label={`Editar ${e.description}`}
-                          onClick={() => {
-                            setEditing(e);
-                            setPaymentMode(false);
-                            setError("");
-                            setModal(e.kind);
-                          }}
-                        >
-                          <Pencil size={15} />
-                        </button>
-                        <button
-                          aria-label={`Excluir ${e.description}`}
-                          className="delete"
-                          onClick={() => remove(e.id)}
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {!shown.length && (
-            <div className="empty">
-              <Wallet size={28} />
-              <h3>
-                {loading
-                  ? "Carregando..."
-                  : rows.length
-                    ? "Nenhum resultado por aqui."
-                    : "O mês está pronto para começar."}
-              </h3>
-              <p>
-                {rows.length
-                  ? "Experimente mudar os filtros."
-                  : "Adicione uma entrada ou um gasto para ver o resumo da casa."}
-              </p>
-              {!rows.length && !loading && (
                 <button
+                  className="primary"
                   onClick={() => {
+                    setError("");
                     setEditing(null);
                     setPaymentMode(false);
                     setModal("expense");
                   }}
-                  className="text-button"
                 >
-                  + Fazer primeiro lançamento
+                  <Plus size={17} /> Adicionar gasto
                 </button>
-              )}
+              </div>
             </div>
-          )}
-          <footer>
-            {shown.length} lançamento{shown.length !== 1 ? "s" : ""}
-            <span>Organizar juntos faz a diferença.</span>
-          </footer>
-        </section>
-        <div className="footnote">
-          Nossa Conta <span>•</span> Um passo de cada vez, juntos.
-        </div>
+            <section className="insights">
+              <article className="panel categories">
+                <div className="panel-title">
+                  <h2>Para onde foi o dinheiro?</h2>
+                  <span>Gastos pagos por categoria</span>
+                </div>
+                {groups.length ? (
+                  <div className="category-content">
+                    <div
+                      className="donut"
+                      style={{
+                        background: `conic-gradient(${groups
+                          .map((g, i) => {
+                            const start =
+                              (groups
+                                .slice(0, i)
+                                .reduce((a, c) => a + c.value, 0) /
+                                expense) *
+                              100;
+                            return `${g.color} ${start}% ${start + (g.value / expense) * 100}%`;
+                          })
+                          .join(",")})`,
+                      }}
+                    >
+                      <div>
+                        <small>Total de gastos</small>
+                        <b>{money(expense)}</b>
+                      </div>
+                    </div>
+                    <div className="legend">
+                      {groups.map((g) => (
+                        <div key={g.name}>
+                          <span>
+                            <i style={{ background: g.color }} />
+                            {g.name}
+                          </span>
+                          <b>
+                            {money(g.value)}{" "}
+                            <small>
+                              {Math.round((g.value / expense) * 100)}%
+                            </small>
+                          </b>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="empty-chart">
+                    <div className="donut blank">
+                      <div>
+                        <small>Total de gastos</small>
+                        <b>R$ 0,00</b>
+                      </div>
+                    </div>
+                    <p>
+                      Seu primeiro gasto vai dar
+                      <br />
+                      forma a este resumo.
+                    </p>
+                  </div>
+                )}
+              </article>
+              <article className="panel together">
+                <span className="tag">OLHAR DO MÊS</span>
+                <h2>
+                  {groups.length
+                    ? "Os números contam uma história."
+                    : "Começa com um registro."}
+                </h2>
+                <p>
+                  {groups.length
+                    ? `${groups[0].name} é a maior categoria de gastos: ${money(groups[0].value)} neste mês.`
+                    : "Anotem o que entra e o que sai, mesmo os pequenos valores. Logo fica mais fácil entender os hábitos da casa."}
+                </p>
+                {paidBy.length > 0 && (
+                  <div className="payer-summary">
+                    <h3>Quem pagou neste mês</h3>
+                    {paidBy.map(([key, { label: payer, total }]) => (
+                      <div key={key}>
+                        <span>{payer}</span>
+                        <b>{money(total)}</b>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="tip">
+                  <Leaf size={22} />
+                  <span>
+                    {income > expense && income
+                      ? "Vocês gastaram menos do que receberam neste mês."
+                      : income && expense > income
+                        ? "Os gastos registrados superam as entradas. Confiram se falta registrar alguma receita."
+                        : "Não precisa ser perfeito. Precisa fazer parte da rotina."}
+                  </span>
+                </div>
+              </article>
+            </section>
+            <section id="records" className="panel records">
+              <div className="panel-title">
+                <div>
+                  <h2>Lançamentos do mês</h2>
+                  <span>Tudo em um lugar, sem perder os detalhes.</span>
+                </div>
+                <button
+                  className="export"
+                  disabled={!rows.length}
+                  onClick={exportCsv}
+                >
+                  <Download size={15} /> Exportar
+                </button>
+              </div>
+              <div className="filters">
+                <div className="tabs">
+                  {[
+                    ["all", "Todos"],
+                    ["expense", "Gastos"],
+                    ["income", "Entradas"],
+                    ["pending", "A pagar"],
+                    ["paid", "Pagos"],
+                  ].map(([v, l]) => (
+                    <button
+                      key={v}
+                      className={filter === v ? "selected" : ""}
+                      onClick={() => setFilter(v)}
+                    >
+                      {l}
+                    </button>
+                  ))}
+                </div>
+                <input
+                  aria-label="Buscar lançamento"
+                  placeholder="Buscar lançamento..."
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                />
+                <select
+                  aria-label="Pessoa"
+                  value={person}
+                  onChange={(e) => setPerson(e.target.value)}
+                >
+                  <option>Todos</option>
+                  {people.map((p) => (
+                    <option key={p}>{p}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Descrição</th>
+                      <th>Categoria</th>
+                      <th>Responsável / Pago por</th>
+                      <th>Data / vencimento</th>
+                      <th>Situação</th>
+                      <th className="amount">Valor</th>
+                      <th />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {shown.map((e) => (
+                      <tr key={e.id}>
+                        <td>
+                          <span className={`row-icon ${e.kind}`}>
+                            {e.kind === "income" ? (
+                              <ArrowDownLeft size={16} />
+                            ) : (
+                              <ArrowUpRight size={16} />
+                            )}
+                          </span>
+                          <b>{e.description}</b>
+                          {e.installment_count && (
+                            <span className="installment-badge">
+                              {e.installment_number}/{e.installment_count}
+                            </span>
+                          )}
+                          {e.id.includes(":") && (
+                            <span
+                              title="Despesa recorrente"
+                              className="recurring-mark"
+                            >
+                              <Repeat2 size={12} />
+                            </span>
+                          )}
+                        </td>
+                        <td>
+                          <span className="pill">{e.category}</span>
+                        </td>
+                        <td>
+                          <span className="entry-responsible">{e.person}</span>
+                          <small className="entry-payer">
+                            Pago por:{" "}
+                            {e.kind === "expense" && e.confirmed
+                              ? e.payer_display || e.payer || "Não informado"
+                              : "—"}
+                          </small>
+                        </td>
+                        <td>{e.date.split("-").reverse().join("/")}</td>
+                        <td>
+                          <span
+                            className={"status-pill " + paymentState(e, day)}
+                          >
+                            {
+                              {
+                                received: "Recebido",
+                                expected: "A receber",
+                                paid: "Pago",
+                                pending: "Pendente",
+                                due: "Vence hoje",
+                                overdue: "Vencido",
+                              }[paymentState(e, day)]
+                            }
+                          </span>
+                        </td>
+                        <td className={`amount ${e.kind}`}>
+                          {e.kind === "income" ? "+" : "−"} {money(e.amount)}
+                        </td>
+                        <td>
+                          <div className="entry-actions">
+                            {!e.confirmed && (
+                              <button
+                                className="confirm-payment"
+                                disabled={busy}
+                                title={
+                                  e.kind === "income"
+                                    ? "Confirmar recebimento"
+                                    : "Confirmar pagamento"
+                                }
+                                aria-label={`${e.kind === "income" ? "Confirmar recebimento" : "Confirmar pagamento"}: ${e.description}`}
+                                onClick={() => confirmPayment(e.id)}
+                              >
+                                <Banknote size={15} aria-hidden="true" />
+                              </button>
+                            )}
+                            <button
+                              className="delete"
+                              aria-label={`Editar ${e.description}`}
+                              onClick={() => {
+                                setEditing(e);
+                                setPaymentMode(false);
+                                setError("");
+                                setModal(e.kind);
+                              }}
+                            >
+                              <Pencil size={15} />
+                            </button>
+                            <button
+                              aria-label={`Excluir ${e.description}`}
+                              className="delete"
+                              onClick={() => remove(e.id)}
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {!shown.length && (
+                <div className="empty">
+                  <Wallet size={28} />
+                  <h3>
+                    {loading
+                      ? "Carregando..."
+                      : rows.length
+                        ? "Nenhum resultado por aqui."
+                        : "O mês está pronto para começar."}
+                  </h3>
+                  <p>
+                    {rows.length
+                      ? "Experimente mudar os filtros."
+                      : "Adicione uma entrada ou um gasto para ver o resumo da casa."}
+                  </p>
+                  {!rows.length && !loading && (
+                    <button
+                      onClick={() => {
+                        setEditing(null);
+                        setPaymentMode(false);
+                        setModal("expense");
+                      }}
+                      className="text-button"
+                    >
+                      + Fazer primeiro lançamento
+                    </button>
+                  )}
+                </div>
+              )}
+              <footer>
+                {shown.length} lançamento{shown.length !== 1 ? "s" : ""}
+                <span>Organizar juntos faz a diferença.</span>
+              </footer>
+            </section>
+            <div className="footnote">
+              Nossa Conta <span>•</span> Um passo de cada vez, juntos.
+            </div>
+          </>
+        )}
       </main>
       {modal && (
         <div className="overlay" onClick={() => !busy && setModal("")}>

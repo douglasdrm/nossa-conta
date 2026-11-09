@@ -63,3 +63,28 @@ test("suggestions share one surplus after paid and unpaid expenses, reservations
     0,
   );
 });
+
+test("priority levels distribute a limited surplus by level and then nearest deadline", () => {
+  const soonLow = { ...goal, id: "low", priority: 8, deadline: "2026-11-20" };
+  const laterHigh = {
+    ...goal,
+    id: "later",
+    priority: 1,
+    deadline: "2027-04-30",
+  };
+  const soonHigh = { ...goal, id: "soon", priority: 1, deadline: "2026-12-31" };
+  const plan = savingsPlan(
+    { buffer: 0, goals: [soonLow, laterHigh, soonHigh] },
+    130000,
+    0,
+    "2026-11-09",
+  );
+  assert.deepEqual(
+    plan.goals.map((item) => item.id),
+    ["soon", "later", "low"],
+  );
+  assert.deepEqual(
+    plan.goals.map((item) => item.suggested),
+    [120000, 10000, 0],
+  );
+});

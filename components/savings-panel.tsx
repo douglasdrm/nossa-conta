@@ -6,6 +6,8 @@ import MoneyInput from "@/components/money-input";
 import { moneyInputToCents } from "@/lib/finance";
 import {
   savingsPlan,
+  savingsPriorities,
+  savingsPriority,
   type SavingsGoal,
   type SavingsOverview,
 } from "@/lib/savings";
@@ -96,7 +98,8 @@ export default function SavingsPanel({
   }
 
   useEffect(() => {
-    if (editor && dialog.current && !dialog.current.open) dialog.current.showModal();
+    if (editor && dialog.current && !dialog.current.open)
+      dialog.current.showModal();
   }, [editor]);
 
   async function send(action: object, success: string) {
@@ -176,10 +179,6 @@ export default function SavingsPanel({
   const currentBalances =
     loadedMonth === month && !balancesLoading && !loadError;
   const readyToSuggest = currentBalances && currentMonth;
-  const nextPriority = Math.min(
-    999,
-    (overview?.goals.at(-1)?.priority || 0) + 1,
-  );
 
   return (
     <section className="panel savings-panel" aria-labelledby="savings-heading">
@@ -263,7 +262,9 @@ export default function SavingsPanel({
                     <h3>{goal.name}</h3>
                     <small>
                       Até {dateLabel(goal.deadline)} · prioridade{" "}
-                      {goal.priority}
+                      {savingsPriority(goal.priority).label.toLocaleLowerCase(
+                        "pt-BR",
+                      )}
                     </small>
                   </div>
                   <button
@@ -474,18 +475,25 @@ export default function SavingsPanel({
                   </label>
                   <label>
                     Prioridade
-                    <input
+                    <select
                       name="priority"
-                      type="number"
-                      min={1}
-                      max={999}
-                      required
-                      defaultValue={editor.goal?.priority ?? nextPriority}
-                    />
+                      defaultValue={
+                        editor.goal
+                          ? savingsPriority(editor.goal.priority).value
+                          : 2
+                      }
+                    >
+                      {savingsPriorities.map(({ value, label }) => (
+                        <option key={value} value={value}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
                   </label>
                 </div>
                 <small className="field-hint">
-                  A prioridade 1 recebe a sugestão primeiro.
+                  A sobra vai primeiro para as metas de prioridade alta. No
+                  mesmo nível, o prazo mais próximo vem primeiro.
                 </small>
               </>
             )}
