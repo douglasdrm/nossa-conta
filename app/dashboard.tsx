@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useState, useRef } from "react";
 import AnnualSpending from "@/components/annual-report";
+import BudgetPlanPanel from "@/components/budget-plan-panel";
+import type { BudgetPlan } from "@/lib/budget-plan";
 import RadarPanel from "@/components/radar-panel";
 import type { RadarPattern } from "@/lib/radar";
 import UpcomingPanel from "@/components/upcoming-panel";
@@ -39,6 +41,7 @@ import {
   UserRound,
   TriangleAlert,
   CalendarRange,
+  SlidersHorizontal,
 } from "lucide-react";
 type Entry = {
   id: string;
@@ -86,7 +89,12 @@ const money = (n: number) =>
     n / 100,
   );
 const today = dateInSaoPaulo;
-export type FinanceView = "overview" | "savings" | "entries" | "annual";
+export type FinanceView =
+  | "overview"
+  | "savings"
+  | "entries"
+  | "annual"
+  | "plan";
 
 export default function Dashboard({
   name,
@@ -100,6 +108,8 @@ export default function Dashboard({
   initialMonth?: string;
 }) {
   const overview = view === "overview";
+  const [plan, setPlan] = useState<BudgetPlan | null>(null);
+  const [planError, setPlanError] = useState(false);
   const [radar, setRadar] = useState<{
     buffer: number;
     patterns: RadarPattern[];
@@ -172,26 +182,34 @@ export default function Dashboard({
         ),
       );
       if (syncs.some((r) => !r.ok)) throw Error();
-      const [r, alerts, soon, history] = await Promise.all([
+      const [r, alerts, soon, history, planResponse] = await Promise.all([
         fetch("/api/entries?month=" + encodeURIComponent(target)),
         overview ? fetch("/api/entries?due=true") : null,
         overview ? fetch("/api/entries?upcoming=true").catch(() => null) : null,
         overview && target === now.slice(0, 7)
           ? fetch("/api/reports/radar").catch(() => null)
           : null,
+        (view === "plan" && plan === null) ||
+        (overview && target === now.slice(0, 7))
+          ? fetch("/api/budget-plan").catch(() => null)
+          : null,
       ]);
       if (!r.ok || (alerts && !alerts.ok)) throw Error();
-      const [records, reminders, commitments, radarContext] = await Promise.all(
-        [
+      const [records, reminders, commitments, radarContext, budget] =
+        await Promise.all([
           r.json(),
           alerts ? alerts.json() : [],
           soon?.ok ? soon.json().catch(() => null) : null,
           history?.ok ? history.json().catch(() => null) : null,
-        ],
-      );
+          planResponse?.ok ? planResponse.json().catch(() => null) : null,
+        ]);
       if (seq === requestId.current) {
         setData(records);
         setRadar(radarContext);
+        if (view !== "plan" || plan === null) {
+          setPlan(budget);
+          setPlanError(view === "plan" && !budget);
+        }
         setDue(reminders);
         setUpcoming(commitments ?? []);
         setUpcomingError(overview && commitments === null);
@@ -765,6 +783,7 @@ export default function Dashboard({
                 overview: "Visão geral",
                 entries: "Lançamentos",
                 annual: "Relatórios",
+                plan: "Plano do mês",
               }[view]
             }
           </div>
@@ -805,6 +824,41 @@ export default function Dashboard({
             )}
             {entryActions}
             {records}
+          </>
+        ) : view === "plan" ? (
+          <>
+            <section className="heading">
+              <div>
+                <a className="text-button" href="/">
+                  Voltar para visão geral
+                </a>
+                <h1>Plano do mês</h1>
+              </div>
+              {monthPicker}
+            </section>
+            {error && (
+              <div role="alert" className="error">
+                {error}
+              </div>
+            )}
+            {plan ? (
+              <BudgetPlanPanel
+                plan={plan}
+                income={totals.totalIncome}
+                entries={rows}
+                balancesLoading={loading || Boolean(error)}
+                onSave={setPlan}
+              />
+            ) : planError ? (
+              <p role="alert">
+                Não foi possível carregar o plano.{" "}
+                <button className="text-button" onClick={() => reload()}>
+                  Tentar novamente
+                </button>
+              </p>
+            ) : !error ? (
+              <p role="status">Carregando plano…</p>
+            ) : null}
           </>
         ) : view === "savings" ? (
           <>
@@ -947,11 +1001,17 @@ export default function Dashboard({
                   entries={rows}
                   totals={totals}
                   context={radar}
+                  plan={plan}
                 />
               )}
             <a className="savings-shortcut" href="/caixinhas">
               <PiggyBank size={19} aria-hidden="true" />
               <span>Ver caixinhas</span>
+              <ArrowUpRight size={15} aria-hidden="true" />
+            </a>
+            <a className="savings-shortcut" href="/plano-do-mes">
+              <SlidersHorizontal size={19} aria-hidden="true" />
+              <span>Plano do mês</span>
               <ArrowUpRight size={15} aria-hidden="true" />
             </a>
             <DuePanel

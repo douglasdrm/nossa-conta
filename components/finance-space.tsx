@@ -26,6 +26,7 @@ export default async function FinanceSpace({
           encodeURIComponent(
             initialMonth ? `/lancamentos?mes=${initialMonth}` : "/lancamentos",
           ),
+        plan: "/login?next=/plano-do-mes",
         annual: "/login?next=/relatorio-anual",
       }[view],
     );

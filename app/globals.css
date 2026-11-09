@@ -1551,3 +1551,28 @@ aside .nav.active[href="/relatorio-anual"], .savings-shortcut[href="/relatorio-a
 .month-radar article.radar-shortfall { background: #fff0eb; color: #873729; }
 .month-radar h3 { margin: 0 0 4px; font-size: 14px; }
 .month-radar p { margin: 0; font-size: 13px; line-height: 1.55; }
+
+.budget-plan { padding: clamp(16px, 3vw, 28px); }
+.budget-plan p { line-height: 1.55; }
+.budget-plan h2 { margin: 18px 0 0; font-size: 19px; }
+.budget-fieldset { border: 0; padding: 0; margin: 18px 0; min-width: 0; }
+.budget-fieldset legend, .budget-categories summary { font-weight: 700; margin-bottom: 8px; }
+.budget-profiles, .budget-breakdown, .budget-pair { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 175px), 1fr)); }
+.budget-profiles { margin: 12px 0; }
+.budget-profiles button { display: grid; gap: 5px; border: 1px solid #dce3ee; background: #f5f7fb; color: #263f67; border-radius: 10px; padding: 12px; text-align: left; cursor: pointer; }
+.budget-profiles button[aria-pressed="true"] { border-color: #446393; background: #e6eefb; }
+.budget-profiles span, .budget-breakdown small { font-size: 12px; }
+.budget-transfer { background: #f5f7fb; padding: 14px; border-radius: 10px; }
+.budget-transfer h3 { margin: 0; font-size: 16px; }
+.budget-pair label, .budget-transfer > label { display: grid; gap: 6px; margin: 8px 0; }
+.budget-transfer input[type="range"] { width: 100%; padding: 0; accent-color: #446393; }
+.budget-breakdown { padding: 0; list-style: none; }
+.budget-breakdown li { padding: 12px; background: #f5f7fb; border-radius: 10px; --group-color: #446393; }
+.budget-breakdown li[data-group="future"] { --group-color: #286653; }
+.budget-breakdown li[data-group="leisure"] { --group-color: #a45e34; }
+.budget-breakdown li[data-group="development"] { --group-color: #7866a3; }
+.budget-breakdown li > div { display: flex; gap: 6px; justify-content: space-between; font-size: 13px; }
+.budget-breakdown progress { width: 100%; height: 9px; accent-color: var(--group-color); }
+.budget-categories label { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; padding: 6px 0; }
+.budget-categories summary { cursor: pointer; }
+.budget-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 14px; }

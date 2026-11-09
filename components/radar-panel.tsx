@@ -1,3 +1,8 @@
+import {
+  budgetAmounts,
+  budgetSpending,
+  type BudgetPlan,
+} from "@/lib/budget-plan";
 import { Radar } from "lucide-react";
 import type { monthForecast } from "@/lib/finance";
 import {
@@ -17,10 +22,12 @@ export default function RadarPanel({
   entries,
   totals,
   context,
+  plan,
 }: {
   today: string;
   entries: (RadarExpense & { kind: string; confirmed: boolean })[];
   totals: ReturnType<typeof monthForecast>;
+  plan: BudgetPlan | null;
   context: { buffer: number; patterns: RadarPattern[] } | null;
 }) {
   const { current, pending, pendingIncome, projected } = totals;
@@ -32,6 +39,11 @@ export default function RadarPanel({
     context?.patterns ?? [],
     entries.filter(({ kind }) => kind === "expense"),
   );
+
+  const essentialsOver = plan?.enabled
+    ? budgetSpending(entries, plan.categories).groups.essentials -
+      budgetAmounts(totals.totalIncome, plan.shares).essentials
+    : 0;
 
   return (
     <section className="month-radar" aria-labelledby="month-radar-title">
@@ -78,7 +90,16 @@ export default function RadarPanel({
           )}
         </p>
       </article>
-      {estimate && (
+      {essentialsOver > 0 ? (
+        <article className="radar-caution">
+          <h3>Essenciais acima do plano</h3>
+          <p>
+            As contas essenciais lançadas passaram{" "}
+            <strong>{money(essentialsOver)}</strong> do valor planejado.{" "}
+            <a href="/plano-do-mes">Ver plano do mês</a>
+          </p>
+        </article>
+      ) : estimate ? (
         <article className="radar-caution">
           <h3>{estimate.category} no restante do mês</h3>
           <p>
@@ -89,7 +110,7 @@ export default function RadarPanel({
             estimativa é de <strong>{money(estimate.extra)} a mais</strong>.
           </p>
         </article>
-      )}
+      ) : null}
     </section>
   );
 }

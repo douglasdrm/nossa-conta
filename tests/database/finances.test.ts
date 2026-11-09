@@ -329,6 +329,45 @@ test("migration, household isolation, invitations and recurring month edits", as
     },
   );
   await t.test(
+    "shares a valid budget plan only within the household",
+    async () => {
+      await as(alice);
+      const household = await rpc<string>("ensure_household");
+      const write = (
+        id: string,
+        essentials: number,
+        categories = { Mercado: "essentials" },
+      ) =>
+        db.query(
+          "insert into nc_budget_plan values ($1,true,$2,20,10,10,$3) on conflict (household_id) do update set essentials = excluded.essentials",
+          [id, essentials, categories],
+        );
+      await assert.rejects(() => write(household, 61));
+      await assert.rejects(() => write(household, 60, { Mercado: "unknown" }));
+      await write(household, 60);
+      await as(bob);
+      assert.equal(
+        (await db.query("select essentials from nc_budget_plan")).rows.length,
+        1,
+      );
+      await db.query(
+        "update nc_budget_plan set enabled=false where household_id=$1",
+        [household],
+      );
+      await as(alice);
+      assert.deepEqual(
+        (await db.query("select enabled from nc_budget_plan")).rows,
+        [{ enabled: false }],
+      );
+      await as(outsider);
+      assert.deepEqual(
+        (await db.query("select * from nc_budget_plan")).rows,
+        [],
+      );
+      await assert.rejects(() => write(household, 60));
+    },
+  );
+  await t.test(
     "all tables enable RLS and public RPCs are invoker functions",
     async () => {
       await db.exec("reset role");
@@ -337,7 +376,7 @@ test("migration, household isolation, invitations and recurring month edits", as
           "select relname,relrowsecurity from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='r' and c.relname like 'nc_%'",
         )
       ).rows;
-      assert.equal(tables.length, 10);
+      assert.equal(tables.length, 11);
       assert.ok(tables.every((t) => t.relrowsecurity));
       const unsafe = (
         await db.query(
