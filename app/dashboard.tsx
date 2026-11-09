@@ -667,7 +667,7 @@ export default function Dashboard({
           href="/relatorio-anual"
           aria-current={view === "annual" ? "page" : undefined}
         >
-          <CalendarRange size={19} /> Relatório anual
+          <CalendarRange size={19} /> Relatórios
         </a>
         <button className="nav" onClick={() => setModal("share")}>
           <Users size={19} /> Compartilhar
@@ -716,7 +716,7 @@ export default function Dashboard({
                 savings: "Caixinhas",
                 overview: "Visão geral",
                 entries: "Lançamentos",
-                annual: "Relatório anual",
+                annual: "Relatórios",
               }[view]
             }
           </div>
@@ -734,7 +734,7 @@ export default function Dashboard({
                 <a className="text-button" href="/">
                   Voltar para visão geral
                 </a>
-                <h1>Relatório anual</h1>
+                <h1>Relatórios</h1>
               </div>
             </section>
             <AnnualSpending today={day} />
@@ -810,7 +810,7 @@ export default function Dashboard({
                 </small>
                 <div className="balance-line" />
               </article>
-              <article>
+              <article className="income-card">
                 <div>
                   Entrou{" "}
                   <span className="icon income">
@@ -826,7 +826,7 @@ export default function Dashboard({
                     : "Opcional · salários e outras receitas"}
                 </small>
               </article>
-              <article>
+              <article className="expense-card">
                 <div>
                   Pago{" "}
                   <span className="icon expense">
@@ -1007,7 +1007,7 @@ export default function Dashboard({
               error={upcomingError}
             />
             <a className="savings-shortcut" href="/relatorio-anual">
-              <CalendarRange size={19} aria-hidden="true" /> Ver relatório anual
+              <CalendarRange size={19} aria-hidden="true" /> Ver relatórios
             </a>
             <div className="footnote">
               Nossa Conta <span>•</span> Um passo de cada vez, juntos.

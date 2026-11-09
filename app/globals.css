@@ -1442,3 +1442,61 @@ label select {
   .upcoming-list li { gap: 6px; }
   .report-periods > div { padding: 9px; }
 }
+
+/* Use the brand green for balance and actions, and semantic colors for the data. */
+:root {
+  --tone-income: #245889;
+  --tone-income-bg: #edf4fd;
+  --tone-expense: #963f39;
+  --tone-expense-bg: #fff1ed;
+  --tone-pending: #79521b;
+  --tone-pending-bg: #fff5df;
+  --tone-savings: #60438c;
+  --tone-savings-bg: #f4eefb;
+}
+.stats .income-card { background: var(--tone-income-bg); border-color: #d7e6f6; }
+.stats .expense-card { background: var(--tone-expense-bg); border-color: #f1d8d0; }
+.stats .pending-card { background: var(--tone-pending-bg); border-color: #eddbb7; }
+.stats .income-card strong, .stats .income-card > div:first-child,
+.stats .income-card small, .amount.income, .icon.income { color: var(--tone-income); }
+.stats .expense-card strong, .stats .expense-card > div:first-child,
+.stats .expense-card small, .amount.expense, .icon.expense { color: var(--tone-expense); }
+.stats .pending-card strong, .stats .pending-card > div:first-child,
+.stats .pending-card small { color: var(--tone-pending); }
+.icon.income, .row-icon.income { background: #dbeafa; color: var(--tone-income); }
+.icon.expense, .row-icon.expense { background: #f9ddd7; color: var(--tone-expense); }
+.status-pill.received, .status-pill.expected { color: var(--tone-income); background: var(--tone-income-bg); }
+.status-pill.paid { color: #48556a; background: #edf1f6; }
+.status-pill.pending, .status-pill.due { color: var(--tone-pending); background: var(--tone-pending-bg); }
+.status-pill.overdue { color: var(--tone-expense); background: var(--tone-expense-bg); }
+.report-periods > .tone-income { color: var(--tone-income); background: var(--tone-income-bg); }
+.report-periods > .tone-pending { color: var(--tone-pending); background: var(--tone-pending-bg); }
+.upcoming-list .tone-income > span { color: var(--tone-income); }
+.upcoming-list .tone-pending > span { color: var(--tone-pending); }
+.savings-goal { background: #faf7ff; border-color: #e8def5; }
+.savings-goal progress { accent-color: var(--tone-savings); }
+.savings-heading h2, .savings-goal h3, .savings-summary strong { color: var(--tone-savings); }
+.savings-summary > div { background: var(--tone-savings-bg); }
+.annual-report .report-periods > div { background: #f2f4fa; }
+.annual-report .report-periods > div:first-child { background: var(--tone-expense-bg); color: var(--tone-expense); }
+.report-pickers { display: flex; gap: 10px; flex-wrap: wrap; }
+.report-modes { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0 16px; }
+.report-modes button, .monthly-series button { min-height: 44px; border: 1px solid #dce2ef; border-radius: 9px; color: #354764; background: #f5f7fc; }
+.report-modes button { padding: 8px 14px; }
+.report-modes button[aria-pressed="true"] { background: #3d5483; color: #fff; border-color: #3d5483; }
+.monthly-series { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%, 118px),1fr)); gap: 8px; margin: 0 0 18px; }
+.monthly-series button { display: grid; gap: 5px; min-width: 0; padding: 8px 10px; text-align: left; }
+.monthly-series button[aria-pressed="true"] { border-color: #607db2; background: #eaf0fd; }
+.monthly-series button strong { overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.month-bar { display: block; height: 4px; border-radius: 8px; background: #dfe6f2; overflow: hidden; }
+.month-bar i { display: block; height: 100%; background: #607db2; }
+.variation { display: inline-block; border-radius: 6px; padding: 4px 7px; color: #4c5768; background: #edf1f6; }
+.variation.increased { color: var(--tone-expense); background: var(--tone-expense-bg); }
+.variation.decreased { color: var(--tone-income); background: var(--tone-income-bg); }
+body { background: #f6f7fa; color: #293745; }
+.panel { border-color: #e0e5ec; }
+.panel-title span { color: #586578; }
+.panel.together, .aside-note { background: #f1f3f9; border-color: #dfe5f0; color: #354764; }
+.panel.together p, .aside-note p { color: #55647a; }
+aside .nav.active[href="/caixinhas"], .savings-shortcut[href="/caixinhas"] { color: var(--tone-savings); background: var(--tone-savings-bg); border-color: #e8def5; }
+aside .nav.active[href="/relatorio-anual"], .savings-shortcut[href="/relatorio-anual"] { color: #354764; background: #edf1fa; border-color: #dae2f0; }

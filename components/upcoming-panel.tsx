@@ -61,11 +61,11 @@ export default function UpcomingPanel({
       ) : (
         <>
           <div className="report-periods">
-            <div>
+            <div className="tone-pending">
               <span>A pagar</span>
               <strong>{money(expenses)}</strong>
             </div>
-            <div>
+            <div className="tone-income">
               <span>A receber</span>
               <strong>{money(income)}</strong>
             </div>
@@ -73,7 +73,12 @@ export default function UpcomingPanel({
           {entries.length ? (
             <ul className="upcoming-list">
               {entries.slice(0, visibleCount).map((entry) => (
-                <li key={entry.id}>
+                <li
+                  key={entry.id}
+                  className={
+                    entry.kind === "income" ? "tone-income" : "tone-pending"
+                  }
+                >
                   <time dateTime={entry.date}>{shortDate(entry.date)}</time>
                   <strong>{entry.description}</strong>
                   <span>

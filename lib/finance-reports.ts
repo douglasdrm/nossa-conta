@@ -24,6 +24,7 @@ export type AnnualReport = {
   periods: ReturnType<typeof annualPeriods>;
   total: number;
   previousTotal: number;
+  months?: { month: string; total: number }[];
   categories: { name: string; current: number; previous: number }[];
 };
 
@@ -50,5 +51,32 @@ export function annualTotals(
       (sum, category) => sum + category.previous,
       0,
     ),
+  };
+}
+
+export function monthlyPeriods(
+  month: string,
+  today: string,
+): AnnualReport["periods"] {
+  const [year, number] = month.split("-").map(Number);
+  const previous = new Date(Date.UTC(year, number - 2, 1))
+    .toISOString()
+    .slice(0, 7);
+  const previousLastDay = new Date(Date.UTC(year, number - 1, 0)).getUTCDate();
+  const isCurrent = month === today.slice(0, 7);
+  const previousDay = isCurrent
+    ? Math.min(Number(today.slice(8, 10)), previousLastDay)
+    : previousLastDay;
+  return {
+    current: {
+      start: month + "-01",
+      end: isCurrent
+        ? today
+        : new Date(Date.UTC(year, number, 0)).toISOString().slice(0, 10),
+    },
+    previous: {
+      start: previous + "-01",
+      end: `${previous}-${String(previousDay).padStart(2, "0")}`,
+    },
   };
 }

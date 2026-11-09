@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   annualPeriods,
+  monthlyPeriods,
   annualTotals,
   upcomingEnd,
 } from "../lib/finance-reports";
@@ -40,5 +41,20 @@ test("annual totals include categories present in only one period", () => {
         { name: "Viagem", current: 0, previous: 40000 },
       ],
     },
+  );
+});
+
+test("monthly comparisons use equal days in the current month and complete closed months", () => {
+  assert.deepEqual(monthlyPeriods("2026-01", "2026-01-09"), {
+    current: { start: "2026-01-01", end: "2026-01-09" },
+    previous: { start: "2025-12-01", end: "2025-12-09" },
+  });
+  assert.equal(
+    monthlyPeriods("2026-03", "2026-03-30").previous.end,
+    "2026-02-28",
+  );
+  assert.equal(
+    monthlyPeriods("2026-04", "2026-05-05").previous.end,
+    "2026-03-31",
   );
 });
