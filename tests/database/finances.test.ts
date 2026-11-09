@@ -337,7 +337,7 @@ test("migration, household isolation, invitations and recurring month edits", as
           "select relname,relrowsecurity from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='r' and c.relname like 'nc_%'",
         )
       ).rows;
-      assert.equal(tables.length, 8);
+      assert.equal(tables.length, 10);
       assert.ok(tables.every((t) => t.relrowsecurity));
       const unsafe = (
         await db.query(
@@ -936,6 +936,104 @@ test("migration, household isolation, invitations and recurring month edits", as
         (await rpc<Record<string, string>>("payer_labels"))[alice],
         undefined,
       );
+    },
+  );
+  await t.test(
+    "shared savings plans become reserves only when confirmed",
+    async () => {
+      const goalId = "80000000-0000-4000-8000-000000000001";
+      const movementId = "80000000-0000-4000-8000-000000000002";
+      const withdrawId = "80000000-0000-4000-8000-000000000003";
+      const month = (
+        await db.query<{ month: string }>(
+          "select date_trunc('month', now() at time zone 'America/Sao_Paulo')::date::text as month",
+        )
+      ).rows[0].month;
+      type Overview = {
+        buffer: number;
+        goals: {
+          saved: number;
+          planned: number;
+          savedInMonth: number;
+          movements: { actor: string }[];
+        }[];
+      };
+      await as(alice);
+      await rpc("mutate_savings", [
+        {
+          action: "goal",
+          goalId,
+          name: "Viagem",
+          target: 240000,
+          deadline: "2030-12-31",
+          priority: 1,
+        },
+      ]);
+      await rpc("mutate_savings", [{ action: "buffer", amount: 5000 }]);
+      const deposit = {
+        action: "movement",
+        goalId,
+        movementId,
+        amount: 30000,
+        kind: "deposit",
+        status: "planned",
+      };
+      await rpc("mutate_savings", [deposit]);
+      await rpc("mutate_savings", [deposit]);
+      let overview = await rpc<Overview>("savings_overview", [month]);
+      assert.equal(overview.buffer, 5000);
+      assert.equal(overview.goals[0].saved, 0);
+      assert.equal(overview.goals[0].planned, 30000);
+      await as(bob);
+      await rpc("mutate_savings", [{ action: "confirm", goalId, movementId }]);
+      await rpc("mutate_savings", [{ action: "confirm", goalId, movementId }]);
+      overview = await rpc<Overview>("savings_overview", [month]);
+      assert.equal(overview.goals[0].saved, 30000);
+      assert.equal(overview.goals[0].savedInMonth, 30000);
+      assert.equal(overview.goals[0].planned, 0);
+      assert.equal(overview.goals[0].movements.length, 1);
+      assert.ok(overview.goals[0].movements[0].actor.startsWith("Alice"));
+      const withdrawal = {
+        action: "movement",
+        goalId,
+        movementId: withdrawId,
+        amount: 10000,
+        kind: "withdraw",
+        status: "saved",
+      };
+      await assert.rejects(
+        () => rpc("mutate_savings", [{ ...withdrawal, amount: 40000 }]),
+        /insufficient_savings/,
+      );
+      await rpc("mutate_savings", [withdrawal]);
+      overview = await rpc<Overview>("savings_overview", [month]);
+      assert.equal(overview.goals[0].saved, 20000);
+      assert.equal(overview.goals[0].savedInMonth, 20000);
+      await as(outsider);
+      assert.equal(
+        (await rpc<Overview>("savings_overview", [month])).goals.length,
+        0,
+      );
+      await assert.rejects(
+        () => rpc("mutate_savings", [deposit]),
+        /goal_not_found/,
+      );
+      await assert.rejects(
+        () =>
+          rpc("mutate_savings", [
+            {
+              action: "goal",
+              goalId,
+              name: "Outra",
+              target: 1,
+              deadline: "2030-01-01",
+              priority: 1,
+            },
+          ]),
+        /goal_not_found/,
+      );
+      await as("", "anon");
+      await assert.rejects(() => rpc("savings_overview", [month]));
     },
   );
   await db.close();

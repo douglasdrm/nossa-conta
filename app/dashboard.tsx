@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, useRef } from "react";
+import SavingsPanel from "@/components/savings-panel";
 import CategoryPicker from "@/components/category-picker";
 import SharePanel from "@/components/share-panel";
 import MoneyInput from "@/components/money-input";
@@ -548,6 +549,13 @@ export default function Dashboard({
             </p>
           ) : null}
         </section>
+        <SavingsPanel
+          month={month}
+          today={day}
+          income={income}
+          expenses={totals.totalExpense}
+          balancesLoading={loading}
+        />
         <DuePanel
           entries={due}
           today={day}
