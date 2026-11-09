@@ -978,6 +978,39 @@ test("migration, household isolation, invitations and recurring month edits", as
     },
   );
   await t.test(
+    "stores the chosen group for new custom expense categories",
+    async () => {
+      await as(alice);
+      await assert.rejects(() =>
+        rpc("add_category", ["expense", "Academia", null]),
+      );
+      await assert.rejects(() =>
+        rpc("add_category", ["income", "Bônus", "leisure"]),
+      );
+      await rpc("add_category", ["expense", "Academia", "leisure"]);
+      await rpc("add_category", ["expense", "academia", "essentials"]);
+      await as(bob);
+      assert.deepEqual(
+        (
+          await db.query(
+            "select budget_group from nc_categories where name='Academia'",
+          )
+        ).rows,
+        [{ budget_group: "leisure" }],
+      );
+      await as(outsider);
+      assert.deepEqual(
+        (
+          await db.query(
+            "select budget_group from nc_categories where name='Academia'",
+          )
+        ).rows,
+        [],
+      );
+      await as(alice);
+    },
+  );
+  await t.test(
     "shared savings plans become reserves only when confirmed",
     async () => {
       const goalId = "80000000-0000-4000-8000-000000000001";

@@ -26,10 +26,21 @@ const schema = z.object({
 export async function GET() {
   try {
     const { db } = await authenticated();
-    const { data, error } = await db
-      .from("nc_budget_plan")
-      .select("enabled,essentials,future,leisure,development,categories")
-      .maybeSingle();
+    const [{ data, error }, groups] = await Promise.all([
+      db
+        .from("nc_budget_plan")
+        .select("enabled,essentials,future,leisure,development,categories")
+        .maybeSingle(),
+      db
+        .from("nc_categories")
+        .select("name,budget_group")
+        .eq("kind", "expense")
+        .not("budget_group", "is", null),
+    ]);
+    if (groups.error) throw groups.error;
+    const categoryGroups = Object.fromEntries(
+      groups.data.map(({ name, budget_group }) => [name, budget_group]),
+    );
     if (error) throw error;
     const plan: BudgetPlan = data
       ? {
@@ -43,9 +54,12 @@ export async function GET() {
           categories: data.categories,
         }
       : defaultPlan;
-    return Response.json(plan, {
-      headers: { "Cache-Control": "private, no-store" },
-    });
+    return Response.json(
+      { ...plan, categoryGroups },
+      {
+        headers: { "Cache-Control": "private, no-store" },
+      },
+    );
   } catch (error) {
     return failure(error);
   }

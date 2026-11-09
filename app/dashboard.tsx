@@ -2,7 +2,7 @@
 import { useEffect, useState, useRef } from "react";
 import AnnualSpending from "@/components/annual-report";
 import BudgetPlanPanel from "@/components/budget-plan-panel";
-import type { BudgetPlan } from "@/lib/budget-plan";
+import { suggestedBudget, type BudgetPlan } from "@/lib/budget-plan";
 import RadarPanel from "@/components/radar-panel";
 import type { RadarPattern } from "@/lib/radar";
 import UpcomingPanel from "@/components/upcoming-panel";
@@ -242,6 +242,10 @@ export default function Dashboard({
 
   const rows = loading ? [] : data.filter((e) => e.date.startsWith(month)),
     totals = monthForecast(rows),
+    planSuggestion =
+      overview && plan && !loading && !error && month === day.slice(0, 7)
+        ? suggestedBudget(totals.totalIncome, rows, plan)
+        : null,
     income = totals.income,
     expense = totals.paid,
     pending = totals.pending,
@@ -1011,7 +1015,11 @@ export default function Dashboard({
             </a>
             <a className="savings-shortcut" href="/plano-do-mes">
               <SlidersHorizontal size={19} aria-hidden="true" />
-              <span>Plano do mês</span>
+              <span>
+                {planSuggestion
+                  ? `Plano sugerido · ${planSuggestion.profile.name}`
+                  : "Plano do mês"}
+              </span>
               <ArrowUpRight size={15} aria-hidden="true" />
             </a>
             <DuePanel

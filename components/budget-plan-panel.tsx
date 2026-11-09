@@ -9,6 +9,7 @@ import {
   budgetProfiles,
   budgetSpending,
   transferShare,
+  suggestedBudget,
   type BudgetGroup,
   type BudgetPlan,
 } from "@/lib/budget-plan";
@@ -44,7 +45,11 @@ export default function BudgetPlanPanel({
     budgetKeys.every((key) => shares[key] === draft.shares[key]),
   );
   const amounts = budgetAmounts(income, draft.shares);
-  const spending = budgetSpending(entries, draft.categories);
+  const classification = { ...plan.categoryGroups, ...draft.categories };
+  const spending = budgetSpending(entries, classification);
+  const suggestion = balancesLoading
+    ? null
+    : suggestedBudget(income, entries, plan);
   const categories = [
     ...new Set(
       entries
@@ -64,7 +69,10 @@ export default function BudgetPlanPanel({
         body: JSON.stringify(next),
       });
       if (!response.ok) throw Error();
-      const saved: BudgetPlan = await response.json();
+      const saved: BudgetPlan = {
+        ...(await response.json()),
+        categoryGroups: plan.categoryGroups,
+      };
       setDraft(saved);
       setEditing(false);
       onSave(saved);
@@ -91,16 +99,52 @@ export default function BudgetPlanPanel({
         </p>
       )}
       {!plan.enabled && !editing ? (
-        <button
-          type="button"
-          className="primary"
-          onClick={() => {
-            setEditing(true);
-            setStatus("");
-          }}
-        >
-          Configurar plano
-        </button>
+        <>
+          {suggestion && (
+            <div className="budget-transfer">
+              <h3>Sugestão para este mês · {suggestion.profile.name}</h3>
+              <p>
+                Os essenciais já lançados representam{" "}
+                <strong>{suggestion.essentialsPercent}%</strong> das receitas
+                registradas, incluindo as previstas. O perfil sugere{" "}
+                {suggestion.profile.shares.essentials}% para esse grupo.
+                {suggestion.essentialsOver > 0 && (
+                  <>
+                    {" "}
+                    Os essenciais estão {money(suggestion.essentialsOver)} acima
+                    dessa referência.
+                  </>
+                )}
+              </p>
+              <p>
+                {suggestion.available >= 0
+                  ? `Depois dos gastos lançados, a sobra prevista é de ${money(suggestion.available)}.`
+                  : `Os gastos lançados superam as receitas em ${money(-suggestion.available)}.`}
+              </p>
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => {
+                  setDraft({ ...plan, shares: suggestion.profile.shares });
+                  setEditing(true);
+                  setStatus("");
+                }}
+              >
+                Experimentar este perfil
+              </button>
+            </div>
+          )}
+          <button
+            type="button"
+            className="primary"
+            onClick={() => {
+              setEditing(true);
+              setStatus("");
+            }}
+          >
+            {suggestion ? "Escolher outro perfil" : "Configurar plano"}
+          </button>
+        </>
       ) : (
         <>
           {editing && (
@@ -247,7 +291,7 @@ export default function BudgetPlanPanel({
                 <label key={category}>
                   {category}
                   <select
-                    value={budgetGroup(category, draft.categories) ?? ""}
+                    value={budgetGroup(category, classification) ?? ""}
                     disabled={busy}
                     onChange={(event) =>
                       setDraft({
@@ -259,7 +303,7 @@ export default function BudgetPlanPanel({
                       })
                     }
                   >
-                    {!budgetGroup(category, draft.categories) && (
+                    {!budgetGroup(category, classification) && (
                       <option value="" disabled>
                         Sem grupo
                       </option>

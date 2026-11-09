@@ -41,7 +41,8 @@ export default function RadarPanel({
   );
 
   const essentialsOver = plan?.enabled
-    ? budgetSpending(entries, plan.categories).groups.essentials -
+    ? budgetSpending(entries, { ...plan.categoryGroups, ...plan.categories })
+        .groups.essentials -
       budgetAmounts(totals.totalIncome, plan.shares).essentials
     : 0;
 

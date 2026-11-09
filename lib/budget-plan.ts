@@ -33,6 +33,7 @@ export type BudgetPlan = {
   enabled: boolean;
   shares: BudgetShares;
   categories: Record<string, BudgetGroup>;
+  categoryGroups?: Record<string, BudgetGroup>;
 };
 
 export const defaultPlan: BudgetPlan = {
@@ -43,11 +44,14 @@ export const defaultPlan: BudgetPlan = {
 
 const defaults = new Map<string, BudgetGroup>([
   ["Mercado", "essentials"],
+  ["Alimentação", "essentials"],
   ["Moradia", "essentials"],
   ["Transporte", "essentials"],
   ["Saúde", "essentials"],
   ["Contas e serviços", "essentials"],
   ["Lazer", "leisure"],
+  ["Compras", "leisure"],
+  ["Outros", "leisure"],
   ["Educação", "development"],
 ]);
 
@@ -113,4 +117,50 @@ export function budgetSpending(
     else unassigned += entry.amount;
   }
   return { groups, unassigned };
+}
+
+export function suggestedBudget(
+  income: number,
+  entries: Parameters<typeof budgetSpending>[0],
+  plan: BudgetPlan,
+) {
+  if (plan.enabled || income <= 0) return null;
+  const { groups, unassigned } = budgetSpending(entries, {
+    ...plan.categoryGroups,
+    ...plan.categories,
+  });
+  const expenses = budgetKeys.reduce(
+    (sum, key) => sum + groups[key],
+    unassigned,
+  );
+  if (expenses === 0 || unassigned > expenses / 5) return null;
+
+  const available = income - expenses;
+  const observed = {
+    ...groups,
+    future: groups.future + Math.max(0, available),
+  };
+  const score = ({ shares }: (typeof budgetProfiles)[number]) => {
+    const target = budgetAmounts(income, shares);
+    return budgetKeys.reduce((sum, key) => {
+      const difference = observed[key] - target[key];
+      return (
+        sum +
+        Math.abs(difference) +
+        (key === "essentials" ? Math.max(0, difference) * 2 : 0)
+      );
+    }, 0);
+  };
+  const profile = budgetProfiles.reduce((best, candidate) =>
+    score(candidate) < score(best) ? candidate : best,
+  );
+  return {
+    profile,
+    essentialsPercent: Math.round((groups.essentials * 100) / income),
+    essentialsOver: Math.max(
+      0,
+      groups.essentials - budgetAmounts(income, profile.shares).essentials,
+    ),
+    available,
+  };
 }

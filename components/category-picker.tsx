@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { budgetGroups, budgetKeys, type BudgetGroup } from "@/lib/budget-plan";
 import { Plus } from "lucide-react";
 export default function CategoryPicker({
   kind,
@@ -12,6 +13,7 @@ export default function CategoryPicker({
   initial?: string;
   onPendingChange: (pending: boolean) => void;
 }) {
+  const [group, setGroup] = useState<BudgetGroup | "">("");
   const [custom, setCustom] = useState<string[]>([]);
   const [selected, setSelected] = useState(initial || defaults[0]);
   const [adding, setAdding] = useState(false),
@@ -61,13 +63,21 @@ export default function CategoryPicker({
       setError("");
       return;
     }
+    if (kind === "expense" && !group) {
+      setError("Escolha o grupo financeiro da despesa.");
+      return;
+    }
     setBusy(true);
     setError("");
     try {
       const r = await fetch("/api/categories", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kind, name: clean }),
+        body: JSON.stringify({
+          kind,
+          name: clean,
+          group: kind === "expense" ? group : null,
+        }),
       });
       const data = await r.json();
       if (!r.ok)
@@ -103,6 +113,7 @@ export default function CategoryPicker({
           type="button"
           className="text-button"
           onClick={() => {
+            setGroup("");
             setAdding(true);
             setError("");
           }}
@@ -128,6 +139,25 @@ export default function CategoryPicker({
               disabled={busy}
             />
           </label>
+          {kind === "expense" && (
+            <label>
+              Grupo financeiro
+              <select
+                value={group}
+                disabled={busy}
+                onChange={(event) =>
+                  setGroup(event.target.value as BudgetGroup | "")
+                }
+              >
+                <option value="">Escolha um grupo</option>
+                {budgetKeys.map((key) => (
+                  <option key={key} value={key}>
+                    {budgetGroups[key]}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <div>
             <button
               type="button"
