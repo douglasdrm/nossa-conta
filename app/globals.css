@@ -1368,3 +1368,31 @@ label select {
 .savings-history li { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; padding: 8px 0; border-top: 1px solid #e1e8d6; }
 .savings-dialog { position: fixed; inset: 0; margin: auto; border: 0; max-width: calc(100vw - 28px); }
 .savings-dialog::backdrop { background: #1d302777; }
+
+.entry-responsible,
+.entry-payer {
+  display: block;
+}
+.entry-payer {
+  margin-top: 5px;
+  font-size: 10px;
+  color: #7e8c75;
+}
+.entry-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.confirm-payment {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px;
+  background: none;
+  color: #397254;
+}
+.confirm-payment:focus-visible {
+  outline: 2px solid #70a98c;
+  outline-offset: 2px;
+  border-radius: 4px;
+}

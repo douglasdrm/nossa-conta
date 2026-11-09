@@ -15,6 +15,7 @@ import {
 } from "@/lib/finance";
 import {
   Wallet,
+  Banknote,
   LayoutDashboard,
   ArrowDownLeft,
   ArrowUpRight,
@@ -740,8 +741,7 @@ export default function Dashboard({
                 <tr>
                   <th>Descrição</th>
                   <th>Categoria</th>
-                  <th>Responsável</th>
-                  <th>Pago por</th>
+                  <th>Responsável / Pago por</th>
                   <th>Data / vencimento</th>
                   <th>Situação</th>
                   <th className="amount">Valor</th>
@@ -777,11 +777,13 @@ export default function Dashboard({
                     <td>
                       <span className="pill">{e.category}</span>
                     </td>
-                    <td>{e.person}</td>
                     <td>
-                      {e.kind === "expense" && e.confirmed
-                        ? e.payer_display || e.payer || "Não informado"
-                        : "—"}
+                      <span className="entry-responsible">{e.person}</span>
+                      <small className="entry-payer">
+                        Pago por: {e.kind === "expense" && e.confirmed
+                          ? e.payer_display || e.payer || "Não informado"
+                          : "—"}
+                      </small>
                     </td>
                     <td>{e.date.split("-").reverse().join("/")}</td>
                     <td>
@@ -797,41 +799,43 @@ export default function Dashboard({
                           }[paymentState(e, day)]
                         }
                       </span>
-                      {!e.confirmed && (
-                        <button
-                          className="confirm-inline"
-                          disabled={busy}
-                          onClick={() => confirmPayment(e.id)}
-                        >
-                          {e.kind === "income"
-                            ? "Confirmar recebimento"
-                            : "Confirmar pagamento"}
-                        </button>
-                      )}
                     </td>
                     <td className={`amount ${e.kind}`}>
                       {e.kind === "income" ? "+" : "−"} {money(e.amount)}
                     </td>
                     <td>
-                      <button
-                        className="delete"
-                        aria-label={`Editar ${e.description}`}
-                        onClick={() => {
-                          setEditing(e);
-                          setPaymentMode(false);
-                          setError("");
-                          setModal(e.kind);
-                        }}
-                      >
-                        <Pencil size={15} />
-                      </button>
-                      <button
-                        aria-label={`Excluir ${e.description}`}
-                        className="delete"
-                        onClick={() => remove(e.id)}
-                      >
-                        <Trash2 size={15} />
-                      </button>
+                      <div className="entry-actions">
+                        {!e.confirmed && (
+                          <button
+                            className="confirm-payment"
+                            disabled={busy}
+                            title={e.kind === "income" ? "Confirmar recebimento" : "Confirmar pagamento"}
+                            aria-label={`${e.kind === "income" ? "Confirmar recebimento" : "Confirmar pagamento"}: ${e.description}`}
+                            onClick={() => confirmPayment(e.id)}
+                          >
+                            <Banknote size={15} aria-hidden="true" />
+                          </button>
+                        )}
+                        <button
+                          className="delete"
+                          aria-label={`Editar ${e.description}`}
+                          onClick={() => {
+                            setEditing(e);
+                            setPaymentMode(false);
+                            setError("");
+                            setModal(e.kind);
+                          }}
+                        >
+                          <Pencil size={15} />
+                        </button>
+                        <button
+                          aria-label={`Excluir ${e.description}`}
+                          className="delete"
+                          onClick={() => remove(e.id)}
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
