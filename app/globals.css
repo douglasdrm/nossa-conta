@@ -241,6 +241,8 @@ h1 {
 }
 .stats strong {
   display: block;
+  line-height: 36px;
+  white-space: nowrap;
   font-family: Manrope;
   font-size: 31px;
   letter-spacing: -1px;
@@ -1239,7 +1241,7 @@ label select {
     padding: 16px;
   }
   .stats strong {
-    font-size: 23px;
+    font-size: clamp(16px, 5vw, 23px);
   }
   .stats small {
     font-size: 9px;
@@ -1318,7 +1320,7 @@ label select {
 }
 @media (max-width: 800px) {
   .stats strong.no-income {
-    font-size: 18px;
+    font-size: clamp(13px, 4vw, 18px);
   }
 }
 
