@@ -1,5 +1,8 @@
 "use client";
 import { useEffect, useState, useRef } from "react";
+import AnnualSpending from "@/components/annual-report";
+import UpcomingPanel from "@/components/upcoming-panel";
+import { upcomingEnd } from "@/lib/finance-reports";
 import SavingsPanel from "@/components/savings-panel";
 import CategoryPicker from "@/components/category-picker";
 import SharePanel from "@/components/share-panel";
@@ -80,20 +83,27 @@ const money = (n: number) =>
     n / 100,
   );
 const today = dateInSaoPaulo;
+export type FinanceView = "overview" | "savings" | "entries" | "annual";
+
 export default function Dashboard({
   name,
   photo,
-  savingsView = false,
+  view = "overview",
+  initialMonth,
 }: {
   name: string;
   photo?: string;
-  savingsView?: boolean;
+  view?: FinanceView;
+  initialMonth?: string;
 }) {
+  const overview = view === "overview";
+  const [upcoming, setUpcoming] = useState<Entry[]>([]);
+  const [upcomingError, setUpcomingError] = useState(false);
   const [editing, setEditing] = useState<Entry | null>(null);
   const [paymentMode, setPaymentMode] = useState(false),
     [paymentStatus, setPaymentStatus] = useState("pending");
   const [data, setData] = useState<Entry[]>([]),
-    [month, setMonth] = useState(today().slice(0, 7)),
+    [month, setMonth] = useState(initialMonth ?? today().slice(0, 7)),
     [modal, setModal] = useState(""),
     [error, setError] = useState(""),
     [loading, setLoading] = useState(true),
@@ -135,13 +145,15 @@ export default function Dashboard({
     return () => clearInterval(timer);
   }, []);
   async function reload(target = month) {
+    if (view === "annual") return;
     const seq = ++requestId.current;
     setLoading(true);
     setError("");
     try {
-      const months = savingsView
-        ? [target]
-        : [...new Set([target, today().slice(0, 7)])];
+      const now = today();
+      const months = overview
+        ? [...new Set([target, now.slice(0, 7), upcomingEnd(now).slice(0, 7)])]
+        : [target];
       const syncs = await Promise.all(
         months.map((m) =>
           fetch("/api/entries", {
@@ -152,24 +164,30 @@ export default function Dashboard({
         ),
       );
       if (syncs.some((r) => !r.ok)) throw Error();
-      const [r, alerts] = await Promise.all([
+      const [r, alerts, soon] = await Promise.all([
         fetch("/api/entries?month=" + encodeURIComponent(target)),
-        savingsView ? null : fetch("/api/entries?due=true"),
+        overview ? fetch("/api/entries?due=true") : null,
+        overview ? fetch("/api/entries?upcoming=true").catch(() => null) : null,
       ]);
       if (!r.ok || (alerts && !alerts.ok)) throw Error();
-      const [records, reminders] = await Promise.all([
+      const [records, reminders, commitments] = await Promise.all([
         r.json(),
         alerts ? alerts.json() : [],
+        soon?.ok ? soon.json().catch(() => null) : null,
       ]);
       if (seq === requestId.current) {
         setData(records);
         setDue(reminders);
+        setUpcoming(commitments ?? []);
+        setUpcomingError(overview && commitments === null);
       }
     } catch {
-      if (seq === requestId.current)
+      if (seq === requestId.current) {
+        setUpcomingError(overview);
         setError(
           "Não foi possível carregar os registros. Tente atualizar a página.",
         );
+      }
     } finally {
       if (seq === requestId.current) setLoading(false);
     }
@@ -391,6 +409,228 @@ export default function Dashboard({
       </button>
     </div>
   );
+  const entryActions = (
+    <div className="actionbar">
+      <span>
+        Uma compra, um Pix, um salário. <b>Registre aqui.</b>
+      </span>
+      <div>
+        <button
+          className="secondary"
+          onClick={() => {
+            setError("");
+            setEditing(null);
+            setPaymentMode(false);
+            setModal("income");
+          }}
+        >
+          <Plus size={17} /> Adicionar entrada
+        </button>
+        <button
+          className="primary"
+          onClick={() => {
+            setError("");
+            setEditing(null);
+            setPaymentMode(false);
+            setModal("expense");
+          }}
+        >
+          <Plus size={17} /> Adicionar gasto
+        </button>
+      </div>
+    </div>
+  );
+  const records = (
+    <section id="records" className="panel records">
+      <div className="panel-title">
+        <div>
+          <h2>Lançamentos do mês</h2>
+          <span>Tudo em um lugar, sem perder os detalhes.</span>
+        </div>
+        <button className="export" disabled={!rows.length} onClick={exportCsv}>
+          <Download size={15} /> Exportar
+        </button>
+      </div>
+      <div className="filters">
+        <div className="tabs">
+          {[
+            ["all", "Todos"],
+            ["expense", "Gastos"],
+            ["income", "Entradas"],
+            ["pending", "A pagar"],
+            ["paid", "Pagos"],
+          ].map(([v, l]) => (
+            <button
+              key={v}
+              className={filter === v ? "selected" : ""}
+              onClick={() => setFilter(v)}
+            >
+              {l}
+            </button>
+          ))}
+        </div>
+        <input
+          aria-label="Buscar lançamento"
+          placeholder="Buscar lançamento..."
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        <select
+          aria-label="Pessoa"
+          value={person}
+          onChange={(e) => setPerson(e.target.value)}
+        >
+          <option>Todos</option>
+          {people.map((p) => (
+            <option key={p}>{p}</option>
+          ))}
+        </select>
+      </div>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Descrição</th>
+              <th>Categoria</th>
+              <th>
+                Responsável
+                <br />
+                Pago por
+              </th>
+              <th>Data / vencimento</th>
+              <th>Situação</th>
+              <th className="amount">Valor</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {shown.map((e) => (
+              <tr key={e.id}>
+                <td>
+                  <span className={`row-icon ${e.kind}`}>
+                    {e.kind === "income" ? (
+                      <ArrowDownLeft size={16} />
+                    ) : (
+                      <ArrowUpRight size={16} />
+                    )}
+                  </span>
+                  <b>{e.description}</b>
+                  {e.installment_count && (
+                    <span className="installment-badge">
+                      {e.installment_number}/{e.installment_count}
+                    </span>
+                  )}
+                  {e.id.includes(":") && (
+                    <span title="Despesa recorrente" className="recurring-mark">
+                      <Repeat2 size={12} />
+                    </span>
+                  )}
+                </td>
+                <td>
+                  <span className="pill">{e.category}</span>
+                </td>
+                <td>
+                  <span className="entry-responsible">{e.person}</span>
+                  <small className="entry-payer">
+                    {e.kind === "expense" && e.confirmed
+                      ? e.payer_display || e.payer || "Não informado"
+                      : "—"}
+                  </small>
+                </td>
+                <td>{e.date.split("-").reverse().join("/")}</td>
+                <td>
+                  <span className={"status-pill " + paymentState(e, day)}>
+                    {
+                      {
+                        received: "Recebido",
+                        expected: "A receber",
+                        paid: "Pago",
+                        pending: "Pendente",
+                        due: "Vence hoje",
+                        overdue: "Vencido",
+                      }[paymentState(e, day)]
+                    }
+                  </span>
+                </td>
+                <td className={`amount ${e.kind}`}>
+                  {e.kind === "income" ? "+" : "−"} {money(e.amount)}
+                </td>
+                <td>
+                  <div className="entry-actions">
+                    <button
+                      className="confirm-payment"
+                      disabled={busy || e.confirmed}
+                      title={
+                        e.kind === "income"
+                          ? "Confirmar recebimento"
+                          : "Confirmar pagamento"
+                      }
+                      aria-label={`${e.kind === "income" ? "Confirmar recebimento" : "Confirmar pagamento"}: ${e.description}`}
+                      onClick={() => confirmPayment(e.id)}
+                    >
+                      <Banknote size={15} aria-hidden="true" />
+                    </button>
+                    <button
+                      className="delete"
+                      aria-label={`Editar ${e.description}`}
+                      onClick={() => {
+                        setEditing(e);
+                        setPaymentMode(false);
+                        setError("");
+                        setModal(e.kind);
+                      }}
+                    >
+                      <Pencil size={15} />
+                    </button>
+                    <button
+                      aria-label={`Excluir ${e.description}`}
+                      className="delete"
+                      onClick={() => remove(e.id)}
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {!shown.length && (
+        <div className="empty">
+          <Wallet size={28} />
+          <h3>
+            {loading
+              ? "Carregando..."
+              : rows.length
+                ? "Nenhum resultado por aqui."
+                : "O mês está pronto para começar."}
+          </h3>
+          <p>
+            {rows.length
+              ? "Experimente mudar os filtros."
+              : "Adicione uma entrada ou um gasto para ver o resumo da casa."}
+          </p>
+          {!rows.length && !loading && (
+            <button
+              onClick={() => {
+                setEditing(null);
+                setPaymentMode(false);
+                setModal("expense");
+              }}
+              className="text-button"
+            >
+              + Fazer primeiro lançamento
+            </button>
+          )}
+        </div>
+      )}
+      <footer>
+        {shown.length} lançamento{shown.length !== 1 ? "s" : ""}
+        <span>Organizar juntos faz a diferença.</span>
+      </footer>
+    </section>
+  );
   return (
     <div className="shell">
       <aside>
@@ -402,21 +642,32 @@ export default function Dashboard({
         </a>
         <div className="home-label">ESPAÇO DA FAMÍLIA</div>
         <a
-          className={savingsView ? "nav" : "nav active"}
+          className={overview ? "nav active" : "nav"}
           href="/"
-          aria-current={savingsView ? undefined : "page"}
+          aria-current={overview ? "page" : undefined}
         >
           <LayoutDashboard size={19} /> Visão geral
         </a>
-        <a className="nav" href="/#records">
+        <a
+          className={view === "entries" ? "nav active" : "nav"}
+          href={`/lancamentos?mes=${month}`}
+          aria-current={view === "entries" ? "page" : undefined}
+        >
           <ArrowUpRight size={19} /> Lançamentos
         </a>
         <a
-          className={savingsView ? "nav active" : "nav"}
+          className={view === "savings" ? "nav active" : "nav"}
           href="/caixinhas"
-          aria-current={savingsView ? "page" : undefined}
+          aria-current={view === "savings" ? "page" : undefined}
         >
           <PiggyBank size={19} /> Caixinhas
+        </a>
+        <a
+          className={view === "annual" ? "nav active" : "nav"}
+          href="/relatorio-anual"
+          aria-current={view === "annual" ? "page" : undefined}
+        >
+          <CalendarRange size={19} /> Relatório anual
         </a>
         <button className="nav" onClick={() => setModal("share")}>
           <Users size={19} /> Compartilhar
@@ -460,7 +711,14 @@ export default function Dashboard({
         <header>
           <div className="breadcrumb">
             Nosso espaço <span>/</span>{" "}
-            {savingsView ? "Caixinhas" : "Visão geral"}
+            {
+              {
+                savings: "Caixinhas",
+                overview: "Visão geral",
+                entries: "Lançamentos",
+                annual: "Relatório anual",
+              }[view]
+            }
           </div>
           <a className="profile-header-link" href="/profile">
             <UserRound size={16} /> Meu perfil
@@ -469,7 +727,38 @@ export default function Dashboard({
             <Users size={16} /> Espaço compartilhado
           </button>
         </header>
-        {savingsView ? (
+        {view === "annual" ? (
+          <>
+            <section className="heading">
+              <div>
+                <a className="text-button" href="/">
+                  Voltar para visão geral
+                </a>
+                <h1>Relatório anual</h1>
+              </div>
+            </section>
+            <AnnualSpending today={day} />
+          </>
+        ) : view === "entries" ? (
+          <>
+            <section className="heading">
+              <div>
+                <a className="text-button" href="/">
+                  Voltar para visão geral
+                </a>
+                <h1>Lançamentos</h1>
+              </div>
+              {monthPicker}
+            </section>
+            {error && (
+              <div role="alert" className="error">
+                {error}
+              </div>
+            )}
+            {entryActions}
+            {records}
+          </>
+        ) : view === "savings" ? (
           <>
             <section className="heading">
               <div>
@@ -613,35 +902,7 @@ export default function Dashboard({
               onEdit={editDue}
               busyId={busy ? editing?.id || null : null}
             />
-            <div className="actionbar">
-              <span>
-                Uma compra, um Pix, um salário. <b>Registre aqui.</b>
-              </span>
-              <div>
-                <button
-                  className="secondary"
-                  onClick={() => {
-                    setError("");
-                    setEditing(null);
-                    setPaymentMode(false);
-                    setModal("income");
-                  }}
-                >
-                  <Plus size={17} /> Adicionar entrada
-                </button>
-                <button
-                  className="primary"
-                  onClick={() => {
-                    setError("");
-                    setEditing(null);
-                    setPaymentMode(false);
-                    setModal("expense");
-                  }}
-                >
-                  <Plus size={17} /> Adicionar gasto
-                </button>
-              </div>
-            </div>
+            {entryActions}
             <section className="insights">
               <article className="panel categories">
                 <div className="panel-title">
@@ -739,202 +1000,15 @@ export default function Dashboard({
                 </div>
               </article>
             </section>
-            <section id="records" className="panel records">
-              <div className="panel-title">
-                <div>
-                  <h2>Lançamentos do mês</h2>
-                  <span>Tudo em um lugar, sem perder os detalhes.</span>
-                </div>
-                <button
-                  className="export"
-                  disabled={!rows.length}
-                  onClick={exportCsv}
-                >
-                  <Download size={15} /> Exportar
-                </button>
-              </div>
-              <div className="filters">
-                <div className="tabs">
-                  {[
-                    ["all", "Todos"],
-                    ["expense", "Gastos"],
-                    ["income", "Entradas"],
-                    ["pending", "A pagar"],
-                    ["paid", "Pagos"],
-                  ].map(([v, l]) => (
-                    <button
-                      key={v}
-                      className={filter === v ? "selected" : ""}
-                      onClick={() => setFilter(v)}
-                    >
-                      {l}
-                    </button>
-                  ))}
-                </div>
-                <input
-                  aria-label="Buscar lançamento"
-                  placeholder="Buscar lançamento..."
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                />
-                <select
-                  aria-label="Pessoa"
-                  value={person}
-                  onChange={(e) => setPerson(e.target.value)}
-                >
-                  <option>Todos</option>
-                  {people.map((p) => (
-                    <option key={p}>{p}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Descrição</th>
-                      <th>Categoria</th>
-                      <th>
-                        Responsável<br />Pago por
-                      </th>
-                      <th>Data / vencimento</th>
-                      <th>Situação</th>
-                      <th className="amount">Valor</th>
-                      <th />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {shown.map((e) => (
-                      <tr key={e.id}>
-                        <td>
-                          <span className={`row-icon ${e.kind}`}>
-                            {e.kind === "income" ? (
-                              <ArrowDownLeft size={16} />
-                            ) : (
-                              <ArrowUpRight size={16} />
-                            )}
-                          </span>
-                          <b>{e.description}</b>
-                          {e.installment_count && (
-                            <span className="installment-badge">
-                              {e.installment_number}/{e.installment_count}
-                            </span>
-                          )}
-                          {e.id.includes(":") && (
-                            <span
-                              title="Despesa recorrente"
-                              className="recurring-mark"
-                            >
-                              <Repeat2 size={12} />
-                            </span>
-                          )}
-                        </td>
-                        <td>
-                          <span className="pill">{e.category}</span>
-                        </td>
-                        <td>
-                          <span className="entry-responsible">{e.person}</span>
-                          <small className="entry-payer">
-                            {e.kind === "expense" && e.confirmed
-                              ? e.payer_display || e.payer || "Não informado"
-                              : "—"}
-                          </small>
-                        </td>
-                        <td>{e.date.split("-").reverse().join("/")}</td>
-                        <td>
-                          <span
-                            className={"status-pill " + paymentState(e, day)}
-                          >
-                            {
-                              {
-                                received: "Recebido",
-                                expected: "A receber",
-                                paid: "Pago",
-                                pending: "Pendente",
-                                due: "Vence hoje",
-                                overdue: "Vencido",
-                              }[paymentState(e, day)]
-                            }
-                          </span>
-                        </td>
-                        <td className={`amount ${e.kind}`}>
-                          {e.kind === "income" ? "+" : "−"} {money(e.amount)}
-                        </td>
-                        <td>
-                          <div className="entry-actions">
-                            <button
-                              className="confirm-payment"
-                              disabled={busy || e.confirmed}
-                              title={
-                                e.kind === "income"
-                                  ? "Confirmar recebimento"
-                                  : "Confirmar pagamento"
-                              }
-                              aria-label={`${e.kind === "income" ? "Confirmar recebimento" : "Confirmar pagamento"}: ${e.description}`}
-                              onClick={() => confirmPayment(e.id)}
-                            >
-                              <Banknote size={15} aria-hidden="true" />
-                            </button>
-                            <button
-                              className="delete"
-                              aria-label={`Editar ${e.description}`}
-                              onClick={() => {
-                                setEditing(e);
-                                setPaymentMode(false);
-                                setError("");
-                                setModal(e.kind);
-                              }}
-                            >
-                              <Pencil size={15} />
-                            </button>
-                            <button
-                              aria-label={`Excluir ${e.description}`}
-                              className="delete"
-                              onClick={() => remove(e.id)}
-                            >
-                              <Trash2 size={15} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              {!shown.length && (
-                <div className="empty">
-                  <Wallet size={28} />
-                  <h3>
-                    {loading
-                      ? "Carregando..."
-                      : rows.length
-                        ? "Nenhum resultado por aqui."
-                        : "O mês está pronto para começar."}
-                  </h3>
-                  <p>
-                    {rows.length
-                      ? "Experimente mudar os filtros."
-                      : "Adicione uma entrada ou um gasto para ver o resumo da casa."}
-                  </p>
-                  {!rows.length && !loading && (
-                    <button
-                      onClick={() => {
-                        setEditing(null);
-                        setPaymentMode(false);
-                        setModal("expense");
-                      }}
-                      className="text-button"
-                    >
-                      + Fazer primeiro lançamento
-                    </button>
-                  )}
-                </div>
-              )}
-              <footer>
-                {shown.length} lançamento{shown.length !== 1 ? "s" : ""}
-                <span>Organizar juntos faz a diferença.</span>
-              </footer>
-            </section>
+            <UpcomingPanel
+              entries={upcoming}
+              today={day}
+              loading={loading}
+              error={upcomingError}
+            />
+            <a className="savings-shortcut" href="/relatorio-anual">
+              <CalendarRange size={19} aria-hidden="true" /> Ver relatório anual
+            </a>
             <div className="footnote">
               Nossa Conta <span>•</span> Um passo de cada vez, juntos.
             </div>

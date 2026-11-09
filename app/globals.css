@@ -1417,3 +1417,27 @@ label select {
   color: #aab2a2;
   cursor: default;
 }
+
+.upcoming-panel, .annual-report { margin-bottom: 20px; }
+.upcoming-panel h2 { display: flex; align-items: center; gap: 8px; }
+.upcoming-panel .panel-title a { white-space: nowrap; }
+.report-periods { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 14px 0; }
+.report-periods > div { display: grid; gap: 5px; align-content: start; padding: 14px; background: #edf1e3; border-radius: 10px; }
+.report-periods strong { font-size: clamp(16px, 3vw, 24px); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.report-periods small, .annual-heading p { color: #526653; }
+.upcoming-list { list-style: none; margin: 0; padding: 0; }
+.upcoming-list li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: baseline; padding: 11px 0; border-bottom: 1px solid #e1e8d6; }
+.upcoming-list time { color: #526653; }
+.upcoming-list strong { overflow-wrap: anywhere; }
+.upcoming-list li > span { text-align: right; font-variant-numeric: tabular-nums; }
+.upcoming-list small { display: block; }
+.annual-heading { display: flex; align-items: start; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.annual-heading h2, .annual-heading p, .annual-heading label { margin-top: 0; }
+.annual-heading label { min-width: 110px; }
+.annual-table th[scope="row"] { text-align: left; }
+.annual-table td, .annual-table th { white-space: normal; }
+.annual-table .amount { white-space: nowrap; }
+@media (max-width: 420px) {
+  .upcoming-list li { gap: 6px; }
+  .report-periods > div { padding: 9px; }
+}

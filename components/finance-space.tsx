@@ -3,11 +3,13 @@ import { createClient } from "@/lib/supabase/server";
 import { isConfigured } from "@/lib/supabase/config";
 import Setup from "@/components/setup";
 import { myProfile } from "@/lib/my-profile";
-import Dashboard from "@/app/dashboard";
+import Dashboard, { type FinanceView } from "@/app/dashboard";
 export default async function FinanceSpace({
-  savingsView = false,
+  view = "overview",
+  initialMonth,
 }: {
-  savingsView?: boolean;
+  view?: FinanceView;
+  initialMonth?: string;
 }) {
   if (!isConfigured()) return <Setup />;
   const db = await createClient();
@@ -15,7 +17,18 @@ export default async function FinanceSpace({
     data: { user },
   } = await db.auth.getUser();
   if (!user || user.is_anonymous || !user.email_confirmed_at)
-    redirect(savingsView ? "/login?next=/caixinhas" : "/login");
+    redirect(
+      {
+        overview: "/login",
+        savings: "/login?next=/caixinhas",
+        entries:
+          "/login?next=" +
+          encodeURIComponent(
+            initialMonth ? `/lancamentos?mes=${initialMonth}` : "/lancamentos",
+          ),
+        annual: "/login?next=/relatorio-anual",
+      }[view],
+    );
   const { error } = await db.rpc("nc_ensure_household");
   if (error)
     throw new Error(
@@ -26,7 +39,8 @@ export default async function FinanceSpace({
     <Dashboard
       name={profile.name}
       photo={profile.photo}
-      savingsView={savingsView}
+      view={view}
+      initialMonth={initialMonth}
     />
   );
 }

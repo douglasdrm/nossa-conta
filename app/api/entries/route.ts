@@ -5,6 +5,7 @@ import {
   monthSchema,
   installmentSchema,
 } from "@/lib/validation";
+import { upcomingEnd } from "@/lib/finance-reports";
 import { dateInSaoPaulo } from "@/lib/finance";
 export const dynamic = "force-dynamic";
 export async function GET(r: Request) {
@@ -21,6 +22,24 @@ export async function GET(r: Request) {
         .is("deleted_at", null)
         .lte("date", dateInSaoPaulo())
         .order("date");
+      if (error) throw error;
+      return Response.json(data, {
+        headers: { "Cache-Control": "private, no-store" },
+      });
+    }
+    if (new URL(r.url).searchParams.get("upcoming") === "true") {
+      const today = dateInSaoPaulo();
+      const { data, error } = await db
+        .from("nc_entries")
+        .select(
+          "id,kind,description,amount,category,person,date,confirmed,confirmed_at,payer,installment_group,installment_number,installment_count",
+        )
+        .eq("confirmed", false)
+        .is("deleted_at", null)
+        .gte("date", today)
+        .lte("date", upcomingEnd(today))
+        .order("date")
+        .order("id");
       if (error) throw error;
       return Response.json(data, {
         headers: { "Cache-Control": "private, no-store" },
