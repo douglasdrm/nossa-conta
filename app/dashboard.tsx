@@ -84,7 +84,6 @@ export default function Dashboard({
   name: string;
   photo?: string;
 }) {
-  const [summaryTab, setSummaryTab] = useState<"expense" | "income">("expense");
   const [editing, setEditing] = useState<Entry | null>(null);
   const [paymentMode, setPaymentMode] = useState(false),
     [paymentStatus, setPaymentStatus] = useState("pending");
@@ -458,64 +457,60 @@ export default function Dashboard({
             {error}
           </div>
         )}
-        <section className="month-summary" aria-label="Resumo do mês">
-          <h2>Resumo do mês</h2>
-          <div className="month-summary-totals">
+        <section className="stats">
+          <article className="balance">
             <div>
-              <span>Gastos previstos</span>
-              <strong>{loading ? "—" : money(totals.totalExpense)}</strong>
-              <small>
-                {loading ? "Carregando…" : `${money(expense)} pagos`}
-              </small>
+              Saldo atual do mês <Wallet size={20} />
             </div>
+            <strong>{income ? money(income - expense) : "—"}</strong>
+            <small>
+              {income
+                ? "Receitas recebidas menos gastos pagos"
+                : "Renda opcional. Informe se quiser calcular o saldo."}
+            </small>
+            <div className="balance-line" />
+          </article>
+          <article>
             <div>
-              <span>Receitas previstas</span>
-              <strong>{loading ? "—" : money(totals.totalIncome)}</strong>
-              <small>
-                {loading ? "Carregando…" : `${money(income)} recebidos`}
-              </small>
+              Entrou{" "}
+              <span className="icon income">
+                <ArrowDownLeft size={18} />
+              </span>
             </div>
-          </div>
-          <div
-            className="month-summary-switch"
-            role="group"
-            aria-label="Detalhes do mês"
-          >
-            <button
-              type="button"
-              aria-pressed={summaryTab === "expense"}
-              onClick={() => setSummaryTab("expense")}
-            >
-              Gastos
-            </button>
-            <button
-              type="button"
-              aria-pressed={summaryTab === "income"}
-              onClick={() => setSummaryTab("income")}
-            >
-              Receitas
-            </button>
-          </div>
-          <dl className="month-summary-detail" aria-live="polite">
+            <strong className={!income ? "no-income" : ""}>
+              {income ? money(income) : "Não informada"}
+            </strong>
+            <small>
+              {totals.pendingIncome
+                ? `${money(totals.pendingIncome)} a receber`
+                : "Opcional · salários e outras receitas"}
+            </small>
+          </article>
+          <article>
             <div>
-              <dt>{summaryTab === "expense" ? "Já pago" : "Já recebido"}</dt>
-              <dd>
-                {loading
-                  ? "—"
-                  : money(summaryTab === "expense" ? expense : income)}
-              </dd>
+              Pago{" "}
+              <span className="icon expense">
+                <ArrowUpRight size={18} />
+              </span>
             </div>
+            <strong>{money(expense)}</strong>
+            <small>
+              {income
+                ? `${Math.round((expense / income) * 100)}% da renda do mês`
+                : "Seus gastos pagos neste mês"}
+            </small>
+          </article>
+          <article className="pending-card">
             <div>
-              <dt>{summaryTab === "expense" ? "A pagar" : "A receber"}</dt>
-              <dd>
-                {loading
-                  ? "—"
-                  : money(
-                      summaryTab === "expense" ? pending : totals.pendingIncome,
-                    )}
-              </dd>
+              A pagar <Repeat2 size={19} />
             </div>
-          </dl>
+            <strong>{money(pending)}</strong>
+            <small>
+              {income
+                ? `Saldo após pagar: ${money(income - expense - pending)}`
+                : "Só entra no pago quando confirmar"}
+            </small>
+          </article>
         </section>
         <section
           className={`forecast ${!loading && totals.projected < 0 ? "forecast-negative" : ""}`}
@@ -535,10 +530,6 @@ export default function Dashboard({
             {loading
               ? "Calculando…"
               : `${money(totals.totalIncome)} em receitas previstas − ${money(totals.totalExpense)} em gastos previstos`}
-          </p>
-          <p className="forecast-calculation">
-            Saldo atual do mês{" "}
-            <strong>{!loading && income ? money(totals.current) : "—"}</strong>
           </p>
           {!loading && totals.projected < 0 ? (
             <p className="forecast-warning" role="alert">
