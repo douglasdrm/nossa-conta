@@ -1343,3 +1343,23 @@ label select {
 @media(max-width:700px) { .profile-layout { grid-template-columns: 1fr; }.profile-page { padding: 24px 16px 80px; }.profile-card { padding: 22px; }.profile-header-link { margin-left: auto; } }
 .profile-page { width: 100%; }.profile-avatar-link>span { background: #e6eddf; border-radius: 50%; width: 35px; height: 35px; display: grid; place-items: center; color: #286653; }
 .profile-card input:focus-visible { outline: 2px solid #70a98b; outline-offset: 2px; }
+
+.month-summary {
+  background: #f7f8f1;
+  border: 1px solid #e1e8d6;
+  border-radius: 16px;
+  padding: clamp(14px, 3vw, 24px);
+  margin-bottom: 20px;
+}
+.month-summary h2 { margin: 0 0 14px; font-size: 18px; }
+.month-summary-totals { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+.month-summary-totals > div { display: grid; align-content: start; gap: 6px; padding: clamp(9px, 2vw, 16px); background: #edf1e3; border-radius: 12px; }
+.month-summary-totals strong { font-size: clamp(16px, 4vw, 29px); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.month-summary-totals small { color: #526653; }
+.month-summary-switch { display: flex; gap: 5px; background: #e7edde; padding: 4px; border-radius: 10px; margin-top: 14px; }
+.month-summary-switch button { flex: 1; min-height: 44px; border: 0; border-radius: 7px; color: #203c32; background: transparent; }
+.month-summary-switch button[aria-pressed="true"] { color: #fff; background: #286653; }
+.month-summary-detail { margin: 4px 0 0; }
+.month-summary-detail div { display: flex; justify-content: space-between; gap: 10px; padding: 10px 2px; border-bottom: 1px solid #e1e8d6; }
+.month-summary-detail dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
+.status-pill.expected { background: #eef1fa; color: #405781; }

@@ -30,7 +30,7 @@ export function dateInSaoPaulo(now = new Date()) {
   return `${p("year")}-${p("month")}-${p("day")}`;
 }
 export function paymentState(entry: FinanceEntry, today = dateInSaoPaulo()) {
-  if (entry.kind === "income") return "received";
+  if (entry.kind === "income") return entry.confirmed ? "received" : "expected";
   if (entry.confirmed) return "paid";
   return entry.date < today
     ? "overdue"
@@ -41,8 +41,9 @@ export function paymentState(entry: FinanceEntry, today = dateInSaoPaulo()) {
 export function financeTotals(entries: FinanceEntry[]) {
   return entries.reduce(
     (t, e) => {
-      if (e.kind === "income") t.income += e.amount;
-      else if (e.confirmed) t.paid += e.amount;
+      if (e.kind === "income") {
+        if (e.confirmed) t.income += e.amount;
+      } else if (e.confirmed) t.paid += e.amount;
       else t.pending += e.amount;
       return t;
     },
@@ -52,13 +53,20 @@ export function financeTotals(entries: FinanceEntry[]) {
 
 export function monthForecast(entries: FinanceEntry[]) {
   const { income, paid, pending } = financeTotals(entries);
+  const pendingIncome = entries.reduce(
+    (sum, entry) =>
+      sum + (entry.kind === "income" && !entry.confirmed ? entry.amount : 0),
+    0,
+  );
   return {
     income,
+    pendingIncome,
+    totalIncome: income + pendingIncome,
     paid,
     pending,
     totalExpense: paid + pending,
     current: income - paid,
-    projected: income - paid - pending,
+    projected: income + pendingIncome - paid - pending,
   };
 }
 

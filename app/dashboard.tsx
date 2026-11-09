@@ -41,6 +41,8 @@ type Entry = {
   date: string;
   confirmed: boolean;
   payer: string | null;
+  payer_user_id?: string | null;
+  payer_display?: string | null;
   confirmed_at: string | null;
   installment_group: string | null;
   installment_number: number | null;
@@ -82,6 +84,7 @@ export default function Dashboard({
   name: string;
   photo?: string;
 }) {
+  const [summaryTab, setSummaryTab] = useState<"expense" | "income">("expense");
   const [editing, setEditing] = useState<Entry | null>(null);
   const [paymentMode, setPaymentMode] = useState(false),
     [paymentStatus, setPaymentStatus] = useState("pending");
@@ -118,7 +121,7 @@ export default function Dashboard({
     : null;
   useEffect(() => {
     setPaymentStatus(
-      modal === "income" || paymentMode || editing?.confirmed
+      paymentMode || (editing ? editing.confirmed : modal === "income")
         ? "confirmed"
         : "pending",
     );
@@ -203,22 +206,21 @@ export default function Dashboard({
       ...new Set([
         name,
         ...data
-          .flatMap((e) => [e.person, e.payer])
+          .flatMap((e) => [e.person, e.payer_display || e.payer])
           .filter((p): p is string => Boolean(p)),
       ]),
     ];
-  const paidBy = Object.entries(
-    rows
-      .filter((e) => e.kind === "expense" && e.confirmed)
-      .reduce(
-        (r, e) => {
-          const p = e.payer || "Não informado";
-          r[p] = (r[p] || 0) + e.amount;
-          return r;
-        },
-        {} as Record<string, number>,
-      ),
-  ).sort((a, b) => b[1] - a[1]);
+  const payerTotals = new Map<string, { label: string; total: number }>();
+  for (const entry of rows) {
+    if (entry.kind !== "expense" || !entry.confirmed) continue;
+    const label = entry.payer_display || entry.payer || "Não informado";
+    const key = entry.payer_user_id || `label:${entry.payer || ""}`;
+    payerTotals.set(key, {
+      label,
+      total: (payerTotals.get(key)?.total || 0) + entry.amount,
+    });
+  }
+  const paidBy = [...payerTotals].sort((a, b) => b[1].total - a[1].total);
   const shown = rows
     .filter(
       (e) =>
@@ -250,8 +252,7 @@ export default function Dashboard({
           ...Object.fromEntries(f),
           kind: modal,
           amount,
-          confirmed:
-            modal === "income" || f.get("paymentStatus") === "confirmed",
+          confirmed: f.get("paymentStatus") === "confirmed",
           payer:
             modal === "expense" && f.get("paymentStatus") === "confirmed"
               ? String(f.get("payer") || name).trim()
@@ -295,7 +296,7 @@ export default function Dashboard({
     setError("");
     setPaymentMode(true);
     setPaymentStatus("confirmed");
-    setModal("expense");
+    setModal(e.kind);
   }
   function editDue(id: string) {
     const e = due.find((e) => e.id === id);
@@ -340,12 +341,14 @@ export default function Dashboard({
             e.person,
             (e.amount / 100).toFixed(2).replace(".", ","),
             e.kind === "income"
-              ? "Recebido"
+              ? e.confirmed
+                ? "Recebido"
+                : "A receber"
               : e.confirmed
                 ? "Pago"
                 : "Pendente",
             e.kind === "expense" && e.confirmed
-              ? e.payer || "Não informado"
+              ? e.payer_display || e.payer || "Não informado"
               : "",
           ]
             .map((x) => '"' + x.replaceAll('"', '""') + '"')
@@ -455,56 +458,64 @@ export default function Dashboard({
             {error}
           </div>
         )}
-        <section className="stats">
-          <article className="balance">
+        <section className="month-summary" aria-label="Resumo do mês">
+          <h2>Resumo do mês</h2>
+          <div className="month-summary-totals">
             <div>
-              Saldo atual do mês <Wallet size={20} />
+              <span>Gastos previstos</span>
+              <strong>{loading ? "—" : money(totals.totalExpense)}</strong>
+              <small>
+                {loading ? "Carregando…" : `${money(expense)} pagos`}
+              </small>
             </div>
-            <strong>{income ? money(income - expense) : "—"}</strong>
-            <small>
-              {income
-                ? "Entradas menos os gastos pagos"
-                : "Renda opcional. Informe se quiser calcular o saldo."}
-            </small>
-            <div className="balance-line" />
-          </article>
-          <article>
             <div>
-              Entrou{" "}
-              <span className="icon income">
-                <ArrowDownLeft size={18} />
-              </span>
+              <span>Receitas previstas</span>
+              <strong>{loading ? "—" : money(totals.totalIncome)}</strong>
+              <small>
+                {loading ? "Carregando…" : `${money(income)} recebidos`}
+              </small>
             </div>
-            <strong className={!income ? "no-income" : ""}>
-              {income ? money(income) : "Não informada"}
-            </strong>
-            <small>Opcional · salários e outras receitas</small>
-          </article>
-          <article>
+          </div>
+          <div
+            className="month-summary-switch"
+            role="group"
+            aria-label="Detalhes do mês"
+          >
+            <button
+              type="button"
+              aria-pressed={summaryTab === "expense"}
+              onClick={() => setSummaryTab("expense")}
+            >
+              Gastos
+            </button>
+            <button
+              type="button"
+              aria-pressed={summaryTab === "income"}
+              onClick={() => setSummaryTab("income")}
+            >
+              Receitas
+            </button>
+          </div>
+          <dl className="month-summary-detail" aria-live="polite">
             <div>
-              Pago{" "}
-              <span className="icon expense">
-                <ArrowUpRight size={18} />
-              </span>
+              <dt>{summaryTab === "expense" ? "Já pago" : "Já recebido"}</dt>
+              <dd>
+                {loading
+                  ? "—"
+                  : money(summaryTab === "expense" ? expense : income)}
+              </dd>
             </div>
-            <strong>{money(expense)}</strong>
-            <small>
-              {income
-                ? `${Math.round((expense / income) * 100)}% da renda do mês`
-                : "Seus gastos pagos neste mês"}
-            </small>
-          </article>
-          <article className="pending-card">
             <div>
-              A pagar <Repeat2 size={19} />
+              <dt>{summaryTab === "expense" ? "A pagar" : "A receber"}</dt>
+              <dd>
+                {loading
+                  ? "—"
+                  : money(
+                      summaryTab === "expense" ? pending : totals.pendingIncome,
+                    )}
+              </dd>
             </div>
-            <strong>{money(pending)}</strong>
-            <small>
-              {income
-                ? `Saldo após pagar: ${money(income - expense - pending)}`
-                : "Só entra no pago quando confirmar"}
-            </small>
-          </article>
+          </dl>
         </section>
         <section
           className={`forecast ${!loading && totals.projected < 0 ? "forecast-negative" : ""}`}
@@ -514,7 +525,7 @@ export default function Dashboard({
             <CalendarRange size={22} aria-hidden="true" />
             <div>
               <h2>Saldo previsto do mês</h2>
-              <p>Considerando apenas as entradas já registradas.</p>
+              <p>Receitas e gastos lançados no mês, incluindo os pendentes.</p>
             </div>
           </div>
           <strong className="forecast-value">
@@ -523,21 +534,25 @@ export default function Dashboard({
           <p className="forecast-calculation">
             {loading
               ? "Calculando…"
-              : `${money(income)} recebidos − ${money(totals.totalExpense)} em gastos do mês (${money(expense)} pagos + ${money(pending)} a pagar)`}
+              : `${money(totals.totalIncome)} em receitas previstas − ${money(totals.totalExpense)} em gastos previstos`}
+          </p>
+          <p className="forecast-calculation">
+            Saldo atual do mês{" "}
+            <strong>{!loading && income ? money(totals.current) : "—"}</strong>
           </p>
           {!loading && totals.projected < 0 ? (
             <p className="forecast-warning" role="alert">
               <TriangleAlert size={19} aria-hidden="true" />
               <span>
-                {income
-                  ? `Atenção: se não entrar mais dinheiro, faltarão ${money(-totals.projected)} para cobrir os gastos deste mês.`
+                {totals.totalIncome
+                  ? `Com as receitas previstas, ainda faltarão ${money(-totals.projected)} para cobrir os gastos deste mês.`
                   : `Nenhuma renda foi informada. Com os gastos registrados, faltam ${money(-totals.projected)} em entradas para cobrir este mês. Informar sua renda continua sendo opcional.`}
               </span>
             </p>
           ) : !loading ? (
             <p className="forecast-note">
-              {totals.totalExpense || income
-                ? "Essa é a previsão após pagar todas as contas lançadas, incluindo as parcelas deste mês."
+              {totals.totalExpense || totals.totalIncome
+                ? "Previsão após receber as entradas e pagar as contas lançadas, incluindo as parcelas deste mês."
                 : "Adicione entradas e gastos para acompanhar a previsão."}
             </p>
           ) : null}
@@ -651,8 +666,8 @@ export default function Dashboard({
             {paidBy.length > 0 && (
               <div className="payer-summary">
                 <h3>Quem pagou neste mês</h3>
-                {paidBy.map(([payer, total]) => (
-                  <div key={payer}>
+                {paidBy.map(([key, { label: payer, total }]) => (
+                  <div key={key}>
                     <span>{payer}</span>
                     <b>{money(total)}</b>
                   </div>
@@ -766,7 +781,7 @@ export default function Dashboard({
                     <td>{e.person}</td>
                     <td>
                       {e.kind === "expense" && e.confirmed
-                        ? e.payer || "Não informado"
+                        ? e.payer_display || e.payer || "Não informado"
                         : "—"}
                     </td>
                     <td>{e.date.split("-").reverse().join("/")}</td>
@@ -775,6 +790,7 @@ export default function Dashboard({
                         {
                           {
                             received: "Recebido",
+                            expected: "A receber",
                             paid: "Pago",
                             pending: "Pendente",
                             due: "Vence hoje",
@@ -782,13 +798,15 @@ export default function Dashboard({
                           }[paymentState(e, day)]
                         }
                       </span>
-                      {e.kind === "expense" && !e.confirmed && (
+                      {!e.confirmed && (
                         <button
                           className="confirm-inline"
                           disabled={busy}
                           onClick={() => confirmPayment(e.id)}
                         >
-                          Confirmar pagamento
+                          {e.kind === "income"
+                            ? "Confirmar recebimento"
+                            : "Confirmar pagamento"}
                         </button>
                       )}
                     </td>
@@ -882,7 +900,9 @@ export default function Dashboard({
                 <span className="tag">NOVO LANÇAMENTO</span>
                 <h2>
                   {paymentMode
-                    ? "Confirmar pagamento"
+                    ? modal === "income"
+                      ? "Confirmar recebimento"
+                      : "Confirmar pagamento"
                     : editing
                       ? "Editar lançamento"
                       : modal === "income"
@@ -1081,6 +1101,23 @@ export default function Dashboard({
                       </small>
                     </label>
                   )}
+                  {modal === "income" && (
+                    <label>
+                      Recebimento
+                      <select
+                        name="paymentStatus"
+                        value={paymentStatus}
+                        onChange={(e) => setPaymentStatus(e.target.value)}
+                      >
+                        <option value="confirmed">Já recebi</option>
+                        <option value="pending">A receber</option>
+                      </select>
+                      <small className="field-hint">
+                        A receber entra na previsão do mês. Confirme quando o
+                        dinheiro cair.
+                      </small>
+                    </label>
+                  )}
                   {modal === "expense" && paymentStatus === "confirmed" && (
                     <label>
                       Quem pagou?
@@ -1155,7 +1192,9 @@ export default function Dashboard({
                     {busy
                       ? "Salvando..."
                       : paymentMode && paymentStatus === "confirmed"
-                        ? "Confirmar pagamento"
+                        ? modal === "income"
+                          ? "Confirmar recebimento"
+                          : "Confirmar pagamento"
                         : "Salvar lançamento"}
                   </button>
                 </form>

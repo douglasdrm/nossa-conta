@@ -11,7 +11,7 @@ test("migration, household isolation, invitations and recurring month edits", as
   const db = new PGlite();
   await db.exec(`create role anon nologin;create role authenticated nologin;
  create schema auth;
- create table auth.users(id uuid primary key,email text,email_confirmed_at timestamptz,is_anonymous boolean default false);
+ create table auth.users(id uuid primary key,email text,email_confirmed_at timestamptz,is_anonymous boolean default false,raw_user_meta_data jsonb);
  create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
  grant usage on schema auth to authenticated,anon;
  grant execute on function auth.uid() to authenticated,anon;
@@ -500,8 +500,15 @@ test("migration, household isolation, invitations and recurring month edits", as
           },
         ],
       );
-      assert.equal(income.confirmed, true);
-      await assert.rejects(() => rpc("confirm_entry", [income.id, false]));
+      assert.equal(income.confirmed, false);
+      await rpc("confirm_entry", [income.id, true, "Alice"]);
+      const received = (
+        await db.query("select confirmed,payer from nc_entries where id=$1", [
+          income.id,
+        ])
+      ).rows[0];
+      assert.deepEqual(received, { confirmed: true, payer: null });
+      await rpc("confirm_entry", [income.id, false]);
       const paidNew = await rpc<{ id: string; confirmed: boolean }>(
         "add_entry",
         [{ ...base, repeats: false, confirmed: true, date: "2028-01-05" }],
@@ -885,6 +892,49 @@ test("migration, household isolation, invitations and recurring month edits", as
       await assert.rejects(
         () => rpc("set_avatar", [null]),
         /confirmed_account_required/,
+      );
+    },
+  );
+  await t.test(
+    "payer aliases link to a member and survive profile edits",
+    async () => {
+      await as(alice);
+      await rpc("save_profile", ["Alice Nova", "alice_nova"]);
+      const ids = [];
+      for (const payer of ["alice", "Alice Nova", "alice_nova"]) {
+        const row = await rpc<{ id: string; payer_user_id: string }>(
+          "add_entry",
+          [
+            {
+              ...base,
+              repeats: false,
+              payer,
+              confirmed: true,
+            },
+          ],
+        );
+        assert.equal(row.payer_user_id, alice);
+        ids.push(row.id);
+      }
+      await rpc("save_profile", ["Alice Silva", "alice_silva"]);
+      await rpc("edit_entry", [
+        ids[1],
+        { ...base, repeats: false, payer: "Alice Nova", confirmed: true },
+        false,
+      ]);
+      const row = (
+        await db.query<{ payer_user_id: string }>(
+          "select payer_user_id from nc_entries where id=$1",
+          [ids[1]],
+        )
+      ).rows[0];
+      assert.equal(row.payer_user_id, alice);
+      const labels = await rpc<Record<string, string>>("payer_labels");
+      assert.equal(labels[alice], "Alice Silva");
+      await as(outsider);
+      assert.equal(
+        (await rpc<Record<string, string>>("payer_labels"))[alice],
+        undefined,
       );
     },
   );

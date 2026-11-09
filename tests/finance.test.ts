@@ -5,6 +5,7 @@ import {
   moneyInputToCents,
   moneyInputFromCents,
   financeTotals,
+  monthForecast,
   paymentState,
   dateInSaoPaulo,
 } from "../lib/finance";
@@ -98,4 +99,27 @@ test("installments preserve every cent and original monthly due day", async () =
     assert.equal(installmentAmounts(10000, count, "total"), null);
   assert.equal(installmentAmounts(2, 3, "total"), null);
   assert.equal(installmentAmounts(1_000_000_000, 3, "per_installment"), null);
+});
+
+test("expected income enters the forecast and reaches current balance only when confirmed", () => {
+  const salary = {
+    kind: "income",
+    amount: 450000,
+    date: "2026-11-10",
+    confirmed: false,
+  };
+  const bill = {
+    kind: "expense",
+    amount: 300000,
+    date: "2026-11-12",
+    confirmed: false,
+  };
+  const forecast = monthForecast([salary, bill]);
+  assert.equal(forecast.current, 0);
+  assert.equal(forecast.pendingIncome, 450000);
+  assert.equal(forecast.projected, 150000);
+  assert.equal(paymentState(salary), "expected");
+  const received = monthForecast([{ ...salary, confirmed: true }, bill]);
+  assert.equal(received.current, 450000);
+  assert.equal(received.projected, forecast.projected);
 });
