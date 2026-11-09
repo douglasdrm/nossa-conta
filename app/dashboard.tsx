@@ -1008,20 +1008,22 @@ export default function Dashboard({
                   plan={plan}
                 />
               )}
-            <a className="savings-shortcut" href="/caixinhas">
-              <PiggyBank size={19} aria-hidden="true" />
-              <span>Ver caixinhas</span>
-              <ArrowUpRight size={15} aria-hidden="true" />
-            </a>
-            <a className="savings-shortcut" href="/plano-do-mes">
-              <SlidersHorizontal size={19} aria-hidden="true" />
-              <span>
-                {planSuggestion
-                  ? `Plano sugerido · ${planSuggestion.profile.name}`
-                  : "Plano do mês"}
-              </span>
-              <ArrowUpRight size={15} aria-hidden="true" />
-            </a>
+            <div className="overview-shortcuts">
+              <a className="savings-shortcut" href="/caixinhas">
+                <PiggyBank size={19} aria-hidden="true" />
+                <span>Ver caixinhas</span>
+                <ArrowUpRight size={15} aria-hidden="true" />
+              </a>
+              <a className="savings-shortcut" href="/plano-do-mes">
+                <SlidersHorizontal size={19} aria-hidden="true" />
+                <span>
+                  {planSuggestion
+                    ? `Plano sugerido · ${planSuggestion.profile.name}`
+                    : "Plano do mês"}
+                </span>
+                <ArrowUpRight size={15} aria-hidden="true" />
+              </a>
+            </div>
             <DuePanel
               entries={due}
               today={day}
