@@ -1159,5 +1159,227 @@ test("migration, household isolation, invitations and recurring month edits", as
       await assert.rejects(() => rpc("savings_overview", [month]));
     },
   );
+  await t.test(
+    "recurring income clips dates, stays receivable, versions amounts and stops without rewriting history",
+    async () => {
+      await as(alice);
+      const payload = {
+        ...base,
+        kind: "income",
+        description: "Salário recorrente",
+        category: "Salário",
+        date: "2032-01-31",
+        amount: 250000,
+        confirmed: true,
+      };
+      const initial = await rpc<{
+        id: string;
+        kind: string;
+        confirmed: boolean;
+        payer: null;
+      }>("add_entry", [payload]);
+      assert.equal(initial.kind, "income");
+      assert.equal(initial.confirmed, true);
+      assert.equal(initial.payer, null);
+      const rule = initial.id.split(":")[0];
+      const feb = initial.id.replace("2032-01", "2032-02");
+      const march = initial.id.replace("2032-01", "2032-03");
+      const april = initial.id.replace("2032-01", "2032-04");
+      await rpc("sync_month", ["2032-02-01"]);
+      await rpc("sync_month", ["2032-02-01"]);
+      assert.deepEqual(
+        (
+          await db.query(
+            "select kind,date::text,confirmed,payer,confirmed_at from nc_entries where id=$1",
+            [feb],
+          )
+        ).rows,
+        [
+          {
+            kind: "income",
+            date: "2032-02-29",
+            confirmed: false,
+            payer: null,
+            confirmed_at: null,
+          },
+        ],
+      );
+      assert.deepEqual(
+        (
+          await db.query("select kind from nc_recurring_rules where id=$1", [
+            rule,
+          ])
+        ).rows,
+        [{ kind: "income" }],
+      );
+      await rpc("confirm_entry", [feb, true, "Alice"]);
+      await rpc("sync_month", ["2032-02-01"]);
+      assert.deepEqual(
+        (
+          await db.query("select confirmed,payer from nc_entries where id=$1", [
+            feb,
+          ])
+        ).rows,
+        [{ confirmed: true, payer: null }],
+      );
+      await rpc("sync_month", ["2032-03-01"]);
+      await rpc("edit_entry", [
+        feb,
+        { ...payload, date: "2032-02-29", amount: 275000 },
+        true,
+      ]);
+      await rpc("sync_month", ["2032-04-01"]);
+      assert.deepEqual(
+        (
+          await db.query(
+            "select amount::integer,confirmed from nc_entries where id=$1",
+            [initial.id],
+          )
+        ).rows,
+        [{ amount: 250000, confirmed: true }],
+      );
+      assert.deepEqual(
+        (
+          await db.query(
+            "select amount::integer,confirmed from nc_entries where id=$1",
+            [march],
+          )
+        ).rows,
+        [{ amount: 250000, confirmed: false }],
+      );
+      assert.deepEqual(
+        (
+          await db.query(
+            "select amount::integer,confirmed from nc_entries where id=$1",
+            [april],
+          )
+        ).rows,
+        [{ amount: 275000, confirmed: false }],
+      );
+      await rpc("delete_entry", [april]);
+      await rpc("sync_month", ["2032-04-01"]);
+      assert.equal(
+        (
+          await db.query(
+            "select id from nc_entries where id=$1 and deleted_at is null",
+            [april],
+          )
+        ).rows.length,
+        0,
+      );
+      await as(outsider);
+      assert.equal(
+        (
+          await db.query("select id from nc_recurring_rules where id=$1", [
+            rule,
+          ])
+        ).rows.length,
+        0,
+      );
+      await assert.rejects(() => rpc("confirm_entry", [feb, false]));
+      await assert.rejects(() =>
+        rpc("edit_entry", [feb, { ...payload, date: "2032-02-29" }, true]),
+      );
+      await assert.rejects(() => rpc("stop_recurring", [feb]));
+      await assert.rejects(() => rpc("delete_entry", [feb]));
+      await as(bob);
+      await rpc("confirm_entry", [march, true]);
+      await rpc("stop_recurring", [feb]);
+      await rpc("sync_month", ["2032-05-01"]);
+      assert.equal(
+        (
+          await db.query(
+            "select id from nc_entries where rule_id=$1 and date>='2032-05-01'",
+            [rule],
+          )
+        ).rows.length,
+        0,
+      );
+      assert.deepEqual(
+        (
+          await db.query("select confirmed from nc_entries where id=$1", [
+            march,
+          ])
+        ).rows,
+        [{ confirmed: true }],
+      );
+    },
+  );
+  await t.test(
+    "renaming an income category updates its recurrence without affecting expense categories",
+    async () => {
+      await as(alice);
+      await rpc("add_category", ["income", "Renda recorrente"]);
+      await rpc("add_category", ["expense", "Novo salário", "leisure"]);
+      const income = await rpc<{ id: string }>("add_entry", [
+        {
+          ...base,
+          kind: "income",
+          category: "Renda recorrente",
+          date: "2033-01-31",
+          confirmed: false,
+        },
+      ]);
+      const expense = await rpc<{ id: string }>("add_entry", [
+        {
+          ...base,
+          category: "Novo salário",
+          date: "2033-01-31",
+          confirmed: false,
+        },
+      ]);
+      await rpc("add_entry", [
+        {
+          ...base,
+          kind: "income",
+          category: "Outra renda",
+          date: "2033-01-31",
+          confirmed: false,
+        },
+      ]);
+      await assert.rejects(
+        () =>
+          rpc("rename_category", ["income", "Renda recorrente", "Outra renda"]),
+        /category_name_taken/,
+      );
+      await rpc("rename_category", [
+        "income",
+        "Renda recorrente",
+        "Novo salário",
+      ]);
+      await rpc("sync_month", ["2033-02-01"]);
+      assert.deepEqual(
+        (
+          await db.query(
+            "select kind,category,confirmed from nc_entries where id=$1",
+            [income.id.replace("2033-01", "2033-02")],
+          )
+        ).rows,
+        [{ kind: "income", category: "Novo salário", confirmed: false }],
+      );
+      await rpc("rename_category", [
+        "expense",
+        "Novo salário",
+        "Despesa renomeada",
+      ]);
+      await rpc("sync_month", ["2033-03-01"]);
+      assert.deepEqual(
+        (
+          await db.query("select kind,category from nc_entries where id=$1", [
+            income.id.replace("2033-01", "2033-03"),
+          ])
+        ).rows,
+        [{ kind: "income", category: "Novo salário" }],
+      );
+      assert.deepEqual(
+        (
+          await db.query("select kind,category from nc_entries where id=$1", [
+            expense.id.replace("2033-01", "2033-03"),
+          ])
+        ).rows,
+        [{ kind: "expense", category: "Despesa renomeada" }],
+      );
+    },
+  );
   await db.close();
 });

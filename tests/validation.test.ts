@@ -36,6 +36,23 @@ test("requires integer positive centavos and complete fields", () => {
   );
   assert.equal(
     entrySchema.safeParse({ ...entry, kind: "income", repeats: true }).success,
+    true,
+  );
+});
+test("recurring income preserves the first receipt status and requires a boolean repeat flag", () => {
+  for (const confirmed of [true, false]) {
+    const parsed = entrySchema.parse({
+      ...entry,
+      kind: "income",
+      repeats: true,
+      confirmed,
+    });
+    assert.equal(parsed.repeats, true);
+    assert.equal(parsed.confirmed, confirmed);
+  }
+  assert.equal(
+    entrySchema.safeParse({ ...entry, kind: "income", repeats: "true" })
+      .success,
     false,
   );
 });

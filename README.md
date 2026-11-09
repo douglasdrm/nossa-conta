@@ -174,3 +174,11 @@ A página `/profile`, acessível no menu e no cabeçalho, permite editar nome e 
 E-mail e senha usam `auth.updateUser` na sessão do próprio usuário; por compartilharem o Supabase Auth, essas alterações também afetam o acesso ao Juntô. A confirmação de e-mail usa o callback PKCE existente. A tela suporta a senha atual e o código de reautenticação exigidos pelas configurações do projeto. Não altera essas configurações, e nenhuma credencial é gravada nas tabelas da aplicação.
 
 Migração `20261106145403_user_profiles.sql`: tabela `nc_user_profiles` com leitura própria e escrita por RPCs invoker/implementações privadas, e bucket privado `nc-avatars` com acesso apenas à pasta do próprio usuário confirmado. Fotos de até 3 MB são validadas e convertidas para WebP de 512×512 no servidor, sem EXIF. O perfil usa URLs temporárias assinadas. `sharp` é dependência explícita e fixada no lockfile.
+
+### Entradas recorrentes
+
+Em **Adicionar entrada**, escolha **Tipo de entrada → Recorrente todo mês**. A confirmação do primeiro recebimento é opcional; os próximos meses são gerados como **a receber**, sem aumentar o saldo recebido até a confirmação. O dia informado é mantido, limitado ao último dia nos meses mais curtos.
+
+As entradas usam as mesmas opções das despesas recorrentes: ajustar apenas o lançamento, definir o valor padrão para os próximos meses e encerrar após o mês selecionado. Meses já registrados são preservados; excluir um lançamento não o recria na próxima atualização. Renomear uma categoria de entrada também atualiza suas regras futuras, sem alterar categorias de despesa.
+
+**Publicação:** aplicar primeiro `supabase/migrations/20261109201131_recurring_income.sql` no projeto Supabase e depois publicar a aplicação. A migração adiciona o tipo às regras existentes (mantendo-as como despesas) e atualiza as operações privadas de criação, geração mensal e renomeação de categorias. Não altera as políticas de acesso nem o status dos lançamentos existentes.

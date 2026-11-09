@@ -11,22 +11,17 @@ export const dateSchema = z
     "Data inválida",
   );
 const label = (max: number) => z.string().trim().min(1).max(max);
-export const entrySchema = z
-  .object({
-    kind: z.enum(["income", "expense"]),
-    description: label(120),
-    amount: z.number().int().positive().max(1_000_000_000),
-    category: label(60),
-    person: label(60),
-    date: dateSchema,
-    repeats: z.boolean().optional().default(false),
-    confirmed: z.boolean().optional().default(false),
-    payer: label(60).optional(),
-  })
-  .refine(
-    (v) => !v.repeats || v.kind === "expense",
-    "Somente despesas podem ser recorrentes",
-  );
+export const entrySchema = z.object({
+  kind: z.enum(["income", "expense"]),
+  description: label(120),
+  amount: z.number().int().positive().max(1_000_000_000),
+  category: label(60),
+  person: label(60),
+  date: dateSchema,
+  repeats: z.boolean().optional().default(false),
+  confirmed: z.boolean().optional().default(false),
+  payer: label(60).optional(),
+});
 export const editSchema = z.object({
   id: z.string().min(1).max(100),
   description: label(120),

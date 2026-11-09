@@ -123,20 +123,20 @@ export default function Dashboard({
   const [categoryPending, setCategoryPending] = useState(false);
   const requestId = useRef(0);
   const installmentGroup = useRef("");
-  const [expenseMode, setExpenseMode] = useState("single");
+  const [entryMode, setEntryMode] = useState("single");
   const [installmentMode, setInstallmentMode] =
     useState<InstallmentMode>("total");
   const [installmentCount, setInstallmentCount] = useState(3);
   const [inputAmount, setInputAmount] = useState(0);
   useEffect(() => {
-    setExpenseMode("single");
+    setEntryMode("single");
     setInstallmentMode("total");
     setInstallmentCount(3);
     setInputAmount(editing?.amount || 0);
     installmentGroup.current = crypto.randomUUID();
   }, [modal, editing?.id]);
   const isInstallment =
-    modal === "expense" && !editing && expenseMode === "installment";
+    modal === "expense" && !editing && entryMode === "installment";
   const installmentPreview = isInstallment
     ? installmentAmounts(inputAmount, installmentCount, installmentMode)
     : null;
@@ -307,8 +307,7 @@ export default function Dashboard({
               ? String(f.get("payer") || name).trim()
               : undefined,
           id: editing?.id,
-          repeats:
-            !editing && modal === "expense" && expenseMode === "recurring",
+          repeats: !editing && entryMode === "recurring",
           ...(isInstallment
             ? {
                 installmentCount,
@@ -543,7 +542,14 @@ export default function Dashboard({
                     </span>
                   )}
                   {e.id.includes(":") && (
-                    <span title="Despesa recorrente" className="recurring-mark">
+                    <span
+                      title={
+                        e.kind === "income"
+                          ? "Entrada recorrente"
+                          : "Despesa recorrente"
+                      }
+                      className="recurring-mark"
+                    >
                       <Repeat2 size={12} />
                     </span>
                   )}
@@ -1174,16 +1180,25 @@ export default function Dashboard({
                       esta parcela.
                     </div>
                   )}
-                  {modal === "expense" && !editing && (
+                  {!editing && (
                     <label>
-                      Tipo de gasto
+                      {modal === "income" ? "Tipo de entrada" : "Tipo de gasto"}
                       <select
-                        value={expenseMode}
-                        onChange={(e) => setExpenseMode(e.target.value)}
+                        aria-label={
+                          modal === "income"
+                            ? "Tipo de entrada"
+                            : "Tipo de gasto"
+                        }
+                        value={entryMode}
+                        onChange={(e) => setEntryMode(e.target.value)}
                       >
-                        <option value="single">Gasto único</option>
+                        <option value="single">
+                          {modal === "income" ? "Entrada única" : "Gasto único"}
+                        </option>
                         <option value="recurring">Recorrente todo mês</option>
-                        <option value="installment">Gasto parcelado</option>
+                        {modal === "expense" && (
+                          <option value="installment">Gasto parcelado</option>
+                        )}
                       </select>
                     </label>
                   )}
@@ -1372,15 +1387,13 @@ export default function Dashboard({
                       </small>
                     </label>
                   )}
-                  {modal === "expense" &&
-                    !editing &&
-                    expenseMode === "recurring" && (
-                      <p className="field-hint">
-                        Esta conta será repetida todo mês. O valor poderá ser
-                        ajustado por mês; os próximos ficam a pagar até a
-                        confirmação.
-                      </p>
-                    )}
+                  {!editing && entryMode === "recurring" && (
+                    <p className="field-hint">
+                      {modal === "income"
+                        ? "Esta entrada será repetida todo mês. O valor poderá ser ajustado por mês; as próximas ficam a receber até a confirmação."
+                        : "Esta conta será repetida todo mês. O valor poderá ser ajustado por mês; os próximos ficam a pagar até a confirmação."}
+                    </p>
+                  )}
                   {editing?.id.includes(":") && (
                     <>
                       <label className="check">
