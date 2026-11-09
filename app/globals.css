@@ -1419,6 +1419,7 @@ label select {
 }
 
 .upcoming-panel, .annual-report { margin-bottom: 20px; }
+.upcoming-panel { margin-top: 20px; }
 .upcoming-panel h2 { display: flex; align-items: center; gap: 8px; }
 .upcoming-panel .panel-title a { white-space: nowrap; }
 .report-periods { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 14px 0; }
