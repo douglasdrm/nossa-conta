@@ -108,7 +108,7 @@ export default function Dashboard({
   const mobileMenu = useRef<HTMLDetailsElement>(null);
   const [editing, setEditing] = useState<Entry | null>(null);
   const [paymentMode, setPaymentMode] = useState(false),
-    [paymentStatus, setPaymentStatus] = useState("pending");
+    [paymentConfirmed, setPaymentConfirmed] = useState(false);
   const [data, setData] = useState<Entry[]>([]),
     [month, setMonth] = useState(initialMonth ?? today().slice(0, 7)),
     [modal, setModal] = useState(""),
@@ -141,12 +141,8 @@ export default function Dashboard({
     ? installmentAmounts(inputAmount, installmentCount, installmentMode)
     : null;
   useEffect(() => {
-    setPaymentStatus(
-      paymentMode || (editing ? editing.confirmed : modal === "income")
-        ? "confirmed"
-        : "pending",
-    );
-  }, [modal, editing?.id, paymentMode]);
+    setPaymentConfirmed(paymentMode || Boolean(editing?.confirmed));
+  }, [modal, editing?.id, editing?.confirmed, paymentMode]);
   useEffect(() => {
     const timer = setInterval(() => setDay(today()), 30000);
     return () => clearInterval(timer);
@@ -348,7 +344,7 @@ export default function Dashboard({
     setEditing(e);
     setError("");
     setPaymentMode(true);
-    setPaymentStatus("confirmed");
+    setPaymentConfirmed(true);
     setModal(e.kind);
   }
   function editDue(id: string) {
@@ -1262,7 +1258,9 @@ export default function Dashboard({
                         ? "Vencimento da primeira parcela"
                         : modal === "expense"
                           ? "Vencimento"
-                          : "Data"}
+                          : paymentConfirmed
+                            ? "Data do recebimento"
+                            : "Data prevista do recebimento"}
                       <input
                         name="date"
                         required
@@ -1333,44 +1331,31 @@ export default function Dashboard({
                       ))}
                     </datalist>
                   </label>
-                  {modal === "expense" && (
-                    <label>
-                      {isInstallment
-                        ? "Pagamento da primeira parcela"
-                        : "Pagamento"}
-                      <select
-                        name="paymentStatus"
-                        value={paymentStatus}
-                        onChange={(e) => setPaymentStatus(e.target.value)}
-                      >
-                        <option value="pending">Ainda vou pagar</option>
-                        <option value="confirmed">Já paguei</option>
-                      </select>
-                      <small className="field-hint">
-                        {isInstallment
-                          ? "Somente a primeira parcela pode ser marcada como paga agora. As demais ficam a pagar."
-                          : "Pendente não sai do saldo atual, mas entra no saldo previsto. Confirme depois que pagar."}
-                      </small>
-                    </label>
-                  )}
-                  {modal === "income" && (
-                    <label>
-                      Recebimento
-                      <select
-                        name="paymentStatus"
-                        value={paymentStatus}
-                        onChange={(e) => setPaymentStatus(e.target.value)}
-                      >
-                        <option value="confirmed">Já recebi</option>
-                        <option value="pending">A receber</option>
-                      </select>
-                      <small className="field-hint">
-                        A receber entra na previsão do mês. Confirme quando o
-                        dinheiro cair.
-                      </small>
-                    </label>
-                  )}
-                  {modal === "expense" && paymentStatus === "confirmed" && (
+                  <label className="check">
+                    <input
+                      type="checkbox"
+                      name="paymentStatus"
+                      value="confirmed"
+                      checked={paymentConfirmed}
+                      onChange={(event) =>
+                        setPaymentConfirmed(event.target.checked)
+                      }
+                      aria-describedby="payment-status-help"
+                    />
+                    {modal === "income"
+                      ? "Confirmar recebimento agora"
+                      : isInstallment
+                        ? "Confirmar pagamento da primeira parcela agora"
+                        : "Confirmar pagamento agora"}
+                  </label>
+                  <p id="payment-status-help" className="field-hint">
+                    {modal === "income"
+                      ? "Deixe desmarcado para lançar como a receber."
+                      : isInstallment
+                        ? "As demais parcelas ficam a pagar."
+                        : "Deixe desmarcado para lançar como a pagar."}
+                  </p>
+                  {modal === "expense" && paymentConfirmed && (
                     <label>
                       Quem pagou?
                       <input
@@ -1443,7 +1428,7 @@ export default function Dashboard({
                   >
                     {busy
                       ? "Salvando..."
-                      : paymentMode && paymentStatus === "confirmed"
+                      : paymentMode && paymentConfirmed
                         ? modal === "income"
                           ? "Confirmar recebimento"
                           : "Confirmar pagamento"
