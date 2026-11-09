@@ -1412,3 +1412,8 @@ label select {
   font-weight: 600;
 }
 .savings-shortcut:hover { background: #edf3e9; }
+
+.confirm-payment:disabled {
+  color: #aab2a2;
+  cursor: default;
+}

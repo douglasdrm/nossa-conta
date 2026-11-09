@@ -794,7 +794,9 @@ export default function Dashboard({
                     <tr>
                       <th>Descrição</th>
                       <th>Categoria</th>
-                      <th>Responsável / Pago por</th>
+                      <th>
+                        Responsável<br />Pago por
+                      </th>
                       <th>Data / vencimento</th>
                       <th>Situação</th>
                       <th className="amount">Valor</th>
@@ -833,7 +835,6 @@ export default function Dashboard({
                         <td>
                           <span className="entry-responsible">{e.person}</span>
                           <small className="entry-payer">
-                            Pago por:{" "}
                             {e.kind === "expense" && e.confirmed
                               ? e.payer_display || e.payer || "Não informado"
                               : "—"}
@@ -861,21 +862,19 @@ export default function Dashboard({
                         </td>
                         <td>
                           <div className="entry-actions">
-                            {!e.confirmed && (
-                              <button
-                                className="confirm-payment"
-                                disabled={busy}
-                                title={
-                                  e.kind === "income"
-                                    ? "Confirmar recebimento"
-                                    : "Confirmar pagamento"
-                                }
-                                aria-label={`${e.kind === "income" ? "Confirmar recebimento" : "Confirmar pagamento"}: ${e.description}`}
-                                onClick={() => confirmPayment(e.id)}
-                              >
-                                <Banknote size={15} aria-hidden="true" />
-                              </button>
-                            )}
+                            <button
+                              className="confirm-payment"
+                              disabled={busy || e.confirmed}
+                              title={
+                                e.kind === "income"
+                                  ? "Confirmar recebimento"
+                                  : "Confirmar pagamento"
+                              }
+                              aria-label={`${e.kind === "income" ? "Confirmar recebimento" : "Confirmar pagamento"}: ${e.description}`}
+                              onClick={() => confirmPayment(e.id)}
+                            >
+                              <Banknote size={15} aria-hidden="true" />
+                            </button>
                             <button
                               className="delete"
                               aria-label={`Editar ${e.description}`}
