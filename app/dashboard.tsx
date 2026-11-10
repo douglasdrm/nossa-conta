@@ -24,6 +24,7 @@ import {
   CategoryColorsProvider,
   useCategoryColors,
 } from "@/components/category-colors";
+import { categoryStyle } from "@/lib/category-colors";
 import CategoryName from "@/components/category-name";
 import CategoryManager from "@/components/category-manager";
 import CategoryPicker from "@/components/category-picker";
@@ -576,8 +577,8 @@ function DashboardContent({
                 <td>
                   <div className="entry-badges">
                     <span
-                      className="visual-badge"
-                      style={badgeStyle(categoryColor(e.category, e.kind))}
+                      className="visual-badge category-badge"
+                      style={categoryStyle(categoryColor(e.category, e.kind))}
                     >
                       {e.category}
                     </span>

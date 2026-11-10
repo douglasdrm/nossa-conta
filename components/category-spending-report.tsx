@@ -1,7 +1,7 @@
 "use client";
 
 import { useCategoryColors } from "@/components/category-colors";
-import { badgeStyle } from "@/lib/visual-colors";
+import { categoryStyle } from "@/lib/category-colors";
 import { useState } from "react";
 import { ChevronDown, Tag, Tags } from "lucide-react";
 import type { AnnualReport } from "@/lib/finance-reports";
@@ -99,13 +99,13 @@ export default function CategorySpendingReport({
                 >
                   <span
                     className="report-method-icon report-category-icon report-color-icon"
-                    style={badgeStyle(color(category.name, "expense"))}
+                    style={categoryStyle(color(category.name, "expense"))}
                   >
                     <Tag size={19} aria-hidden="true" />
                   </span>
                   <span
                     className="report-method-name report-category-name"
-                    style={badgeStyle(color(category.name, "expense"))}
+                    style={categoryStyle(color(category.name, "expense"))}
                   >
                     {category.name}
                   </span>

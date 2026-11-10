@@ -13,8 +13,8 @@ export async function categoryCatalog(
   const [saved, plan] = await Promise.all([
     db
       .from("nc_categories")
-      .select("id,kind,name,default_name,budget_group")
-      .order("name"),
+      .select("id,kind,name,default_name,budget_group,created_at")
+      .order("created_at"),
     db.from("nc_budget_plan").select("categories").maybeSingle(),
   ]);
   if (saved.error) throw saved.error;
@@ -22,6 +22,7 @@ export async function categoryCatalog(
   const overrides = plan.data?.categories ?? {};
   const categories: (Omit<CategoryItem, "color"> & {
     colorIdentity: string;
+    createdAt?: string;
   })[] = [];
   for (const kind of ["expense", "income"] as const) {
     const defaults = kind === "expense" ? expenseCategories : incomeCategories;
@@ -51,6 +52,7 @@ export async function categoryCatalog(
         kind,
         name: row.name,
         colorIdentity: "custom:" + row.id,
+        createdAt: row.created_at,
         group:
           kind === "expense"
             ? ((Object.hasOwn(overrides, row.name)

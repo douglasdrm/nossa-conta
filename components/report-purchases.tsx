@@ -1,5 +1,5 @@
 "use client";
-import { badgeStyle } from "@/lib/visual-colors";
+import { categoryStyle } from "@/lib/category-colors";
 import { useCategoryColors } from "@/components/category-colors";
 import { useEffect, useState } from "react";
 import { paymentMethodLabels, type PaymentMethod } from "@/lib/payment-methods";
@@ -114,8 +114,8 @@ export default function ReportPurchases({
                   <div className="report-purchase-meta">
                     {!hideCategory && (
                       <span
-                        className="visual-badge"
-                        style={badgeStyle(
+                        className="visual-badge category-badge"
+                        style={categoryStyle(
                           categoryColor(entry.category, "expense"),
                         )}
                       >

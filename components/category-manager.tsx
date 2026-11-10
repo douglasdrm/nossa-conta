@@ -4,7 +4,7 @@ import { useState, type FormEvent } from "react";
 import { Pencil, Search, Tags, X } from "lucide-react";
 import { budgetKeys, budgetGroups, type BudgetGroup } from "@/lib/budget-plan";
 import type { CategoryItem } from "@/lib/categories";
-import { badgeStyle } from "@/lib/visual-colors";
+import { categoryStyle } from "@/lib/category-colors";
 import { useCategoryColors } from "@/components/category-colors";
 
 export default function CategoryManager() {
@@ -151,7 +151,7 @@ export default function CategoryManager() {
             <li
               key={item.name}
               className="category-manager-card"
-              style={badgeStyle(item.color)}
+              style={categoryStyle(item.color)}
               data-editing={editing === item}
             >
               <div className="category-manager-card-heading">
