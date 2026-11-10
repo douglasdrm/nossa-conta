@@ -3,21 +3,32 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Camera, UserRound, LockKeyhole, Mail } from "lucide-react";
 import { createClient } from "@/lib/supabase/browser";
+import {
+  badgeStyle,
+  profileColors,
+  profileColorOptions,
+  type ProfileColor,
+} from "@/lib/visual-colors";
 import { avatarLimit } from "@/lib/profile";
 export default function ProfileEditor({
   name,
   username,
   photo,
+  color,
   email,
   pendingEmail,
 }: {
   name: string;
   username: string;
   photo: string;
+  color: ProfileColor | null;
   email: string;
   pendingEmail: string;
 }) {
   const router = useRouter();
+  const [selectedColor, setSelectedColor] = useState<ProfileColor | null>(
+    color,
+  );
   const [profileBusy, setProfileBusy] = useState(false),
     [photoBusy, setPhotoBusy] = useState(false),
     [emailBusy, setEmailBusy] = useState(false),
@@ -136,6 +147,7 @@ export default function ProfileEditor({
                   body: JSON.stringify({
                     name: f.get("name"),
                     username: f.get("username"),
+                    color: selectedColor,
                   }),
                 });
                 const data = await r.json();
@@ -180,6 +192,38 @@ export default function ProfileEditor({
                 continua sendo por e-mail ou Google.
               </small>
             </label>
+            <fieldset className="profile-color-options">
+              <legend>Cor nos lançamentos</legend>
+              <p className="field-hint">
+                Aparece ao lado do seu nome nas despesas e receitas da casa.
+              </p>
+              <div>
+                <label className="visual-badge">
+                  <input
+                    type="radio"
+                    name="profileColor"
+                    checked={selectedColor === null}
+                    onChange={() => setSelectedColor(null)}
+                  />{" "}
+                  Automática
+                </label>
+                {profileColors.map((option) => (
+                  <label
+                    key={option}
+                    className="visual-badge"
+                    style={badgeStyle(profileColorOptions[option].hex)}
+                  >
+                    <input
+                      type="radio"
+                      name="profileColor"
+                      checked={selectedColor === option}
+                      onChange={() => setSelectedColor(option)}
+                    />
+                    {profileColorOptions[option].label}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
             <button className="primary save" disabled={profileBusy}>
               {profileBusy ? "Salvando…" : "Salvar perfil"}
             </button>

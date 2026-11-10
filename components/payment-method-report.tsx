@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { paymentMethodLabels, type PaymentMethod } from "@/lib/payment-methods";
 
+import { badgeStyle, paymentColors } from "@/lib/visual-colors";
 import ReportPurchases from "@/components/report-purchases";
 
 const currency = new Intl.NumberFormat("pt-BR", {
@@ -72,7 +73,10 @@ export default function PaymentMethodReport({
                   setSelected((current) => (current === key ? null : key))
                 }
               >
-                <span className="report-method-icon">
+                <span
+                  className="report-method-icon report-color-icon"
+                  style={method ? badgeStyle(paymentColors[method]) : undefined}
+                >
                   <Icon size={20} aria-hidden="true" />
                 </span>
                 <span className="report-method-name">{label}</span>

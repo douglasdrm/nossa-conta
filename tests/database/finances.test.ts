@@ -1459,6 +1459,42 @@ test("migration, household isolation, invitations and recurring month edits", as
     },
   );
   await t.test(
+    "shares selected entry colors only inside the household",
+    async () => {
+      await as(alice);
+      await rpc("save_profile_color", ["Alice Silva", "alice_silva", "violet"]);
+      await rpc("save_profile", ["Alice Silva", "alice_silva"]);
+      await assert.rejects(() =>
+        rpc("save_profile_color", ["Alice Silva", "alice_silva", "invalid"]),
+      );
+      const row = await rpc<{ id: string }>("add_entry", [
+        {
+          ...base,
+          repeats: false,
+          person: "alice_silva",
+          payer: "alice",
+          confirmed: true,
+          date: "2028-06-01",
+        },
+      ]);
+      const period = ["2028-06-01", "2028-07-01"];
+      await as(bob);
+      const colors = await rpc<Record<string, unknown>>(
+        "entry_profile_colors",
+        period,
+      );
+      assert.deepEqual(colors[row.id], { person: "violet", payer: "violet" });
+      await as(outsider);
+      assert.equal(
+        (await rpc<Record<string, unknown>>("entry_profile_colors", period))[
+          row.id
+        ],
+        undefined,
+      );
+      await as(alice);
+    },
+  );
+  await t.test(
     "renaming an income category updates its recurrence without affecting expense categories",
     async () => {
       await as(alice);

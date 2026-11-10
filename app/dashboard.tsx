@@ -14,6 +14,13 @@ import {
   paymentMethodLabels,
   type PaymentMethod,
 } from "@/lib/payment-methods";
+import {
+  badgeStyle,
+  categoryColor,
+  paymentColors,
+  profileColorOptions,
+  type ProfileColor,
+} from "@/lib/visual-colors";
 import CategoryManager from "@/components/category-manager";
 import CategoryPicker from "@/components/category-picker";
 import SharePanel from "@/components/share-panel";
@@ -61,6 +68,7 @@ type Entry = {
   confirmed: boolean;
   payer: string | null;
   payment_method?: PaymentMethod | null;
+  profile_colors?: { person: ProfileColor | null; payer: ProfileColor | null };
   payer_user_id?: string | null;
   payer_display?: string | null;
   confirmed_at: string | null;
@@ -68,18 +76,6 @@ type Entry = {
   installment_number: number | null;
   installment_count: number | null;
 };
-const colors = [
-  "#286653",
-  "#d9a65d",
-  "#8b9dcd",
-  "#d47763",
-  "#9ba970",
-  "#69a6aa",
-  "#c68eac",
-  "#a29685",
-  "#728593",
-  "#c7bfab",
-];
 const money = (n: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
     n / 100,
@@ -248,9 +244,9 @@ export default function Dashboard({
         ...rows.filter((e) => e.kind === "expense").map((e) => e.category),
       ]),
     ]
-      .map((c, i) => ({
+      .map((c) => ({
         name: c,
-        color: colors[i % colors.length],
+        color: categoryColor(c),
         value: rows
           .filter(
             (e) => e.kind === "expense" && e.confirmed && e.category === c,
@@ -267,13 +263,17 @@ export default function Dashboard({
           .filter((p): p is string => Boolean(p)),
       ]),
     ];
-  const payerTotals = new Map<string, { label: string; total: number }>();
+  const payerTotals = new Map<
+    string,
+    { label: string; total: number; color?: ProfileColor | null }
+  >();
   for (const entry of rows) {
     if (entry.kind !== "expense" || !entry.confirmed) continue;
     const label = entry.payer_display || entry.payer || "Não informado";
     const key = entry.payer_user_id || `label:${entry.payer || ""}`;
     payerTotals.set(key, {
       label,
+      color: entry.profile_colors?.payer,
       total: (payerTotals.get(key)?.total || 0) + entry.amount,
     });
   }
@@ -566,20 +566,54 @@ export default function Dashboard({
                   )}
                 </td>
                 <td>
-                  <span className="pill">{e.category}</span>
-                  {e.payment_method && (
-                    <small className="entry-payer">
-                      {paymentMethodLabels[e.payment_method]}
-                    </small>
-                  )}
+                  <div className="entry-badges">
+                    <span
+                      className="visual-badge"
+                      style={badgeStyle(categoryColor(e.category))}
+                    >
+                      {e.category}
+                    </span>
+                    {e.payment_method && (
+                      <small
+                        className="visual-badge"
+                        style={badgeStyle(paymentColors[e.payment_method])}
+                      >
+                        {paymentMethodLabels[e.payment_method]}
+                      </small>
+                    )}
+                  </div>
                 </td>
                 <td>
-                  <span className="entry-responsible">{e.person}</span>
-                  <small className="entry-payer">
-                    {e.kind === "expense" && e.confirmed
-                      ? e.payer_display || e.payer || "Não informado"
-                      : "—"}
-                  </small>
+                  <div className="entry-badges">
+                    <span
+                      className="visual-badge"
+                      style={
+                        e.profile_colors?.person
+                          ? badgeStyle(
+                              profileColorOptions[e.profile_colors.person].hex,
+                            )
+                          : undefined
+                      }
+                    >
+                      {e.person}
+                    </span>
+                    {e.kind === "expense" && e.confirmed ? (
+                      <small
+                        className="visual-badge"
+                        style={
+                          e.profile_colors?.payer
+                            ? badgeStyle(
+                                profileColorOptions[e.profile_colors.payer].hex,
+                              )
+                            : undefined
+                        }
+                      >
+                        {e.payer_display || e.payer || "Não informado"}
+                      </small>
+                    ) : (
+                      <small className="entry-payer">—</small>
+                    )}
+                  </div>
                 </td>
                 <td>{e.date.split("-").reverse().join("/")}</td>
                 <td>
@@ -1133,9 +1167,18 @@ export default function Dashboard({
                 {paidBy.length > 0 && (
                   <div className="payer-summary">
                     <h3>Quem pagou neste mês</h3>
-                    {paidBy.map(([key, { label: payer, total }]) => (
+                    {paidBy.map(([key, { label: payer, total, color }]) => (
                       <div key={key}>
-                        <span>{payer}</span>
+                        <span
+                          className="visual-badge"
+                          style={
+                            color
+                              ? badgeStyle(profileColorOptions[color].hex)
+                              : undefined
+                          }
+                        >
+                          {payer}
+                        </span>
                         <b>{money(total)}</b>
                       </div>
                     ))}

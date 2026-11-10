@@ -49,7 +49,7 @@ export async function GET(r: Request) {
       new URL(r.url).searchParams.get("month"),
     );
     if (!month.success) throw new ApiError("Selecione um mês válido.", 400);
-    const [entries, labels] = await Promise.all([
+    const [entries, labels, colors] = await Promise.all([
       db
         .from("nc_entries")
         .select(
@@ -60,12 +60,18 @@ export async function GET(r: Request) {
         .is("deleted_at", null)
         .order("date", { ascending: false }),
       db.rpc("nc_payer_labels"),
+      db.rpc("nc_entry_profile_colors", {
+        p_start: month.data + "-01",
+        p_end: nextMonth(month.data),
+      }),
     ]);
     if (entries.error) throw entries.error;
     if (labels.error) throw labels.error;
+    if (colors.error) throw colors.error;
     return Response.json(
       entries.data.map((entry) => ({
         ...entry,
+        profile_colors: colors.data?.[entry.id],
         payer_display: entry.payer_user_id
           ? (labels.data?.[entry.payer_user_id] ?? entry.payer)
           : entry.payer,

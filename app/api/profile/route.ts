@@ -11,10 +11,16 @@ export async function PATCH(r: Request) {
         "Informe seu nome e um nome de usuário com 3 a 30 letras sem acento, números ou sublinhado.",
         400,
       );
-    const { error } = await db.rpc("nc_save_profile", {
-      p_name: parsed.data.name,
-      p_username: parsed.data.username || null,
-    });
+    const { error } = await db.rpc(
+      parsed.data.color === undefined
+        ? "nc_save_profile"
+        : "nc_save_profile_color",
+      {
+        p_name: parsed.data.name,
+        p_username: parsed.data.username || null,
+        ...(parsed.data.color !== undefined && { p_color: parsed.data.color }),
+      },
+    );
     if (error)
       throw new ApiError(
         error.code === "23505"

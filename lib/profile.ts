@@ -1,5 +1,7 @@
+import { profileColors } from "./visual-colors";
 import { z } from "zod";
 export const profileSchema = z.object({
+  color: z.enum(profileColors).nullish(),
   name: z.string().trim().min(1).max(60),
   username: z
     .string()

@@ -1845,3 +1845,30 @@ aside .nav.active[href="/relatorio-anual"], .savings-shortcut[href="/relatorio-a
   .report-category-header .report-method-chevron { grid-column: 3; }
   .report-method-comparison { grid-column: 2; grid-row: 3; text-align: left; }
 }
+
+.entry-badges { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.visual-badge {
+  --badge-color: #728593;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 4px 7px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: #344554;
+  background: #edf1f6;
+  color: color-mix(in srgb, var(--badge-color) 53%, #172621);
+  background: color-mix(in srgb, var(--badge-color) 17%, #fff);
+}
+.profile-color-options { margin: 0 0 16px; padding: 0; border: 0; }
+.profile-color-options legend { font-weight: 600; }
+.profile-color-options > div { display: flex; flex-wrap: wrap; gap: 7px; }
+.profile-color-options label { display: inline-flex; margin: 0; cursor: pointer; }
+.profile-color-options input[type="radio"] { width: auto; margin: 0; accent-color: var(--badge-color); }
+.report-method-icon.report-color-icon {
+  color: color-mix(in srgb, var(--badge-color, #728593) 70%, #172621);
+  background: color-mix(in srgb, var(--badge-color, #728593) 17%, #fff);
+}

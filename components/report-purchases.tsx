@@ -1,4 +1,5 @@
 "use client";
+import { badgeStyle, categoryColor } from "@/lib/visual-colors";
 import { useEffect, useState } from "react";
 import { paymentMethodLabels, type PaymentMethod } from "@/lib/payment-methods";
 const currency = new Intl.NumberFormat("pt-BR", {
@@ -102,7 +103,10 @@ export default function ReportPurchases({
                     )}
                   </div>
                   <div className="report-purchase-meta">
-                    <span className="report-purchase-category">
+                    <span
+                      className="visual-badge"
+                      style={badgeStyle(categoryColor(entry.category))}
+                    >
                       {entry.category}
                     </span>
                     <time dateTime={entry.date}>{date(entry.date)}</time>

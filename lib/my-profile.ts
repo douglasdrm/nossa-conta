@@ -1,8 +1,9 @@
+import type { ProfileColor } from "./visual-colors";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 export async function myProfile(db: SupabaseClient, user: User) {
   const { data, error } = await db
     .from("nc_user_profiles")
-    .select("display_name,username,avatar_path")
+    .select("display_name,username,avatar_path,color")
     .eq("user_id", user.id)
     .maybeSingle();
   if (error)
@@ -24,5 +25,6 @@ export async function myProfile(db: SupabaseClient, user: User) {
     name: data?.display_name || fallback.trim().slice(0, 60),
     username: data?.username || "",
     photo,
+    color: (data?.color ?? null) as ProfileColor | null,
   };
 }

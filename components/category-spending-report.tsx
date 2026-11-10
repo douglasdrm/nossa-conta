@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ChevronDown, Tag, Tags } from "lucide-react";
 import type { AnnualReport } from "@/lib/finance-reports";
+import { badgeStyle, categoryColor } from "@/lib/visual-colors";
 import ReportPurchases from "@/components/report-purchases";
 
 const currency = new Intl.NumberFormat("pt-BR", {
@@ -107,11 +108,17 @@ export default function CategorySpendingReport({
                     )
                   }
                 >
-                  <span className="report-method-icon report-category-icon">
+                  <span
+                    className="report-method-icon report-category-icon report-color-icon"
+                    style={badgeStyle(categoryColor(category.name))}
+                  >
                     <Tag size={19} aria-hidden="true" />
                   </span>
                   <span className="report-method-name report-category-name">
-                    <span className="report-purchase-category">
+                    <span
+                      className="visual-badge"
+                      style={badgeStyle(categoryColor(category.name))}
+                    >
                       {category.name}
                     </span>
                   </span>
