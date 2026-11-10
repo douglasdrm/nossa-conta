@@ -16,3 +16,9 @@ export const incomeCategories = [
   "Rendimentos",
   "Outras receitas",
 ];
+
+export type CategoryItem = {
+  kind: "expense" | "income";
+  name: string;
+  group: import("./budget-plan").BudgetGroup | null;
+};

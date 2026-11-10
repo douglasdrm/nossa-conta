@@ -16,7 +16,7 @@ export default function CategoryPicker({
   onRename: () => void;
 }) {
   const [group, setGroup] = useState<BudgetGroup | "">("");
-  const [custom, setCustom] = useState<string[]>([]);
+  const [custom, setCustom] = useState<string[] | null>(null);
   const [selected, setSelected] = useState(initial || defaults[0]);
   const [mode, setMode] = useState<"add" | "rename" | null>(null),
     [name, setName] = useState(""),
@@ -32,8 +32,15 @@ export default function CategoryPicker({
       .then(async (r) => {
         if (!r.ok) throw Error();
         const items: { kind: string; name: string }[] = await r.json();
-        if (active)
-          setCustom(items.filter((c) => c.kind === kind).map((c) => c.name));
+        if (active) {
+          const names = items.filter((c) => c.kind === kind).map((c) => c.name);
+          setCustom(names);
+          setSelected((current) =>
+            initial || names.includes(current)
+              ? current
+              : (names[0] ?? current),
+          );
+        }
       })
       .catch(() => {
         if (active)
@@ -44,9 +51,9 @@ export default function CategoryPicker({
     return () => {
       active = false;
     };
-  }, [kind]);
+  }, [kind, initial]);
   const options = [
-    ...new Set([...defaults, ...custom, selected].filter(Boolean)),
+    ...new Set([...(custom ?? defaults), selected].filter(Boolean)),
   ];
   async function saveCategory() {
     if (busy) return;
@@ -88,10 +95,10 @@ export default function CategoryPicker({
         throw Error(data.error || "Não foi possível salvar a categoria.");
       setCustom((current) =>
         mode === "rename"
-          ? current.map((category) =>
+          ? (current ?? defaults).map((category) =>
               category === selected ? data.name : category,
             )
-          : [...current, data.name],
+          : [...(current ?? defaults), data.name],
       );
       if (mode === "rename") onRename();
       setSelected(data.name);
@@ -133,7 +140,7 @@ export default function CategoryPicker({
           >
             <Plus size={14} aria-hidden="true" /> Adicionar categoria
           </button>
-          {custom.includes(selected) && !defaults.includes(selected) && (
+          {custom?.includes(selected) && (
             <button
               type="button"
               className="text-button"

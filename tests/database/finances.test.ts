@@ -1306,6 +1306,71 @@ test("migration, household isolation, invitations and recurring month edits", as
     },
   );
   await t.test(
+    "edits a built-in category and preserves its history within one household",
+    async () => {
+      await as(alice);
+      const entry = await rpc<{ id: string }>("add_entry", [
+        { ...base, category: "Saúde", date: "2026-07-01" },
+      ]);
+      await assert.rejects(
+        () => rpc("edit_category", ["expense", "Saúde", "Mercado", "leisure"]),
+        /category_name_taken/,
+      );
+      await rpc("edit_category", [
+        "expense",
+        "Saúde",
+        "Saúde e beleza",
+        "leisure",
+      ]);
+      assert.deepEqual(
+        (
+          await db.query(
+            "select default_name,budget_group from nc_categories where name='Saúde e beleza'",
+          )
+        ).rows,
+        [{ default_name: "Saúde", budget_group: "leisure" }],
+      );
+      assert.deepEqual(
+        (
+          await db.query("select category from nc_entries where id=$1", [
+            entry.id,
+          ])
+        ).rows,
+        [{ category: "Saúde e beleza" }],
+      );
+      await assert.rejects(
+        () =>
+          rpc("edit_category", [
+            "expense",
+            "Saúde",
+            "Outra Saúde",
+            "essentials",
+          ]),
+        /category_not_found/,
+      );
+      const staleForm = await rpc<{ id: string }>("add_entry", [
+        { ...base, category: "Saúde", date: "2026-07-05" },
+      ]);
+      assert.deepEqual(
+        (
+          await db.query("select category from nc_entries where id=$1", [
+            staleForm.id,
+          ])
+        ).rows,
+        [{ category: "Saúde e beleza" }],
+      );
+      await as(outsider);
+      assert.deepEqual(
+        (
+          await db.query(
+            "select default_name from nc_categories where name='Saúde e beleza'",
+          )
+        ).rows,
+        [],
+      );
+    },
+  );
+  await t.test(
     "renaming an income category updates its recurrence without affecting expense categories",
     async () => {
       await as(alice);

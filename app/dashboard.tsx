@@ -9,6 +9,7 @@ import UpcomingPanel from "@/components/upcoming-panel";
 import { upcomingEnd } from "@/lib/finance-reports";
 import SavingsPanel from "@/components/savings-panel";
 import { expenseCategories, incomeCategories } from "@/lib/categories";
+import CategoryManager from "@/components/category-manager";
 import CategoryPicker from "@/components/category-picker";
 import SharePanel from "@/components/share-panel";
 import MoneyInput from "@/components/money-input";
@@ -83,7 +84,8 @@ export type FinanceView =
   | "savings"
   | "entries"
   | "annual"
-  | "plan";
+  | "plan"
+  | "categories";
 
 export default function Dashboard({
   name,
@@ -148,7 +150,7 @@ export default function Dashboard({
     return () => clearInterval(timer);
   }, []);
   async function reload(target = month) {
-    if (view === "annual") return;
+    if (view === "annual" || view === "categories") return;
     const seq = ++requestId.current;
     setLoading(true);
     setError("");
@@ -689,6 +691,13 @@ export default function Dashboard({
       >
         <CalendarRange size={19} /> Relatórios
       </a>
+      <a
+        className={view === "categories" ? "nav active" : "nav"}
+        href="/categorias"
+        aria-current={view === "categories" ? "page" : undefined}
+      >
+        <SlidersHorizontal size={19} /> Categorias
+      </a>
       <button
         className="nav"
         onClick={() => {
@@ -779,6 +788,7 @@ export default function Dashboard({
                 entries: "Lançamentos",
                 annual: "Relatórios",
                 plan: "Plano do mês",
+                categories: "Categorias",
               }[view]
             }
           </div>
@@ -789,7 +799,16 @@ export default function Dashboard({
             <Users size={16} /> Espaço compartilhado
           </button>
         </header>
-        {view === "annual" ? (
+        {view === "categories" ? (
+          <>
+            <section className="heading">
+              <div>
+                <h1>Categorias</h1>
+              </div>
+            </section>
+            <CategoryManager />
+          </>
+        ) : view === "annual" ? (
           <>
             <section className="heading">
               <div>

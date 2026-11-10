@@ -1676,3 +1676,12 @@ aside .nav.active[href="/relatorio-anual"], .savings-shortcut[href="/relatorio-a
 .overview-shortcuts > .savings-shortcut {
   margin: 0;
 }
+
+.category-manager { padding: clamp(16px, 3vw, 28px); }
+.category-manager-row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: start; gap: 8px; border-top: 1px solid #e0e5ec; padding: 12px 0; }
+.category-manager-row small { display: block; margin-top: 4px; }
+.category-manager-row form { flex-basis: 100%; padding: 12px; background: #f5f7fb; border-radius: 10px; }
+.report-category-detail { margin-top: 14px; padding: 14px; border: 1px solid #dce3ee; border-radius: 10px; }
+.report-category-detail ul { list-style: none; padding: 0; }
+.report-category-detail li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; border-top: 1px solid #e0e5ec; padding: 8px 0; }
+.report-category-detail time { grid-column: 1 / -1; }

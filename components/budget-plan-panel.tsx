@@ -128,6 +128,11 @@ export default function BudgetPlanPanel({
             opcional e pode ser desativado a qualquer momento.
           </p>
         </div>
+        <p>
+          <a className="text-button" href="/categorias">
+            Ver e editar os grupos das categorias
+          </a>
+        </p>
         {balancesLoading && <p role="status">Calculando a sugestão do mês…</p>}
         <div
           className="budget-profiles"
