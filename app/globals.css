@@ -1826,14 +1826,16 @@ aside .nav.active[href="/relatorio-anual"], .savings-shortcut[href="/relatorio-a
 
 .report-category-card { border-color: #d7e6f6; }
 .report-category-card .report-payment-heading-icon, .report-category-card .report-category-icon { color: #326699; background: #e7f0fb; }
-.report-category-card .report-method-item { border-color: #d7e6f6; }
-.report-category-card .report-method-item[data-open="true"] { border-color: #8faed0; }
-.report-category-card .report-category-header { background: #f1f6fd; }
-.report-category-card .report-category-header:hover, .report-category-card .report-category-header[aria-expanded="true"] { background: #e7f0fb; }
-.report-category-card .report-detail-panel, .report-category-card .report-purchase-row { border-color: #d7e6f6; }
-.report-category-card .report-method-name, .report-category-card .report-method-value, .report-category-card .report-method-chevron, .report-category-card .report-purchases-total strong { color: #326699; }
+.report-category-card .report-method-item { border-color: color-mix(in srgb, var(--badge-color) 80%, #fff); }
+.report-category-card .report-method-item[data-open="true"] { border-color: var(--badge-color); }
+.report-category-card .report-category-header { background: var(--category-surface); }
+.report-category-card .report-category-header:hover, .report-category-card .report-category-header[aria-expanded="true"] { background: color-mix(in srgb, var(--badge-color) 80%, #fff); }
+.report-category-card .report-detail-panel, .report-category-card .report-purchase-row { border-color: color-mix(in srgb, var(--badge-color) 70%, #fff); }
+.report-category-card .report-method-name, .report-category-card .report-method-value, .report-category-card .report-method-chevron, .report-category-card .report-purchases-total strong { color: var(--category-text); }
+.report-category-header .report-method-comparison { color: #455c50; }
 .report-category-name { min-width: 0; }
 .report-category-card .report-purchases-total { display: grid; grid-template-columns: auto minmax(0, 1fr); }
+.report-category-card .report-purchases-value { justify-items: end; }
 .report-category-amount { display: grid; gap: 4px; min-width: 0; text-align: right; }
 .report-method-comparison { color: #64766b; font-size: 11px; font-weight: 400; line-height: 1.6; }
 .report-purchases-value { display: grid; gap: 4px; text-align: right; }

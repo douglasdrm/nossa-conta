@@ -83,6 +83,7 @@ export default function CategorySpendingReport({
               <li
                 key={category.name}
                 className="report-method-item"
+                style={categoryStyle(color(category.name, "expense"))}
                 data-open={open}
               >
                 <button
@@ -97,16 +98,10 @@ export default function CategorySpendingReport({
                     )
                   }
                 >
-                  <span
-                    className="report-method-icon report-category-icon report-color-icon"
-                    style={categoryStyle(color(category.name, "expense"))}
-                  >
+                  <span className="report-method-icon report-category-icon report-color-icon">
                     <Tag size={19} aria-hidden="true" />
                   </span>
-                  <span
-                    className="report-method-name report-category-name"
-                    style={categoryStyle(color(category.name, "expense"))}
-                  >
+                  <span className="report-method-name report-category-name">
                     {category.name}
                   </span>
                   <span className="report-category-amount">
