@@ -5,16 +5,16 @@ import {
   type CategoryItem,
 } from "./categories";
 
-// Three deliberate shades for each family from the application's palette.
+// Three pastel shades for each family from the application's palette.
 export const categoryColorFamilies = [
-  { name: "Verde", shades: ["#8db7a1", "#397254", "#1e493c"] },
-  { name: "Azul", shades: ["#9bb2d9", "#5473ac", "#31496f"] },
-  { name: "Âmbar", shades: ["#e6bf7b", "#b4792f", "#704a20"] },
-  { name: "Rosa", shades: ["#d7a4b9", "#b7557c", "#72364f"] },
-  { name: "Lilás", shades: ["#b7a4cf", "#8664a5", "#533f70"] },
-  { name: "Turquesa", shades: ["#94c1c1", "#39838a", "#25545d"] },
-  { name: "Terracota", shades: ["#e4b0a1", "#c46f59", "#7e4638"] },
-  { name: "Oliva", shades: ["#c4cb9b", "#8b9957", "#535d34"] },
+  { name: "Verde", shades: ["#e4eee7", "#bfd6c7", "#94b79f"] },
+  { name: "Azul", shades: ["#e5edf8", "#c1d2ed", "#97b1d8"] },
+  { name: "Âmbar", shades: ["#fbefd8", "#f0d6a5", "#deba79"] },
+  { name: "Rosa", shades: ["#f7e5ed", "#e8bfd0", "#d699b4"] },
+  { name: "Lilás", shades: ["#eee7f5", "#d7c5e6", "#b99fce"] },
+  { name: "Turquesa", shades: ["#e2f0ef", "#b9d9d7", "#8cbfbc"] },
+  { name: "Terracota", shades: ["#f9e8e2", "#edc6b8", "#dca18a"] },
+  { name: "Oliva", shades: ["#edf0df", "#d4dcba", "#b3c28f"] },
 ] as const;
 // Alternate families and contrast levels so adjacent categories are easy to distinguish.
 export const categoryColorSequence = [0, 1, 2].flatMap((round) =>
@@ -61,20 +61,10 @@ export function colorCategories(items: CatalogColorInput[]): CategoryItem[] {
 }
 
 export function categoryStyle(color: string): CSSProperties {
-  const family = categoryColorFamilies.find((family) =>
-    family.shades.some((shade) => shade === color),
-  );
-  const tone = family?.shades.findIndex((shade) => shade === color) ?? 1;
-  const rgb = [1, 3, 5]
-    .map((offset) => parseInt(color.slice(offset, offset + 2), 16) / 255)
-    .map((channel) =>
-      channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4,
-    );
-  const luminance = rgb[0] * 0.2126 + rgb[1] * 0.7152 + rgb[2] * 0.0722;
   return {
     "--badge-color": color,
-    "--category-text": `color-mix(in srgb, ${color} 45%, #172621)`,
-    "--category-contrast": luminance > 0.179 ? "#172621" : "#ffffff",
-    "--category-surface": `color-mix(in srgb, ${color} ${[15, 25, 45][tone]}%, #fff)`,
+    "--category-text": "#263d34",
+    "--category-contrast": "#263d34",
+    "--category-surface": `color-mix(in srgb, ${color} 60%, #fff)`,
   } as CSSProperties;
 }

@@ -1881,7 +1881,7 @@ aside .nav.active[href="/relatorio-anual"], .savings-shortcut[href="/relatorio-a
 .category-manager-caption { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 20px; color: #64766b; font-size: 12px; }
 .category-manager-caption p { margin: 0; }
 .category-manager-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; min-width: 0; list-style: none; padding: 0; margin: 0; }
-.category-manager-card { min-width: 0; border: 1px solid color-mix(in srgb, var(--badge-color) 32%, #fff); border-radius: 13px; background: var(--category-surface); border-top: 4px solid var(--badge-color); overflow: hidden; }
+.category-manager-card { min-width: 0; border: 1px solid color-mix(in srgb, var(--badge-color) 70%, #fff); border-radius: 13px; background: var(--category-surface); overflow: hidden; }
 .category-manager-card[data-editing="true"] { grid-column: 1 / -1; }
 .category-manager-card-heading { display: flex; align-items: center; gap: 12px; min-height: 116px; padding: 20px; }
 .category-manager-card-heading > div { flex: 1; min-width: 0; }

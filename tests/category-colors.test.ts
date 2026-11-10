@@ -12,7 +12,7 @@ import {
 } from "../lib/category-colors";
 import { categoryCatalog } from "../lib/category-catalog";
 
-test("palette contains exactly three visibly distinct shades of each system color", () => {
+test("palette keeps three distinct pastel shades of each system color", () => {
   assert.equal(categoryColorSequence.length, 24);
   assert.equal(new Set(categoryColorSequence).size, 24);
   const luminance = (hex: string) => {
@@ -27,14 +27,16 @@ test("palette contains exactly three visibly distinct shades of each system colo
   };
   for (const family of categoryColorFamilies) {
     const [light, medium, dark] = family.shades.map(luminance);
-    assert.ok(
-      (light + 0.05) / (medium + 0.05) > 1.6,
-      family.name + " light/medium",
-    );
-    assert.ok(
-      (medium + 0.05) / (dark + 0.05) > 1.6,
-      family.name + " medium/dark",
-    );
+    assert.ok(light - medium > 0.08, family.name + " light/medium");
+    assert.ok(medium - dark > 0.08, family.name + " medium/dark");
+    for (const shade of family.shades) {
+      // Pastel colors stay luminous; dark text must remain readable on every shade.
+      assert.ok(luminance(shade) > 0.35, family.name + " pastel");
+      assert.ok(
+        (luminance(shade) + 0.05) / (luminance("#263d34") + 0.05) >= 4.5,
+        family.name + " text contrast",
+      );
+    }
     assert.equal(
       new Set(
         family.shades.map(
