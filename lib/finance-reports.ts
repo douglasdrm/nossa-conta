@@ -28,10 +28,62 @@ export type AnnualReport = {
   periods: ReturnType<typeof annualPeriods>;
   total: number;
   previousTotal: number;
-  months?: { month: string; total: number }[];
+  pendingTotal: number;
+  previousPendingTotal: number;
+  expenseCount: number;
+  previousExpenseCount: number;
+  paidCount: number;
+  previousPaidCount: number;
+  months?: { month: string; total: number; pending: number; count: number }[];
   categories: { name: string; current: number; previous: number }[];
   paymentMethods?: { method: PaymentMethod | null; total: number }[];
 };
+
+export type SpendingTotals = {
+  paid: number;
+  pending: number;
+  count: number;
+  paidCount: number;
+  categories: Map<string, number>;
+  paymentMethods: Map<PaymentMethod | null, number>;
+};
+
+export function emptySpendingTotals(): SpendingTotals {
+  return {
+    paid: 0,
+    pending: 0,
+    count: 0,
+    paidCount: 0,
+    categories: new Map(),
+    paymentMethods: new Map(),
+  };
+}
+
+export function addSpendingEntry(
+  totals: SpendingTotals,
+  entry: {
+    amount: number;
+    confirmed: boolean;
+    category: string;
+    payment_method: PaymentMethod | null;
+  },
+) {
+  totals.count++;
+  if (!entry.confirmed) {
+    totals.pending += entry.amount;
+    return;
+  }
+  totals.paid += entry.amount;
+  totals.paidCount++;
+  totals.categories.set(
+    entry.category,
+    (totals.categories.get(entry.category) ?? 0) + entry.amount,
+  );
+  totals.paymentMethods.set(
+    entry.payment_method,
+    (totals.paymentMethods.get(entry.payment_method) ?? 0) + entry.amount,
+  );
+}
 
 export function annualTotals(
   current: Map<string, number>,

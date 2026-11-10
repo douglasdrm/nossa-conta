@@ -1,6 +1,19 @@
 "use client";
 
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
+import {
+  ArrowDownRight,
+  ArrowUpRight,
+  Banknote,
+  CalendarRange,
+  Check,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Clock3,
+  Equal,
+  Wallet,
+} from "lucide-react";
 import { paymentMethodLabels, type PaymentMethod } from "@/lib/payment-methods";
 import type { AnnualReport } from "@/lib/finance-reports";
 
@@ -111,13 +124,173 @@ function CategoryDetail({ name, query }: { name: string; query: string }) {
   );
 }
 
+const fullMonthName = new Intl.DateTimeFormat("pt-BR", {
+  month: "long",
+  year: "numeric",
+  timeZone: "UTC",
+});
+const compactCurrency = new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
+const fullMonthLabel = (value: string) =>
+  fullMonthName.format(new Date(value.slice(0, 7) + "-01T12:00:00Z"));
+
+function MonthlyChart({
+  year,
+  month,
+  today,
+  series,
+  onSelect,
+}: {
+  year: number;
+  month: string;
+  today: string;
+  series: NonNullable<AnnualReport["months"]>;
+  onSelect: (month: string) => void;
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const byMonth = new Map(series.map((item) => [item.month, item]));
+  const maximum = Math.max(
+    1,
+    ...series.map((item) => item.total + item.pending),
+  );
+  useEffect(() => {
+    const scroller = scrollRef.current;
+    const selected = scroller?.querySelector<HTMLElement>(
+      '[data-month="' + month + '"]',
+    );
+    if (!scroller || !selected) return;
+    const centerSelectedMonth = () => {
+      const button = selected.getBoundingClientRect();
+      const frame = scroller.getBoundingClientRect();
+      scroller.scrollTo({
+        left:
+          scroller.scrollLeft +
+          button.left -
+          frame.left -
+          (scroller.clientWidth - button.width) / 2,
+        behavior: "instant",
+      });
+    };
+    centerSelectedMonth();
+    const observer = new ResizeObserver(centerSelectedMonth);
+    observer.observe(scroller);
+    return () => observer.disconnect();
+  }, [month, year, series]);
+
+  return (
+    <section className="report-chart" aria-labelledby="report-chart-heading">
+      <div className="report-chart-heading">
+        <div>
+          <h3 id="report-chart-heading">Os gastos ao longo de {year}</h3>
+          <p>
+            Pago + a pagar em cada mês. Escolha um mês para ver os detalhes.
+          </p>
+        </div>
+        <div className="report-legend" aria-label="Legenda do gráfico">
+          <span>
+            <i className="report-legend-paid" />
+            Já foi pago
+          </span>
+          <span>
+            <i className="report-legend-pending" />A pagar
+          </span>
+        </div>
+      </div>
+      <div
+        className="report-chart-scroll"
+        ref={scrollRef}
+        role="group"
+        aria-label={"Gastos por mês em " + year}
+      >
+        <div className="report-chart-grid">
+          {Array.from({ length: 12 }, (_, index) => {
+            const key = year + "-" + String(index + 1).padStart(2, "0");
+            const item = byMonth.get(key);
+            const future = key > today.slice(0, 7);
+            const empty = !item || item.count === 0;
+            const total = (item?.total ?? 0) + (item?.pending ?? 0);
+            const description = future
+              ? fullMonthLabel(key) + ": mês futuro"
+              : empty
+                ? fullMonthLabel(key) + ": sem registros"
+                : fullMonthLabel(key) +
+                  ": " +
+                  money(total) +
+                  " previstos, " +
+                  money(item.total) +
+                  " pagos e " +
+                  money(item.pending) +
+                  " a pagar";
+            return (
+              <button
+                key={key}
+                type="button"
+                className="report-month-button"
+                data-month={key}
+                aria-label={description}
+                title={description}
+                aria-pressed={month === key}
+                disabled={future || !item}
+                onClick={() => onSelect(key)}
+              >
+                <strong className="report-month-total">
+                  {empty || future ? "—" : compactCurrency.format(total / 100)}
+                </strong>
+                <span className="report-chart-column" aria-hidden="true">
+                  {empty || future ? (
+                    <span className="report-chart-empty" />
+                  ) : (
+                    <>
+                      <span
+                        className="report-chart-pending"
+                        style={{
+                          height: (100 * item.pending) / maximum + "%",
+                          minHeight: item.pending ? 2 : 0,
+                        }}
+                      />
+                      <span
+                        className="report-chart-paid"
+                        style={{
+                          height: (100 * item.total) / maximum + "%",
+                          minHeight: item.total ? 2 : 0,
+                        }}
+                      />
+                    </>
+                  )}
+                </span>
+                <span className="report-month-caption">
+                  <span>{monthLabel(key)}</span>
+                  <small>
+                    {future
+                      ? "Futuro"
+                      : empty
+                        ? "Sem registros"
+                        : item.count +
+                          (item.count === 1 ? " gasto" : " gastos")}
+                  </small>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <p className="report-chart-mobile-hint">
+        Deslize para ver os outros meses.
+      </p>
+    </section>
+  );
+}
+
 export default function AnnualSpending({ today }: { today: string }) {
   const currentYear = Number(today.slice(0, 4));
   const [year, setYear] = useState(currentYear);
   const [mode, setMode] = useState<"monthly" | "annual">("monthly");
   const [month, setMonth] = useState(today.slice(0, 7));
   const monthly = mode === "monthly";
-  const monthCount = year === currentYear ? Number(today.slice(5, 7)) : 12;
   const [report, setReport] = useState<AnnualReport | null>(null);
   const [series, setSeries] = useState<AnnualReport["months"]>();
   const [error, setError] = useState(false);
@@ -127,6 +300,24 @@ export default function AnnualSpending({ today }: { today: string }) {
     period: "current" | "previous";
   } | null>(null);
 
+  function selectMonth(value: string) {
+    if (
+      !value ||
+      value < "2000-01" ||
+      value > today.slice(0, 7) ||
+      value === month
+    )
+      return;
+    setReport(null);
+    setSelected(null);
+    setMonth(value);
+    setYear(Number(value.slice(0, 4)));
+  }
+  function moveMonth(offset: number) {
+    const value = new Date(month + "-15T12:00:00Z");
+    value.setUTCMonth(value.getUTCMonth() + offset);
+    selectMonth(value.toISOString().slice(0, 7));
+  }
   function toggleDetails(category: string, period: "current" | "previous") {
     setSelected((current) =>
       current?.category === category && current.period === period
@@ -158,43 +349,75 @@ export default function AnnualSpending({ today }: { today: string }) {
     return () => abort.abort();
   }, [year, today, retry, monthly, month]);
 
-  const hasHistory = Boolean(report?.previousTotal);
+  const hasHistory = Boolean(report?.previousPaidCount);
   const currentLabel = monthly ? monthLabel(month) : String(year);
   const previousLabel =
     report && monthly
       ? monthLabel(report.periods.previous.start)
       : String(year - 1);
+  const previousFullLabel =
+    report && monthly
+      ? "em " + fullMonthLabel(report.periods.previous.start)
+      : "no mesmo período de " + (year - 1);
   const visibleMonths =
-    monthly && series?.[0]?.month.startsWith(`${year}-`) ? series : [];
-  const displayMonths = Array.from({ length: 12 }, (_, index) => {
-    const key = `${year}-${String(index + 1).padStart(2, "0")}`;
-    return { month: key, total: visibleMonths[index]?.total ?? null };
-  });
-  const maxMonth = Math.max(1, ...visibleMonths.map((item) => item.total));
+    monthly && series?.[0]?.month.startsWith(year + "-") ? series : [];
+  const difference = report ? report.total - report.previousTotal : 0;
+  const ComparisonIcon =
+    difference > 0 ? ArrowUpRight : difference < 0 ? ArrowDownRight : Equal;
 
   return (
     <section className="panel annual-report" aria-labelledby="annual-heading">
-      <div className="annual-heading">
-        <div>
-          <h2 id="annual-heading">Gastos por categoria</h2>
-          <p>
-            Despesas pagas, pela data do lançamento. Toque na categoria para ver
-            os lançamentos.
-          </p>
+      <div className="report-heading">
+        <span className="eyebrow">CADA ESCOLHA CONTA</span>
+        <h2 id="annual-heading">Os gastos da casa, em perspectiva.</h2>
+        <p>
+          Acompanhe o que já foi pago, o que falta pagar e como cada mês se
+          compara aos outros.
+        </p>
+      </div>
+      <div className="report-toolbar">
+        <div
+          className="report-period-switch"
+          role="group"
+          aria-label="Período do relatório"
+        >
+          <button
+            type="button"
+            aria-pressed={monthly}
+            onClick={() => {
+              if (!monthly) {
+                setReport(null);
+                setMode("monthly");
+              }
+            }}
+          >
+            Mês a mês
+          </button>
+          <button
+            type="button"
+            aria-pressed={!monthly}
+            onClick={() => {
+              if (monthly) {
+                setReport(null);
+                setMode("annual");
+              }
+            }}
+          >
+            Ano a ano
+          </button>
         </div>
-        <div className="report-pickers">
+        <div className="report-filter-fields">
           <label>
             Ano
             <select
+              aria-label="Ano do relatório"
               value={year}
               onChange={(event) => {
-                const selected = Number(event.target.value);
+                const value = Number(event.target.value);
                 setReport(null);
-                setYear(selected);
+                setYear(value);
                 setMonth(
-                  selected === currentYear
-                    ? today.slice(0, 7)
-                    : `${selected}-12`,
+                  value === currentYear ? today.slice(0, 7) : value + "-12",
                 );
               }}
             >
@@ -207,88 +430,46 @@ export default function AnnualSpending({ today }: { today: string }) {
             </select>
           </label>
           {monthly && (
-            <label>
-              Mês
-              <select
-                value={month}
-                onChange={(event) => {
-                  setReport(null);
-                  setMonth(event.target.value);
-                }}
-              >
-                {Array.from(
-                  { length: monthCount },
-                  (_, i) => `${year}-${String(i + 1).padStart(2, "0")}`,
-                ).map((value) => (
-                  <option key={value} value={value}>
-                    {monthLabel(value)}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="report-month-picker">
+              <span>Mês</span>
+              <div className="month">
+                <button
+                  type="button"
+                  aria-label="Mês anterior"
+                  disabled={month === "2000-01"}
+                  onClick={() => moveMonth(-1)}
+                >
+                  <ChevronLeft size={18} />
+                </button>
+                <input
+                  aria-label="Mês do relatório"
+                  type="month"
+                  min="2000-01"
+                  max={today.slice(0, 7)}
+                  value={month}
+                  onChange={(event) => selectMonth(event.target.value)}
+                />
+                <button
+                  type="button"
+                  aria-label="Próximo mês"
+                  disabled={month >= today.slice(0, 7)}
+                  onClick={() => moveMonth(1)}
+                >
+                  <ChevronRight size={18} />
+                </button>
+              </div>
+            </div>
           )}
         </div>
       </div>
-      <div
-        className="report-modes"
-        role="group"
-        aria-label="Período do relatório"
-      >
-        <button
-          type="button"
-          aria-pressed={monthly}
-          onClick={() => {
-            if (!monthly) {
-              setReport(null);
-              setMode("monthly");
-            }
-          }}
-        >
-          Mês a mês
-        </button>
-        <button
-          type="button"
-          aria-pressed={!monthly}
-          onClick={() => {
-            if (monthly) {
-              setReport(null);
-              setMode("annual");
-            }
-          }}
-        >
-          Ano a ano
-        </button>
-      </div>
-      {visibleMonths.length > 0 && (
-        <div
-          className="monthly-series"
-          aria-label={`Gasto total por mês em ${year}`}
-        >
-          {displayMonths.map((item) => (
-            <button
-              type="button"
-              key={item.month}
-              disabled={item.total === null}
-              aria-pressed={item.month === month}
-              onClick={() => {
-                if (item.month !== month) {
-                  setReport(null);
-                  setMonth(item.month);
-                }
-              }}
-            >
-              <span>{monthLabel(item.month)}</span>
-              <strong>
-                {item.total === null ? "Futuro" : money(item.total)}
-              </strong>
-              <span className="month-bar" aria-hidden="true">
-                <i
-                  style={{ width: `${(100 * (item.total ?? 0)) / maxMonth}%` }}
-                />
-              </span>
-            </button>
-          ))}
-        </div>
+      {!error && visibleMonths.length > 0 && (
+        <MonthlyChart
+          year={year}
+          month={month}
+          today={today}
+          series={visibleMonths}
+          onSelect={selectMonth}
+        />
       )}
       {error ? (
         <p className="error" role="alert">
@@ -305,41 +486,99 @@ export default function AnnualSpending({ today }: { today: string }) {
         <p role="status">Carregando relatório…</p>
       ) : (
         <>
-          <div className="report-periods">
-            <div>
-              <span>Total gasto em {currentLabel}</span>
-              <strong>{money(report.total)}</strong>
-              <small>
-                {date(report.periods.current.start)} a{" "}
-                {date(report.periods.current.end)}
-              </small>
+          <section
+            className="report-selected-period"
+            aria-labelledby="report-period-heading"
+            aria-live="polite"
+          >
+            <div className="report-selected-heading">
+              <div>
+                <h3 id="report-period-heading">
+                  {monthly ? fullMonthLabel(month) : year}
+                </h3>
+                <p>
+                  {date(report.periods.current.start)} a{" "}
+                  {date(report.periods.current.end)}
+                </p>
+              </div>
+              <CalendarRange size={21} aria-hidden="true" />
             </div>
-            <div>
+            <div className="report-summary">
+              <article className="report-summary-paid">
+                <div>
+                  <span>Já foi pago</span>
+                  <Check size={19} aria-hidden="true" />
+                </div>
+                <strong>{money(report.total)}</strong>
+                <small>Despesas com pagamento confirmado</small>
+              </article>
+              <article className="report-summary-pending">
+                <div>
+                  <span>Ainda falta pagar</span>
+                  <Clock3 size={19} aria-hidden="true" />
+                </div>
+                <strong>{money(report.pendingTotal)}</strong>
+                <small>Despesas que continuam pendentes</small>
+              </article>
+              <article className="report-summary-forecast">
+                <div>
+                  <span>Total previsto</span>
+                  <Wallet size={19} aria-hidden="true" />
+                </div>
+                <strong>{money(report.total + report.pendingTotal)}</strong>
+                <small>Soma do que foi pago e do que falta pagar</small>
+              </article>
+            </div>
+            <p
+              className={
+                "report-comparison " +
+                (hasHistory
+                  ? difference > 0
+                    ? "increased"
+                    : difference < 0
+                      ? "decreased"
+                      : ""
+                  : "")
+              }
+            >
+              {hasHistory ? (
+                <ComparisonIcon size={18} aria-hidden="true" />
+              ) : (
+                <CalendarRange size={18} aria-hidden="true" />
+              )}
               <span>
-                {monthly ? "Mês anterior" : `Mesmo período de ${year - 1}`}
+                {hasHistory ? (
+                  <>
+                    {difference === 0
+                      ? "Mesmo valor pago que " + previousFullLabel
+                      : money(Math.abs(difference)) +
+                        (difference > 0 ? " a mais que " : " a menos que ") +
+                        previousFullLabel}
+                    . No período anterior:{" "}
+                    <strong>{money(report.previousTotal)}</strong> em despesas
+                    pagas.
+                  </>
+                ) : (
+                  <>
+                    Sem histórico de despesas pagas {previousFullLabel} para
+                    comparar.
+                  </>
+                )}
               </span>
-              <strong>
-                {hasHistory ? money(report.previousTotal) : "Sem histórico"}
-              </strong>
-              <small>
-                {date(report.periods.previous.start)} a{" "}
-                {date(report.periods.previous.end)}
-              </small>
-            </div>
-          </div>
-          {hasHistory && (
-            <p className="annual-delta">
-              Comparação do total ·{" "}
-              <strong>
-                {variation(report.total, report.previousTotal, true)}
-              </strong>
             </p>
-          )}
+          </section>
+
           {Boolean(report.paymentMethods?.length) && (
-            <details className="report-category-detail" open>
+            <details
+              className="report-category-detail report-payment-details"
+              open
+            >
               <summary>
+                <Banknote size={18} aria-hidden="true" />
                 <strong>Gastos por forma de pagamento</strong>
+                <ChevronDown size={16} aria-hidden="true" />
               </summary>
+              <p>Somente os pagamentos confirmados no período selecionado.</p>
               <ul>
                 {report.paymentMethods?.map(({ method, total }) => (
                   <li key={method ?? "unknown"}>
@@ -352,107 +591,131 @@ export default function AnnualSpending({ today }: { today: string }) {
               </ul>
             </details>
           )}
-          {!report.categories.length ? (
-            <p>Nenhuma despesa paga nos períodos selecionados.</p>
-          ) : (
-            <div className="table-wrap annual-table">
-              <table>
-                <thead>
-                  <tr>
-                    <th scope="col">Categoria</th>
-                    <th scope="col" className="amount">
-                      {currentLabel}
-                    </th>
-                    <th scope="col" className="amount">
-                      {previousLabel}
-                    </th>
-                    <th scope="col">Variação</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {report.categories.map((category) => {
-                    const open = selected?.category === category.name;
-                    const defaultPeriod =
-                      category.current > 0 ? "current" : "previous";
-                    const query = new URLSearchParams({
-                      year: String(year),
-                      category: category.name,
-                      period: selected?.period ?? defaultPeriod,
-                    });
-                    if (monthly) query.set("month", month);
-                    return (
-                      <Fragment key={category.name}>
-                        <tr>
-                          <th scope="row">
-                            <button
-                              type="button"
-                              className="text-button"
-                              aria-expanded={open}
-                              onClick={() =>
-                                open
-                                  ? setSelected(null)
-                                  : toggleDetails(category.name, defaultPeriod)
-                              }
-                            >
-                              {category.name}
-                            </button>
-                          </th>
-                          <td className="amount">{money(category.current)}</td>
-                          <td className="amount">
-                            {category.previous > 0 ? (
+          <section
+            className="report-category-section"
+            aria-labelledby="report-categories-heading"
+          >
+            <div className="report-category-heading">
+              <h3 id="report-categories-heading">Gastos pagos por categoria</h3>
+              <p>
+                Toque na categoria para ver os lançamentos e sua comparação com
+                o período anterior.
+              </p>
+            </div>
+            {!report.categories.length ? (
+              <p className="report-empty">
+                {report.expenseCount > 0
+                  ? "Ainda não há pagamentos confirmados neste período. Os valores pendentes aparecem no resumo acima."
+                  : "Nenhuma despesa paga nos períodos selecionados."}
+              </p>
+            ) : (
+              <div className="table-wrap annual-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th scope="col">Categoria</th>
+                      <th scope="col" className="amount">
+                        {currentLabel}
+                      </th>
+                      <th scope="col" className="amount">
+                        {previousLabel}
+                      </th>
+                      <th scope="col">Variação dos gastos pagos</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {report.categories.map((category) => {
+                      const open = selected?.category === category.name;
+                      const defaultPeriod =
+                        category.current > 0 ? "current" : "previous";
+                      const query = new URLSearchParams({
+                        year: String(year),
+                        category: category.name,
+                        period: selected?.period ?? defaultPeriod,
+                      });
+                      if (monthly) query.set("month", month);
+                      return (
+                        <Fragment key={category.name}>
+                          <tr>
+                            <th scope="row">
                               <button
                                 type="button"
-                                className="text-button"
-                                aria-label={`Ver gastos anteriores de ${category.name}`}
-                                aria-expanded={
-                                  open && selected?.period === "previous"
-                                }
+                                className="report-category-button"
+                                aria-expanded={open}
                                 onClick={() =>
-                                  toggleDetails(category.name, "previous")
+                                  open
+                                    ? setSelected(null)
+                                    : toggleDetails(
+                                        category.name,
+                                        defaultPeriod,
+                                      )
                                 }
                               >
-                                {money(category.previous)}
+                                {category.name}
+                                <ChevronDown size={15} aria-hidden="true" />
                               </button>
-                            ) : hasHistory ? (
-                              money(0)
-                            ) : (
-                              "—"
-                            )}
-                          </td>
-                          <td>
-                            <span
-                              className={variationClass(
-                                category.current,
-                                category.previous,
-                                hasHistory,
+                            </th>
+                            <td className="amount">
+                              {money(category.current)}
+                            </td>
+                            <td className="amount">
+                              {category.previous > 0 ? (
+                                <button
+                                  type="button"
+                                  className="text-button"
+                                  aria-label={
+                                    "Ver gastos anteriores de " + category.name
+                                  }
+                                  aria-expanded={
+                                    open && selected?.period === "previous"
+                                  }
+                                  onClick={() =>
+                                    toggleDetails(category.name, "previous")
+                                  }
+                                >
+                                  {money(category.previous)}
+                                </button>
+                              ) : hasHistory ? (
+                                money(0)
+                              ) : (
+                                "—"
                               )}
-                            >
-                              {variation(
-                                category.current,
-                                category.previous,
-                                hasHistory,
-                              )}
-                            </span>
-                          </td>
-                        </tr>
-                        {open && (
-                          <tr>
-                            <td colSpan={4}>
-                              <CategoryDetail
-                                key={query.toString()}
-                                name={category.name}
-                                query={query.toString()}
-                              />
+                            </td>
+                            <td>
+                              <span
+                                className={variationClass(
+                                  category.current,
+                                  category.previous,
+                                  hasHistory,
+                                )}
+                              >
+                                {variation(
+                                  category.current,
+                                  category.previous,
+                                  hasHistory,
+                                )}
+                              </span>
                             </td>
                           </tr>
-                        )}
-                      </Fragment>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
+                          {open && (
+                            <tr>
+                              <td colSpan={4}>
+                                <CategoryDetail
+                                  key={query.toString()}
+                                  name={category.name}
+                                  query={query.toString()}
+                                />
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
         </>
       )}
     </section>

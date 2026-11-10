@@ -3,6 +3,9 @@ import { authenticated, failure, ApiError } from "@/lib/api";
 import { dateInSaoPaulo } from "@/lib/finance";
 import {
   annualPeriods,
+  addSpendingEntry,
+  emptySpendingTotals,
+  type SpendingTotals,
   annualTotals,
   monthlyPeriods,
 } from "@/lib/finance-reports";
@@ -32,7 +35,6 @@ export async function GET(request: Request) {
 
     const yearPeriod = annualPeriods(year, today).current;
     const periods = month ? monthlyPeriods(month) : annualPeriods(year, today);
-    const paymentTotals = new Map<PaymentMethod | null, number>();
     const category = params.get("category");
     if (category !== null) {
       if (!category.trim() || category.length > 60)
@@ -76,14 +78,17 @@ export async function GET(request: Request) {
         { headers: { "Cache-Control": "private, no-store" } },
       );
     }
-    const monthTotals = new Map<string, number>();
+    const monthTotals = new Map<string, SpendingTotals>();
     if (month) {
       for (let n = 1; n <= Number(yearPeriod.end.slice(5, 7)); n++) {
-        monthTotals.set(`${year}-${String(n).padStart(2, "0")}`, 0);
+        monthTotals.set(
+          `${year}-${String(n).padStart(2, "0")}`,
+          emptySpendingTotals(),
+        );
       }
     }
 
-    async function categoryTotals(
+    async function spendingTotals(
       {
         start,
         end,
@@ -92,16 +97,14 @@ export async function GET(request: Request) {
         end: string;
       },
       includeMonthTotals = false,
-      includePaymentTotals = false,
     ) {
-      const totals = new Map<string, number>();
+      const totals = emptySpendingTotals();
       let cursor: string | undefined;
       for (;;) {
         let query = db
           .from("nc_entries")
-          .select("id,category,amount,date,payment_method")
+          .select("id,category,amount,date,payment_method,confirmed")
           .eq("kind", "expense")
-          .eq("confirmed", true)
           .is("deleted_at", null)
           .gte("date", start)
           .lte("date", end)
@@ -113,20 +116,11 @@ export async function GET(request: Request) {
         for (const row of data) {
           if (includeMonthTotals) {
             const key = row.date.slice(0, 7);
-            monthTotals.set(key, (monthTotals.get(key) ?? 0) + row.amount);
+            const monthly = monthTotals.get(key);
+            if (monthly) addSpendingEntry(monthly, row);
             if (key !== month) continue;
           }
-          if (includePaymentTotals) {
-            const method: PaymentMethod | null = row.payment_method;
-            paymentTotals.set(
-              method,
-              (paymentTotals.get(method) ?? 0) + row.amount,
-            );
-          }
-          totals.set(
-            row.category,
-            (totals.get(row.category) ?? 0) + row.amount,
-          );
+          addSpendingEntry(totals, row);
         }
         if (data.length < 500) return totals;
         cursor = data[data.length - 1].id;
@@ -134,25 +128,29 @@ export async function GET(request: Request) {
     }
 
     const [current, previous] = await Promise.all([
-      categoryTotals(
-        month ? yearPeriod : periods.current,
-        month !== null,
-        true,
-      ),
-      categoryTotals(periods.previous),
+      spendingTotals(month ? yearPeriod : periods.current, month !== null),
+      spendingTotals(periods.previous),
     ]);
     return Response.json(
       {
         periods,
-        ...annualTotals(current, previous),
-        paymentMethods: [...paymentTotals]
+        ...annualTotals(current.categories, previous.categories),
+        pendingTotal: current.pending,
+        previousPendingTotal: previous.pending,
+        expenseCount: current.count,
+        previousExpenseCount: previous.count,
+        paidCount: current.paidCount,
+        previousPaidCount: previous.paidCount,
+        paymentMethods: [...current.paymentMethods]
           .map(([method, total]) => ({ method, total }))
           .sort((a, b) => b.total - a.total),
         ...(month
           ? {
-              months: [...monthTotals].map(([month, total]) => ({
+              months: [...monthTotals].map(([month, totals]) => ({
                 month,
-                total,
+                total: totals.paid,
+                pending: totals.pending,
+                count: totals.count,
               })),
             }
           : {}),
