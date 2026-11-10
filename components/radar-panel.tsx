@@ -1,3 +1,4 @@
+import CategoryName from "@/components/category-name";
 import {
   budgetAmounts,
   budgetSpending,
@@ -102,7 +103,9 @@ export default function RadarPanel({
         </article>
       ) : estimate ? (
         <article className="radar-caution">
-          <h3>{estimate.category} no restante do mês</h3>
+          <h3>
+            <CategoryName name={estimate.category} /> no restante do mês
+          </h3>
           <p>
             Pelo histórico dos últimos 3 meses, vocês costumam gastar cerca de{" "}
             <strong>{money(estimate.typical)}</strong> nessa categoria entre o

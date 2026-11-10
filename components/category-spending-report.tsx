@@ -1,5 +1,7 @@
 "use client";
 
+import { useCategoryColors } from "@/components/category-colors";
+import { badgeStyle } from "@/lib/visual-colors";
 import { useState } from "react";
 import { ChevronDown, Tag, Tags } from "lucide-react";
 import type { AnnualReport } from "@/lib/finance-reports";
@@ -29,6 +31,7 @@ export default function CategorySpendingReport({
   hasHistory: boolean;
   expenseCount: number;
 }) {
+  const { color } = useCategoryColors();
   const [selected, setSelected] = useState<string | null>(null);
   const monthly = new URLSearchParams(query).has("month");
   const periodLabel = (period: "current" | "previous") =>
@@ -94,10 +97,16 @@ export default function CategorySpendingReport({
                     )
                   }
                 >
-                  <span className="report-method-icon report-category-icon">
+                  <span
+                    className="report-method-icon report-category-icon report-color-icon"
+                    style={badgeStyle(color(category.name, "expense"))}
+                  >
                     <Tag size={19} aria-hidden="true" />
                   </span>
-                  <span className="report-method-name report-category-name">
+                  <span
+                    className="report-method-name report-category-name"
+                    style={badgeStyle(color(category.name, "expense"))}
+                  >
                     {category.name}
                   </span>
                   <span className="report-category-amount">

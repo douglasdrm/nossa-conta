@@ -1,28 +1,6 @@
 import type { CSSProperties } from "react";
-import { expenseCategories } from "./categories";
+export { categoryColor } from "./category-colors";
 import type { PaymentMethod } from "./payment-methods";
-
-const categoryPalette = [
-  "#286653",
-  "#d9a65d",
-  "#8b9dcd",
-  "#d47763",
-  "#9ba970",
-  "#69a6aa",
-  "#c68eac",
-  "#a29685",
-  "#728593",
-  "#c7bfab",
-];
-
-export function categoryColor(name: string) {
-  const index = expenseCategories.indexOf(name);
-  if (index >= 0) return categoryPalette[index];
-  let hash = 0;
-  for (const character of name.toLocaleLowerCase("pt-BR"))
-    hash = (Math.imul(hash, 31) + character.codePointAt(0)!) >>> 0;
-  return categoryPalette[hash % categoryPalette.length];
-}
 
 export const profileColors = [
   "green",

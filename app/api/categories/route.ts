@@ -1,10 +1,5 @@
 import { authenticated, checkOrigin, failure, ApiError } from "@/lib/api";
-import {
-  expenseCategories,
-  incomeCategories,
-  type CategoryItem,
-} from "@/lib/categories";
-import { budgetGroup } from "@/lib/budget-plan";
+import { categoryCatalog } from "@/lib/category-catalog";
 import { z } from "zod";
 export const dynamic = "force-dynamic";
 const group = z.enum(["essentials", "future", "leisure", "development"]);
@@ -18,53 +13,7 @@ const categorySchema = z
 export async function GET() {
   try {
     const { db } = await authenticated();
-    const [saved, plan] = await Promise.all([
-      db
-        .from("nc_categories")
-        .select("kind,name,default_name,budget_group")
-        .order("name"),
-      db.from("nc_budget_plan").select("categories").maybeSingle(),
-    ]);
-    if (saved.error) throw saved.error;
-    if (plan.error) throw plan.error;
-    const overrides = plan.data?.categories ?? {};
-    const categories: CategoryItem[] = [];
-    for (const kind of ["expense", "income"] as const) {
-      const defaults =
-        kind === "expense" ? expenseCategories : incomeCategories;
-      const rows = saved.data.filter((item) => item.kind === kind);
-      for (const name of defaults) {
-        const row = rows.find(
-          (item) =>
-            item.default_name === name ||
-            (!item.default_name && item.name === name),
-        );
-        const label = row?.name ?? name;
-        categories.push({
-          kind,
-          name: label,
-          group:
-            kind === "expense"
-              ? ((Object.hasOwn(overrides, label)
-                  ? overrides[label]
-                  : (row?.budget_group ?? budgetGroup(label, {}))) ?? null)
-              : null,
-        });
-      }
-      for (const row of rows) {
-        if (row.default_name || defaults.includes(row.name)) continue;
-        categories.push({
-          kind,
-          name: row.name,
-          group:
-            kind === "expense"
-              ? ((Object.hasOwn(overrides, row.name)
-                  ? overrides[row.name]
-                  : row.budget_group) ?? null)
-              : null,
-        });
-      }
-    }
+    const categories = await categoryCatalog(db);
     return Response.json(categories, {
       headers: { "Cache-Control": "private, no-store" },
     });
@@ -92,7 +41,11 @@ export async function POST(r: Request) {
         "Não foi possível criar a categoria. Tente novamente.",
         400,
       );
-    return Response.json(data, { status: 201 });
+    const item = (await categoryCatalog(db)).find(
+      (item) => item.kind === parsed.data.kind && item.name === data.name,
+    );
+    if (!item) throw new Error("Categoria salva não encontrada.");
+    return Response.json(item, { status: 201 });
   } catch (e) {
     return failure(e);
   }
@@ -131,7 +84,11 @@ export async function PATCH(request: Request) {
         409,
       );
     if (error) throw error;
-    return Response.json(data, {
+    const item = (await categoryCatalog(db)).find(
+      (item) => item.kind === kind && item.name === data.name,
+    );
+    if (!item) throw new Error("Categoria salva não encontrada.");
+    return Response.json(item, {
       headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {

@@ -20,5 +20,6 @@ export const incomeCategories = [
 export type CategoryItem = {
   kind: "expense" | "income";
   name: string;
+  color: string;
   group: import("./budget-plan").BudgetGroup | null;
 };

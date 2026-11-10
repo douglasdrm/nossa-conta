@@ -16,11 +16,15 @@ import {
 } from "@/lib/payment-methods";
 import {
   badgeStyle,
-  categoryColor,
   paymentColors,
   profileColorOptions,
   type ProfileColor,
 } from "@/lib/visual-colors";
+import {
+  CategoryColorsProvider,
+  useCategoryColors,
+} from "@/components/category-colors";
+import CategoryName from "@/components/category-name";
 import CategoryManager from "@/components/category-manager";
 import CategoryPicker from "@/components/category-picker";
 import SharePanel from "@/components/share-panel";
@@ -82,24 +86,28 @@ const money = (n: number) =>
   );
 const today = dateInSaoPaulo;
 export type FinanceView =
-  | "overview"
-  | "savings"
-  | "entries"
-  | "annual"
-  | "plan"
-  | "categories";
+  "overview" | "savings" | "entries" | "annual" | "plan" | "categories";
 
-export default function Dashboard({
-  name,
-  photo,
-  view = "overview",
-  initialMonth,
-}: {
+type DashboardProps = {
   name: string;
   photo?: string;
   view?: FinanceView;
   initialMonth?: string;
-}) {
+};
+export default function Dashboard(props: DashboardProps) {
+  return (
+    <CategoryColorsProvider>
+      <DashboardContent {...props} />
+    </CategoryColorsProvider>
+  );
+}
+function DashboardContent({
+  name,
+  photo,
+  view = "overview",
+  initialMonth,
+}: DashboardProps) {
+  const { color: categoryColor } = useCategoryColors();
   const overview = view === "overview";
   const [plan, setPlan] = useState<BudgetPlan | null>(null);
   const [planError, setPlanError] = useState(false);
@@ -246,7 +254,7 @@ export default function Dashboard({
     ]
       .map((c) => ({
         name: c,
-        color: categoryColor(c),
+        color: categoryColor(c, "expense"),
         value: rows
           .filter(
             (e) => e.kind === "expense" && e.confirmed && e.category === c,
@@ -569,7 +577,7 @@ export default function Dashboard({
                   <div className="entry-badges">
                     <span
                       className="visual-badge"
-                      style={badgeStyle(categoryColor(e.category))}
+                      style={badgeStyle(categoryColor(e.category, e.kind))}
                     >
                       {e.category}
                     </span>
@@ -1160,9 +1168,14 @@ export default function Dashboard({
                     : "Começa com um registro."}
                 </h2>
                 <p>
-                  {groups.length
-                    ? `${groups[0].name} é a maior categoria de gastos: ${money(groups[0].value)} neste mês.`
-                    : "Anotem o que entra e o que sai, mesmo os pequenos valores. Logo fica mais fácil entender os hábitos da casa."}
+                  {groups.length ? (
+                    <>
+                      <CategoryName name={groups[0].name} /> é a maior categoria
+                      de gastos: {money(groups[0].value)} neste mês.
+                    </>
+                  ) : (
+                    "Anotem o que entra e o que sai, mesmo os pequenos valores. Logo fica mais fácil entender os hábitos da casa."
+                  )}
                 </p>
                 {paidBy.length > 0 && (
                   <div className="payer-summary">

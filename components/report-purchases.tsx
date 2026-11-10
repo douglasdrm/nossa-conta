@@ -1,5 +1,6 @@
 "use client";
-import { badgeStyle, categoryColor } from "@/lib/visual-colors";
+import { badgeStyle } from "@/lib/visual-colors";
+import { useCategoryColors } from "@/components/category-colors";
 import { useEffect, useState } from "react";
 import { paymentMethodLabels, type PaymentMethod } from "@/lib/payment-methods";
 const currency = new Intl.NumberFormat("pt-BR", {
@@ -36,6 +37,7 @@ export default function ReportPurchases({
   hideCategory?: boolean;
   comparison?: string;
 }) {
+  const { color: categoryColor } = useCategoryColors();
   const [detail, setDetail] = useState<PurchaseDetail | null>(null);
   const [error, setError] = useState(false);
   const [retry, setRetry] = useState(0);
@@ -113,7 +115,9 @@ export default function ReportPurchases({
                     {!hideCategory && (
                       <span
                         className="visual-badge"
-                        style={badgeStyle(categoryColor(entry.category))}
+                        style={badgeStyle(
+                          categoryColor(entry.category, "expense"),
+                        )}
                       >
                         {entry.category}
                       </span>

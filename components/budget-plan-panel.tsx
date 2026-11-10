@@ -1,5 +1,6 @@
 "use client";
 
+import CategoryName from "@/components/category-name";
 import { useRef, useState } from "react";
 import {
   ArrowRight,
@@ -393,7 +394,7 @@ export default function BudgetPlanPanel({
               <div className="budget-category-fields">
                 {categories.map((category) => (
                   <label key={category}>
-                    {category}
+                    <CategoryName name={category} />
                     <select
                       aria-label={`Grupo de ${category}`}
                       value={budgetGroup(category, classification) ?? ""}

@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
 import { budgetGroups, budgetKeys, type BudgetGroup } from "@/lib/budget-plan";
+import { useCategoryColors } from "@/components/category-colors";
+import { badgeStyle } from "@/lib/visual-colors";
 import { Pencil, Plus } from "lucide-react";
 export default function CategoryPicker({
   kind,
@@ -16,7 +18,16 @@ export default function CategoryPicker({
   onRename: () => void;
 }) {
   const [group, setGroup] = useState<BudgetGroup | "">("");
-  const [custom, setCustom] = useState<string[] | null>(null);
+  const {
+    items,
+    error: catalogError,
+    upsert,
+    color,
+    refresh,
+  } = useCategoryColors();
+  const custom =
+    items?.filter((item) => item.kind === kind).map((item) => item.name) ??
+    null;
   const [selected, setSelected] = useState(initial || defaults[0]);
   const [mode, setMode] = useState<"add" | "rename" | null>(null),
     [name, setName] = useState(""),
@@ -27,31 +38,14 @@ export default function CategoryPicker({
     return () => onPendingChange(false);
   }, [mode, busy, onPendingChange]);
   useEffect(() => {
-    let active = true;
-    fetch("/api/categories")
-      .then(async (r) => {
-        if (!r.ok) throw Error();
-        const items: { kind: string; name: string }[] = await r.json();
-        if (active) {
-          const names = items.filter((c) => c.kind === kind).map((c) => c.name);
-          setCustom(names);
-          setSelected((current) =>
-            initial || names.includes(current)
-              ? current
-              : (names[0] ?? current),
-          );
-        }
-      })
-      .catch(() => {
-        if (active)
-          setError(
-            "Não foi possível carregar as categorias salvas. Reabra o lançamento para tentar novamente.",
-          );
-      });
-    return () => {
-      active = false;
-    };
-  }, [kind, initial]);
+    if (!items || initial) return;
+    const names = items
+      .filter((item) => item.kind === kind)
+      .map((item) => item.name);
+    setSelected((current) =>
+      names.includes(current) ? current : (names[0] ?? current),
+    );
+  }, [items, kind, initial]);
   const options = [
     ...new Set([...(custom ?? defaults), selected].filter(Boolean)),
   ];
@@ -93,13 +87,7 @@ export default function CategoryPicker({
       const data = await r.json();
       if (!r.ok)
         throw Error(data.error || "Não foi possível salvar a categoria.");
-      setCustom((current) =>
-        mode === "rename"
-          ? (current ?? defaults).map((category) =>
-              category === selected ? data.name : category,
-            )
-          : [...(current ?? defaults), data.name],
-      );
+      upsert(data, mode === "rename" ? selected : undefined);
       if (mode === "rename") onRename();
       setSelected(data.name);
       setMode(null);
@@ -123,15 +111,29 @@ export default function CategoryPicker({
           onChange={(e) => setSelected(e.target.value)}
         >
           {options.map((c) => (
-            <option key={c}>{c}</option>
+            <option
+              key={c}
+              style={{
+                color: `color-mix(in srgb, ${color(c, kind)} 53%, #172621)`,
+              }}
+            >
+              {c}
+            </option>
           ))}
         </select>
       </label>
+      <span
+        className="category-selection-color"
+        style={badgeStyle(color(selected, kind))}
+      >
+        <i aria-hidden="true" /> {selected}
+      </span>
       {!mode ? (
         <div className="entry-actions">
           <button
             type="button"
             className="text-button"
+            disabled={!items}
             onClick={() => {
               setGroup("");
               setMode("add");
@@ -227,10 +229,19 @@ export default function CategoryPicker({
           </small>
         </div>
       )}
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
+      {(error || catalogError) && (
+        <div className="error" role="alert">
+          <p>{error || catalogError}</p>
+          {catalogError && (
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => void refresh()}
+            >
+              Tentar novamente
+            </button>
+          )}
+        </div>
       )}
     </div>
   );
