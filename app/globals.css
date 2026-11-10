@@ -1473,6 +1473,8 @@ label select {
 .icon.expense, .row-icon.expense { background: #f9ddd7; color: var(--tone-expense); }
 .status-pill.received, .status-pill.expected { color: var(--tone-income); background: var(--tone-income-bg); }
 .status-pill.paid { color: #48556a; background: #edf1f6; }
+.records .pill { color: #48556a; background: #edf1f6; }
+.records .status-pill.paid { color: #7e8c75; background: #f3f5ee; }
 .status-pill.pending, .status-pill.due { color: var(--tone-pending); background: var(--tone-pending-bg); }
 .status-pill.overdue { color: var(--tone-expense); background: var(--tone-expense-bg); }
 .report-periods > .tone-income { color: var(--tone-income); background: var(--tone-income-bg); }
