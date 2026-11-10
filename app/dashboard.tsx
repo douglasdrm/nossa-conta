@@ -25,6 +25,7 @@ import {
   useCategoryColors,
 } from "@/components/category-colors";
 import { categoryStyle } from "@/lib/category-colors";
+import { paymentMethodIcons } from "@/components/payment-method-icons";
 import CategoryName from "@/components/category-name";
 import CategoryManager from "@/components/category-manager";
 import CategoryPicker from "@/components/category-picker";
@@ -73,7 +74,13 @@ type Entry = {
   confirmed: boolean;
   payer: string | null;
   payment_method?: PaymentMethod | null;
-  profile_colors?: { person: ProfileColor | null; payer: ProfileColor | null };
+  profile_colors?: {
+    person: ProfileColor | null;
+    payer: ProfileColor | null;
+    person_name?: string | null;
+    payer_name?: string | null;
+    same_person?: boolean | null;
+  };
   payer_user_id?: string | null;
   payer_display?: string | null;
   confirmed_at: string | null;
@@ -81,13 +88,24 @@ type Entry = {
   installment_number: number | null;
   installment_count: number | null;
 };
+const firstName = (name?: string | null) => name?.trim().split(/\s+/)[0];
+const normalizedPerson = (name: string) =>
+  name
+    .normalize("NFC")
+    .toLocaleLowerCase("pt-BR")
+    .replace(/[^\p{L}\p{N}]/gu, "");
 const money = (n: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
     n / 100,
   );
 const today = dateInSaoPaulo;
 export type FinanceView =
-  "overview" | "savings" | "entries" | "annual" | "plan" | "categories";
+  | "overview"
+  | "savings"
+  | "entries"
+  | "annual"
+  | "plan"
+  | "categories";
 
 type DashboardProps = {
   name: string;
@@ -545,141 +563,173 @@ function DashboardContent({
             </tr>
           </thead>
           <tbody>
-            {shown.map((e) => (
-              <tr key={e.id}>
-                <td>
-                  <span className={`row-icon ${e.kind}`}>
-                    {e.kind === "income" ? (
-                      <ArrowDownLeft size={16} />
-                    ) : (
-                      <ArrowUpRight size={16} />
+            {shown.map((e) => {
+              const MethodIcon = e.payment_method
+                ? paymentMethodIcons[e.payment_method]
+                : null;
+              const payer = e.payer_display || e.payer;
+              const samePerson =
+                e.profile_colors?.same_person ??
+                Boolean(
+                  payer &&
+                    [payer, e.payer].some(
+                      (label) =>
+                        label &&
+                        normalizedPerson(label) === normalizedPerson(e.person),
+                    ),
+                );
+              return (
+                <tr key={e.id}>
+                  <td>
+                    <span className={`row-icon ${e.kind}`}>
+                      {e.kind === "income" ? (
+                        <ArrowDownLeft size={16} />
+                      ) : (
+                        <ArrowUpRight size={16} />
+                      )}
+                    </span>
+                    <b className="entry-description">{e.description}</b>
+                    {e.installment_count && (
+                      <span className="installment-badge">
+                        {e.installment_number}/{e.installment_count}
+                      </span>
                     )}
-                  </span>
-                  <b>{e.description}</b>
-                  {e.installment_count && (
-                    <span className="installment-badge">
-                      {e.installment_number}/{e.installment_count}
-                    </span>
-                  )}
-                  {e.id.includes(":") && (
-                    <span
-                      title={
-                        e.kind === "income"
-                          ? "Entrada recorrente"
-                          : "Despesa recorrente"
-                      }
-                      className="recurring-mark"
-                    >
-                      <Repeat2 size={12} />
-                    </span>
-                  )}
-                </td>
-                <td>
-                  <div className="entry-badges">
-                    <span
-                      className="visual-badge category-badge"
-                      style={categoryStyle(categoryColor(e.category, e.kind))}
-                    >
-                      {e.category}
-                    </span>
-                    {e.payment_method && (
-                      <small
-                        className="visual-badge"
-                        style={badgeStyle(paymentColors[e.payment_method])}
-                      >
-                        {paymentMethodLabels[e.payment_method]}
-                      </small>
-                    )}
-                  </div>
-                </td>
-                <td>
-                  <div className="entry-badges">
-                    <span
-                      className="visual-badge"
-                      style={
-                        e.profile_colors?.person
-                          ? badgeStyle(
-                              profileColorOptions[e.profile_colors.person].hex,
-                            )
-                          : undefined
-                      }
-                    >
-                      {e.person}
-                    </span>
-                    {e.kind === "expense" && e.confirmed ? (
-                      <small
-                        className="visual-badge"
-                        style={
-                          e.profile_colors?.payer
-                            ? badgeStyle(
-                                profileColorOptions[e.profile_colors.payer].hex,
-                              )
-                            : undefined
+                    {e.id.includes(":") && (
+                      <span
+                        title={
+                          e.kind === "income"
+                            ? "Entrada recorrente"
+                            : "Despesa recorrente"
                         }
+                        className="recurring-mark"
                       >
-                        {e.payer_display || e.payer || "Não informado"}
-                      </small>
-                    ) : (
-                      <small className="entry-payer">—</small>
+                        <Repeat2 size={12} />
+                      </span>
                     )}
-                  </div>
-                </td>
-                <td>{e.date.split("-").reverse().join("/")}</td>
-                <td>
-                  <span className={"status-pill " + paymentState(e, day)}>
-                    {
+                  </td>
+                  <td>
+                    <div className="entry-badges">
+                      <span
+                        className="visual-badge category-badge"
+                        style={categoryStyle(categoryColor(e.category, e.kind))}
+                      >
+                        {e.category}
+                      </span>
+                      {e.payment_method && MethodIcon && (
+                        <small
+                          className="entry-method"
+                          style={badgeStyle(paymentColors[e.payment_method])}
+                        >
+                          <MethodIcon size={13} aria-hidden="true" />
+                          {paymentMethodLabels[e.payment_method]}
+                        </small>
+                      )}
+                    </div>
+                  </td>
+                  <td>
+                    <div className="entry-badges">
+                      <span
+                        className="entry-person"
+                        title={e.profile_colors?.person_name || e.person}
+                      >
+                        <i
+                          aria-hidden="true"
+                          style={
+                            e.profile_colors?.person
+                              ? badgeStyle(
+                                  profileColorOptions[e.profile_colors.person]
+                                    .hex,
+                                )
+                              : undefined
+                          }
+                        />
+                        {firstName(e.profile_colors?.person_name) || e.person}
+                      </span>
+                      {e.kind === "expense" &&
+                        e.confirmed &&
+                        payer &&
+                        !samePerson && (
+                          <small
+                            className="entry-person entry-person-secondary"
+                            title={e.profile_colors?.payer_name || payer}
+                          >
+                            <i
+                              aria-hidden="true"
+                              style={
+                                e.profile_colors?.payer
+                                  ? badgeStyle(
+                                      profileColorOptions[
+                                        e.profile_colors.payer
+                                      ].hex,
+                                    )
+                                  : undefined
+                              }
+                            />
+                            Pago por{" "}
+                            {firstName(e.profile_colors?.payer_name) ||
+                              firstName(e.payer_display) ||
+                              payer}
+                          </small>
+                        )}
+                    </div>
+                  </td>
+                  <td>{e.date.split("-").reverse().join("/")}</td>
+                  <td>
+                    <span className={"status-pill " + paymentState(e, day)}>
                       {
-                        received: "Recebido",
-                        expected: "A receber",
-                        paid: "Pago",
-                        pending: "Pendente",
-                        due: "Vence hoje",
-                        overdue: "Vencido",
-                      }[paymentState(e, day)]
-                    }
-                  </span>
-                </td>
-                <td className={`amount ${e.kind}`}>
-                  {e.kind === "income" ? "+" : "−"} {money(e.amount)}
-                </td>
-                <td>
-                  <div className="entry-actions">
-                    <button
-                      className="confirm-payment"
-                      disabled={busy || e.confirmed}
-                      title={
-                        e.kind === "income"
-                          ? "Confirmar recebimento"
-                          : "Confirmar pagamento"
+                        {
+                          received: "Recebido",
+                          expected: "A receber",
+                          paid: "Pago",
+                          pending: "Pendente",
+                          due: "Vence hoje",
+                          overdue: "Vencido",
+                        }[paymentState(e, day)]
                       }
-                      aria-label={`${e.kind === "income" ? "Confirmar recebimento" : "Confirmar pagamento"}: ${e.description}`}
-                      onClick={() => confirmPayment(e.id)}
-                    >
-                      <Banknote size={15} aria-hidden="true" />
-                    </button>
-                    <button
-                      className="delete"
-                      aria-label={`Editar ${e.description}`}
-                      onClick={() => {
-                        setEditing(e);
-                        setPaymentMode(false);
-                        setError("");
-                        setModal(e.kind);
-                      }}
-                    >
-                      <Pencil size={15} />
-                    </button>
-                    <button
-                      aria-label={`Excluir ${e.description}`}
-                      className="delete"
-                      onClick={() => remove(e.id)}
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+                    </span>
+                  </td>
+                  <td className={`amount ${e.kind}`}>
+                    {e.kind === "income" ? "+" : "−"} {money(e.amount)}
+                  </td>
+                  <td>
+                    <div className="entry-actions">
+                      <button
+                        className="confirm-payment"
+                        disabled={busy || e.confirmed}
+                        title={
+                          e.kind === "income"
+                            ? "Confirmar recebimento"
+                            : "Confirmar pagamento"
+                        }
+                        aria-label={`${e.kind === "income" ? "Confirmar recebimento" : "Confirmar pagamento"}: ${e.description}`}
+                        onClick={() => confirmPayment(e.id)}
+                      >
+                        <Banknote size={15} aria-hidden="true" />
+                      </button>
+                      <button
+                        className="delete"
+                        aria-label={`Editar ${e.description}`}
+                        onClick={() => {
+                          setEditing(e);
+                          setPaymentMode(false);
+                          setError("");
+                          setModal(e.kind);
+                        }}
+                      >
+                        <Pencil size={15} />
+                      </button>
+                      <button
+                        aria-label={`Excluir ${e.description}`}
+                        className="delete"
+                        onClick={() => remove(e.id)}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -770,7 +820,7 @@ function DashboardContent({
     </>
   );
   return (
-    <div className="shell">
+    <div className={view === "entries" ? "shell entries-page" : "shell"}>
       <aside>
         <a className="brand" href="/">
           <span>

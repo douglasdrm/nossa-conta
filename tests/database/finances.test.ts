@@ -1483,7 +1483,28 @@ test("migration, household isolation, invitations and recurring month edits", as
         "entry_profile_colors",
         period,
       );
-      assert.deepEqual(colors[row.id], { person: "violet", payer: "violet" });
+      assert.deepEqual(colors[row.id], {
+        person: "violet",
+        payer: "violet",
+        person_name: "Alice Silva",
+        payer_name: "Alice Silva",
+        same_person: true,
+      });
+      const otherPayer = await rpc<{ id: string }>("add_entry", [
+        {
+          ...base,
+          repeats: false,
+          person: "alice_silva",
+          payer: "bob",
+          confirmed: true,
+          date: "2028-06-01",
+        },
+      ]);
+      const updated = await rpc<Record<string, { same_person: boolean }>>(
+        "entry_profile_colors",
+        period,
+      );
+      assert.equal(updated[otherPayer.id].same_person, false);
       await as(outsider);
       assert.equal(
         (await rpc<Record<string, unknown>>("entry_profile_colors", period))[

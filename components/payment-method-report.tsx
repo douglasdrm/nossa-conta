@@ -1,18 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import {
-  ArrowRightLeft,
-  Banknote,
-  Barcode,
-  ChevronDown,
-  CircleHelp,
-  CreditCard,
-  QrCode,
-} from "lucide-react";
+import { Banknote, ChevronDown, CircleHelp } from "lucide-react";
 import { paymentMethodLabels, type PaymentMethod } from "@/lib/payment-methods";
 
 import { badgeStyle, paymentColors } from "@/lib/visual-colors";
+import { paymentMethodIcons } from "@/components/payment-method-icons";
 import ReportPurchases from "@/components/report-purchases";
 
 const currency = new Intl.NumberFormat("pt-BR", {
@@ -20,15 +13,6 @@ const currency = new Intl.NumberFormat("pt-BR", {
   currency: "BRL",
 });
 const money = (amount: number) => currency.format(amount / 100);
-const methodIcons = {
-  pix: QrCode,
-  cash: Banknote,
-  credit_card: CreditCard,
-  debit_card: CreditCard,
-  bank_slip: Barcode,
-  transfer: ArrowRightLeft,
-  other: Banknote,
-};
 
 export default function PaymentMethodReport({
   methods,
@@ -56,7 +40,7 @@ export default function PaymentMethodReport({
         {methods.map(({ method, total }) => {
           const key = method ?? "unknown";
           const label = method ? paymentMethodLabels[method] : "Não informada";
-          const Icon = method ? methodIcons[method] : CircleHelp;
+          const Icon = method ? paymentMethodIcons[method] : CircleHelp;
           const open = selected === key;
           const panelId = "report-payment-purchases-" + key;
           const params = new URLSearchParams(query);

@@ -1919,3 +1919,35 @@ aside .nav.active[href="/relatorio-anual"], .savings-shortcut[href="/relatorio-a
 
 .visual-badge.category-badge { background: var(--category-surface); color: var(--category-text); }
 .report-category-card .report-category-icon.report-color-icon { background: var(--badge-color); color: var(--category-contrast); }
+
+.entries-page { background: #f4f1eb; }
+.entries-page aside { background: #eeefe6; }
+.entries-page .nav.active[href^="/lancamentos"] { background: #dce7d8; color: #204f3f; }
+.entries-page .records { background: #fdfcf9; border-color: #e0e1d8; }
+.records .panel-title h2 { color: #173c31; font-size: clamp(17px, 2vw, 23px); }
+.records th { background: #e8eee2; color: #35473b; font-weight: 700; letter-spacing: .15px; }
+.records th:first-child { border-radius: 7px 0 0 0; }
+.records th:last-child { border-radius: 0 7px 0 0; }
+.records td { color: #46564f; border-bottom-color: #e9e9e0; }
+.records tbody tr:last-child td { border-bottom: 0; }
+.records .entry-description { color: #182d26; font-size: 12px; font-weight: 750; }
+.records .amount { font-weight: 750; }
+.records td.amount.expense { color: #902e25; }
+.records td.amount.income { color: #275783; }
+.records .entry-method, .records .entry-person {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  line-height: 1.35;
+}
+.records .entry-method { color: #47564f; padding-left: 3px; font-size: 10px; }
+.records .entry-method svg { color: var(--badge-color, #527459); flex: 0 0 auto; }
+.records .entry-person { color: #24362e; font-weight: 700; }
+.records .entry-person i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--badge-color, #8e9b93);
+  flex: 0 0 auto;
+}
+.records .entry-person-secondary { color: #536259; font-size: 10px; font-weight: 500; }
