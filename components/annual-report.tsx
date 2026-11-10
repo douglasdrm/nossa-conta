@@ -4,7 +4,6 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import {
   ArrowDownRight,
   ArrowUpRight,
-  Banknote,
   CalendarRange,
   Check,
   ChevronDown,
@@ -15,6 +14,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { paymentMethodLabels, type PaymentMethod } from "@/lib/payment-methods";
+import PaymentMethodReport from "@/components/payment-method-report";
 import type { AnnualReport } from "@/lib/finance-reports";
 
 const currency = new Intl.NumberFormat("pt-BR", {
@@ -569,27 +569,13 @@ export default function AnnualSpending({ today }: { today: string }) {
           </section>
 
           {Boolean(report.paymentMethods?.length) && (
-            <details
-              className="report-category-detail report-payment-details"
-              open
-            >
-              <summary>
-                <Banknote size={18} aria-hidden="true" />
-                <strong>Gastos por forma de pagamento</strong>
-                <ChevronDown size={16} aria-hidden="true" />
-              </summary>
-              <p>Somente os pagamentos confirmados no período selecionado.</p>
-              <ul>
-                {report.paymentMethods?.map(({ method, total }) => (
-                  <li key={method ?? "unknown"}>
-                    <span>
-                      {method ? paymentMethodLabels[method] : "Não informada"}
-                    </span>
-                    <strong>{money(total)}</strong>
-                  </li>
-                ))}
-              </ul>
-            </details>
+            <PaymentMethodReport
+              methods={report.paymentMethods ?? []}
+              query={new URLSearchParams({
+                year: String(year),
+                ...(monthly ? { month } : {}),
+              }).toString()}
+            />
           )}
           <section
             className="report-category-section"

@@ -1,4 +1,4 @@
-import type { PaymentMethod } from "@/lib/payment-methods";
+import { paymentMethods, type PaymentMethod } from "@/lib/payment-methods";
 import { authenticated, failure, ApiError } from "@/lib/api";
 import { dateInSaoPaulo } from "@/lib/finance";
 import {
@@ -36,8 +36,16 @@ export async function GET(request: Request) {
     const yearPeriod = annualPeriods(year, today).current;
     const periods = month ? monthlyPeriods(month) : annualPeriods(year, today);
     const category = params.get("category");
-    if (category !== null) {
-      if (!category.trim() || category.length > 60)
+    const paymentMethod = params.get("payment_method");
+    if (
+      paymentMethod !== null &&
+      paymentMethod !== "unknown" &&
+      !paymentMethods.includes(paymentMethod as PaymentMethod)
+    ) {
+      throw new ApiError("Selecione uma forma de pagamento válida.", 400);
+    }
+    if (category !== null || paymentMethod !== null) {
+      if (category !== null && (!category.trim() || category.length > 60))
         throw new ApiError("Selecione uma categoria válida.", 400);
       const period =
         params.get("period") === "previous"
@@ -47,6 +55,9 @@ export async function GET(request: Request) {
         id: string;
         description: string;
         payment_method: PaymentMethod | null;
+        category: string;
+        installment_number: number | null;
+        installment_count: number | null;
         amount: number;
         date: string;
       }[] = [];
@@ -54,15 +65,22 @@ export async function GET(request: Request) {
       for (;;) {
         let query = db
           .from("nc_entries")
-          .select("id,description,amount,date,payment_method")
+          .select(
+            "id,description,amount,date,payment_method,category,installment_number,installment_count",
+          )
           .eq("kind", "expense")
           .eq("confirmed", true)
           .is("deleted_at", null)
-          .eq("category", category)
           .gte("date", period.start)
           .lte("date", period.end)
           .order("id")
           .limit(500);
+        if (category !== null) query = query.eq("category", category);
+        if (paymentMethod !== null)
+          query =
+            paymentMethod === "unknown"
+              ? query.is("payment_method", null)
+              : query.eq("payment_method", paymentMethod);
         if (cursor !== undefined) query = query.gt("id", cursor);
         const { data, error } = await query;
         if (error) throw error;
