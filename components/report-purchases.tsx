@@ -27,10 +27,14 @@ export default function ReportPurchases({
   query,
   heading,
   showPaymentMethod = false,
+  hideCategory = false,
+  comparison,
 }: {
   query: string;
   heading: string;
   showPaymentMethod?: boolean;
+  hideCategory?: boolean;
+  comparison?: string;
 }) {
   const [detail, setDetail] = useState<PurchaseDetail | null>(null);
   const [error, setError] = useState(false);
@@ -84,11 +88,14 @@ export default function ReportPurchases({
               {detail.entries.length}{" "}
               {detail.entries.length === 1 ? "compra" : "compras"}
             </span>
-            <strong>
-              {money(
-                detail.entries.reduce((sum, entry) => sum + entry.amount, 0),
-              )}
-            </strong>
+            <span className="report-purchases-value">
+              <strong>
+                {money(
+                  detail.entries.reduce((sum, entry) => sum + entry.amount, 0),
+                )}
+              </strong>
+              {comparison && <small>{comparison}</small>}
+            </span>
           </div>
           <ul className="report-purchase-list">
             {detail.entries.map((entry) => (
@@ -103,12 +110,14 @@ export default function ReportPurchases({
                     )}
                   </div>
                   <div className="report-purchase-meta">
-                    <span
-                      className="visual-badge"
-                      style={badgeStyle(categoryColor(entry.category))}
-                    >
-                      {entry.category}
-                    </span>
+                    {!hideCategory && (
+                      <span
+                        className="visual-badge"
+                        style={badgeStyle(categoryColor(entry.category))}
+                      >
+                        {entry.category}
+                      </span>
+                    )}
                     <time dateTime={entry.date}>{date(entry.date)}</time>
                     {showPaymentMethod && (
                       <span>

@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { ChevronDown, Tag, Tags } from "lucide-react";
 import type { AnnualReport } from "@/lib/finance-reports";
-import { badgeStyle, categoryColor } from "@/lib/visual-colors";
 import ReportPurchases from "@/components/report-purchases";
 
 const currency = new Intl.NumberFormat("pt-BR", {
@@ -30,10 +29,7 @@ export default function CategorySpendingReport({
   hasHistory: boolean;
   expenseCount: number;
 }) {
-  const [selected, setSelected] = useState<{
-    category: string;
-    period: "current" | "previous";
-  } | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
   const monthly = new URLSearchParams(query).has("month");
   const periodLabel = (period: "current" | "previous") =>
     monthly
@@ -53,9 +49,7 @@ export default function CategorySpendingReport({
         </span>
         <div>
           <h3 id="report-categories-heading">Gastos pagos por categoria</h3>
-          <p>
-            Selecione uma categoria para ver as compras e comparar os períodos.
-          </p>
+          <p>Selecione uma categoria para ver as compras pagas no período.</p>
         </div>
       </div>
       {!categories.length ? (
@@ -67,7 +61,7 @@ export default function CategorySpendingReport({
       ) : (
         <ul className="report-method-list">
           {categories.map((category, index) => {
-            const open = selected?.category === category.name;
+            const open = selected === category.name;
             const difference = category.current - category.previous;
             const comparison = !hasHistory
               ? "Sem histórico para comparar"
@@ -76,13 +70,11 @@ export default function CategorySpendingReport({
                 : difference === 0
                   ? "Mesmo valor registrado " + previousLabel
                   : money(Math.abs(difference)) +
-                    (difference > 0
-                      ? " a mais · referência: "
-                      : " a menos · referência: ") +
+                    (difference > 0 ? " a mais que em " : " a menos que em ") +
                     periodLabel("previous");
             const params = new URLSearchParams(query);
             params.set("category", category.name);
-            params.set("period", selected?.period ?? "current");
+            params.set("period", "current");
             const panelId = "report-category-purchases-" + index;
             return (
               <li
@@ -98,44 +90,23 @@ export default function CategorySpendingReport({
                   aria-controls={panelId}
                   onClick={() =>
                     setSelected((current) =>
-                      current?.category === category.name
-                        ? null
-                        : {
-                            category: category.name,
-                            period:
-                              category.current > 0 ? "current" : "previous",
-                          },
+                      current === category.name ? null : category.name,
                     )
                   }
                 >
-                  <span
-                    className="report-method-icon report-category-icon report-color-icon"
-                    style={badgeStyle(categoryColor(category.name))}
-                  >
+                  <span className="report-method-icon report-category-icon">
                     <Tag size={19} aria-hidden="true" />
                   </span>
                   <span className="report-method-name report-category-name">
-                    <span
-                      className="visual-badge"
-                      style={badgeStyle(categoryColor(category.name))}
-                    >
-                      {category.name}
-                    </span>
+                    {category.name}
                   </span>
-                  <strong className="report-method-value">
-                    {money(category.current)}
-                  </strong>
-                  <span
-                    className={
-                      "report-method-comparison" +
-                      (hasHistory && category.previous > 0 && difference !== 0
-                        ? difference > 0
-                          ? " increased"
-                          : " decreased"
-                        : "")
-                    }
-                  >
-                    {comparison}
+                  <span className="report-category-amount">
+                    <strong className="report-method-value">
+                      {money(category.current)}
+                    </strong>
+                    <span className="report-method-comparison">
+                      {comparison}
+                    </span>
                   </span>
                   <ChevronDown
                     className="report-method-chevron"
@@ -149,39 +120,14 @@ export default function CategorySpendingReport({
                   hidden={!open}
                 >
                   {open && (
-                    <>
-                      <div
-                        className="report-category-periods"
-                        role="group"
-                        aria-label={
-                          "Período dos lançamentos de " + category.name
-                        }
-                      >
-                        {(["current", "previous"] as const).map((period) => (
-                          <button
-                            type="button"
-                            key={period}
-                            aria-pressed={selected.period === period}
-                            onClick={() =>
-                              setSelected({ category: category.name, period })
-                            }
-                          >
-                            {periodLabel(period)} ·{" "}
-                            {money(
-                              period === "current"
-                                ? category.current
-                                : category.previous,
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                      <ReportPurchases
-                        key={params.toString()}
-                        heading={"Detalhes de " + category.name}
-                        query={params.toString()}
-                        showPaymentMethod
-                      />
-                    </>
+                    <ReportPurchases
+                      key={params.toString()}
+                      heading={"Detalhes de " + category.name}
+                      query={params.toString()}
+                      showPaymentMethod
+                      hideCategory
+                      comparison={comparison}
+                    />
                   )}
                 </div>
               </li>
