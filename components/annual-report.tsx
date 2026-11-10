@@ -1,19 +1,18 @@
 "use client";
 
-import { Fragment, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowDownRight,
   ArrowUpRight,
   CalendarRange,
   Check,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Clock3,
   Equal,
   Wallet,
 } from "lucide-react";
-import { paymentMethodLabels, type PaymentMethod } from "@/lib/payment-methods";
+import CategorySpendingReport from "@/components/category-spending-report";
 import PaymentMethodReport from "@/components/payment-method-report";
 import type { AnnualReport } from "@/lib/finance-reports";
 
@@ -21,20 +20,8 @@ const currency = new Intl.NumberFormat("pt-BR", {
   style: "currency",
   currency: "BRL",
 });
-const percent = new Intl.NumberFormat("pt-BR", {
-  style: "percent",
-  maximumFractionDigits: 1,
-});
 const money = (amount: number) => currency.format(amount / 100);
 const date = (value: string) => value.split("-").reverse().join("/");
-
-function variation(current: number, previous: number, hasHistory: boolean) {
-  if (!hasHistory) return "Sem histórico";
-  if (previous === 0) return "Novo no período";
-  if (current === previous) return "Igual";
-  const change = current - previous;
-  return `${change > 0 ? "Subiu" : "Caiu"} ${percent.format(Math.abs(change / previous))} (${money(Math.abs(change))})`;
-}
 
 const monthName = new Intl.DateTimeFormat("pt-BR", {
   month: "short",
@@ -44,85 +31,6 @@ const monthLabel = (value: string) =>
   monthName
     .format(new Date(value.slice(0, 7) + "-01T12:00:00Z"))
     .replace(".", "");
-
-function variationClass(current: number, previous: number, history: boolean) {
-  if (!history || current === previous || previous === 0) return "variation";
-  return current > previous ? "variation increased" : "variation decreased";
-}
-
-type Detail = {
-  entries: {
-    id: string;
-    description: string;
-    amount: number;
-    date: string;
-    payment_method: PaymentMethod | null;
-  }[];
-  period: { start: string; end: string };
-};
-
-function CategoryDetail({ name, query }: { name: string; query: string }) {
-  const [detail, setDetail] = useState<Detail | null>(null);
-  const [error, setError] = useState(false);
-  useEffect(() => {
-    const controller = new AbortController();
-    fetch(`/api/reports/annual?${query}`, { signal: controller.signal })
-      .then(async (response) => {
-        if (!response.ok) throw Error();
-        setDetail(await response.json());
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) setError(true);
-      });
-    return () => controller.abort();
-  }, [query]);
-
-  return (
-    <section
-      className="report-category-detail"
-      aria-label={`Detalhes de ${name}`}
-    >
-      <strong>{name}</strong>
-      {error ? (
-        <p role="alert">
-          Não foi possível carregar os gastos. Feche e abra os detalhes para
-          tentar novamente.
-        </p>
-      ) : !detail ? (
-        <p role="status">Carregando gastos…</p>
-      ) : (
-        <>
-          <p>
-            {date(detail.period.start)} a {date(detail.period.end)} ·{" "}
-            <strong>
-              {money(
-                detail.entries.reduce((sum, entry) => sum + entry.amount, 0),
-              )}
-            </strong>
-          </p>
-          {detail.entries.length ? (
-            <ul>
-              {detail.entries.map((entry) => (
-                <li key={entry.id}>
-                  <span>{entry.description}</span>
-                  <strong>{money(entry.amount)}</strong>
-                  <time dateTime={entry.date}>
-                    {date(entry.date)}
-                    {entry.payment_method
-                      ? ` · ${paymentMethodLabels[entry.payment_method]}`
-                      : ""}
-                  </time>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p>Nenhuma despesa paga nesse período.</p>
-          )}
-        </>
-      )}
-    </section>
-  );
-}
 
 const fullMonthName = new Intl.DateTimeFormat("pt-BR", {
   month: "long",
@@ -295,11 +203,6 @@ export default function AnnualSpending({ today }: { today: string }) {
   const [series, setSeries] = useState<AnnualReport["months"]>();
   const [error, setError] = useState(false);
   const [retry, setRetry] = useState(0);
-  const [selected, setSelected] = useState<{
-    category: string;
-    period: "current" | "previous";
-  } | null>(null);
-
   function selectMonth(value: string) {
     if (
       !value ||
@@ -309,7 +212,6 @@ export default function AnnualSpending({ today }: { today: string }) {
     )
       return;
     setReport(null);
-    setSelected(null);
     setMonth(value);
     setYear(Number(value.slice(0, 4)));
   }
@@ -318,18 +220,9 @@ export default function AnnualSpending({ today }: { today: string }) {
     value.setUTCMonth(value.getUTCMonth() + offset);
     selectMonth(value.toISOString().slice(0, 7));
   }
-  function toggleDetails(category: string, period: "current" | "previous") {
-    setSelected((current) =>
-      current?.category === category && current.period === period
-        ? null
-        : { category, period },
-    );
-  }
-
   useEffect(() => {
     const abort = new AbortController();
     setReport(null);
-    setSelected(null);
     setError(false);
     fetch(
       "/api/reports/annual?year=" + year + (monthly ? "&month=" + month : ""),
@@ -350,11 +243,6 @@ export default function AnnualSpending({ today }: { today: string }) {
   }, [year, today, retry, monthly, month]);
 
   const hasHistory = Boolean(report?.previousPaidCount);
-  const currentLabel = monthly ? monthLabel(month) : String(year);
-  const previousLabel =
-    report && monthly
-      ? monthLabel(report.periods.previous.start)
-      : String(year - 1);
   const previousFullLabel =
     report && monthly
       ? "em " + fullMonthLabel(report.periods.previous.start)
@@ -577,131 +465,16 @@ export default function AnnualSpending({ today }: { today: string }) {
               }).toString()}
             />
           )}
-          <section
-            className="report-category-section"
-            aria-labelledby="report-categories-heading"
-          >
-            <div className="report-category-heading">
-              <h3 id="report-categories-heading">Gastos pagos por categoria</h3>
-              <p>
-                Toque na categoria para ver os lançamentos e sua comparação com
-                o período anterior.
-              </p>
-            </div>
-            {!report.categories.length ? (
-              <p className="report-empty">
-                {report.expenseCount > 0
-                  ? "Ainda não há pagamentos confirmados neste período. Os valores pendentes aparecem no resumo acima."
-                  : "Nenhuma despesa paga nos períodos selecionados."}
-              </p>
-            ) : (
-              <div className="table-wrap annual-table">
-                <table>
-                  <thead>
-                    <tr>
-                      <th scope="col">Categoria</th>
-                      <th scope="col" className="amount">
-                        {currentLabel}
-                      </th>
-                      <th scope="col" className="amount">
-                        {previousLabel}
-                      </th>
-                      <th scope="col">Variação dos gastos pagos</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {report.categories.map((category) => {
-                      const open = selected?.category === category.name;
-                      const defaultPeriod =
-                        category.current > 0 ? "current" : "previous";
-                      const query = new URLSearchParams({
-                        year: String(year),
-                        category: category.name,
-                        period: selected?.period ?? defaultPeriod,
-                      });
-                      if (monthly) query.set("month", month);
-                      return (
-                        <Fragment key={category.name}>
-                          <tr>
-                            <th scope="row">
-                              <button
-                                type="button"
-                                className="report-category-button"
-                                aria-expanded={open}
-                                onClick={() =>
-                                  open
-                                    ? setSelected(null)
-                                    : toggleDetails(
-                                        category.name,
-                                        defaultPeriod,
-                                      )
-                                }
-                              >
-                                {category.name}
-                                <ChevronDown size={15} aria-hidden="true" />
-                              </button>
-                            </th>
-                            <td className="amount">
-                              {money(category.current)}
-                            </td>
-                            <td className="amount">
-                              {category.previous > 0 ? (
-                                <button
-                                  type="button"
-                                  className="text-button"
-                                  aria-label={
-                                    "Ver gastos anteriores de " + category.name
-                                  }
-                                  aria-expanded={
-                                    open && selected?.period === "previous"
-                                  }
-                                  onClick={() =>
-                                    toggleDetails(category.name, "previous")
-                                  }
-                                >
-                                  {money(category.previous)}
-                                </button>
-                              ) : hasHistory ? (
-                                money(0)
-                              ) : (
-                                "—"
-                              )}
-                            </td>
-                            <td>
-                              <span
-                                className={variationClass(
-                                  category.current,
-                                  category.previous,
-                                  hasHistory,
-                                )}
-                              >
-                                {variation(
-                                  category.current,
-                                  category.previous,
-                                  hasHistory,
-                                )}
-                              </span>
-                            </td>
-                          </tr>
-                          {open && (
-                            <tr>
-                              <td colSpan={4}>
-                                <CategoryDetail
-                                  key={query.toString()}
-                                  name={category.name}
-                                  query={query.toString()}
-                                />
-                              </td>
-                            </tr>
-                          )}
-                        </Fragment>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
+          <CategorySpendingReport
+            categories={report.categories}
+            periods={report.periods}
+            query={new URLSearchParams({
+              year: String(year),
+              ...(monthly ? { month } : {}),
+            }).toString()}
+            hasHistory={hasHistory}
+            expenseCount={report.expenseCount}
+          />
         </>
       )}
     </section>
