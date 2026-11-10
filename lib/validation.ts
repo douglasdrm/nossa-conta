@@ -1,3 +1,4 @@
+import { paymentMethods } from "./payment-methods";
 import { z } from "zod";
 import { installmentAmounts, installmentDate } from "./finance";
 export const monthSchema = z.string().regex(/^20\d{2}-(0[1-9]|1[0-2])$/);
@@ -21,6 +22,7 @@ export const entrySchema = z.object({
   repeats: z.boolean().optional().default(false),
   confirmed: z.boolean().optional().default(false),
   payer: label(60).optional(),
+  paymentMethod: z.enum(paymentMethods).nullish(),
 });
 export const editSchema = z.object({
   id: z.string().min(1).max(100),
@@ -32,6 +34,7 @@ export const editSchema = z.object({
   future: z.boolean().optional().default(false),
   confirmed: z.boolean().optional(),
   payer: label(60).optional(),
+  paymentMethod: z.enum(paymentMethods).nullish(),
 });
 export const inviteSchema = z.object({
   email: z

@@ -1,3 +1,5 @@
+import type { PaymentMethod } from "./payment-methods";
+
 export function upcomingEnd(day: string) {
   const end = new Date(day + "T12:00:00Z");
   end.setUTCDate(end.getUTCDate() + 6);
@@ -28,6 +30,7 @@ export type AnnualReport = {
   previousTotal: number;
   months?: { month: string; total: number }[];
   categories: { name: string; current: number; previous: number }[];
+  paymentMethods?: { method: PaymentMethod | null; total: number }[];
 };
 
 export function annualTotals(

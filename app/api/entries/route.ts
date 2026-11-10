@@ -15,7 +15,7 @@ export async function GET(r: Request) {
       const { data, error } = await db
         .from("nc_entries")
         .select(
-          "id,kind,description,amount,category,person,date,confirmed,confirmed_at,payer,installment_group,installment_number,installment_count",
+          "id,kind,description,amount,category,person,date,confirmed,confirmed_at,payer,installment_group,installment_number,installment_count,payment_method",
         )
         .eq("kind", "expense")
         .eq("confirmed", false)
@@ -32,7 +32,7 @@ export async function GET(r: Request) {
       const { data, error } = await db
         .from("nc_entries")
         .select(
-          "id,kind,description,amount,category,person,date,confirmed,confirmed_at,payer,installment_group,installment_number,installment_count",
+          "id,kind,description,amount,category,person,date,confirmed,confirmed_at,payer,installment_group,installment_number,installment_count,payment_method",
         )
         .eq("confirmed", false)
         .is("deleted_at", null)
@@ -53,7 +53,7 @@ export async function GET(r: Request) {
       db
         .from("nc_entries")
         .select(
-          "id,kind,description,amount,category,person,date,confirmed,confirmed_at,payer,payer_user_id,installment_group,installment_number,installment_count",
+          "id,kind,description,amount,category,person,date,confirmed,confirmed_at,payer,payer_user_id,installment_group,installment_number,installment_count,payment_method",
         )
         .gte("date", month.data + "-01")
         .lt("date", nextMonth(month.data))

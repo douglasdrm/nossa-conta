@@ -1,3 +1,4 @@
+import type { PaymentMethod } from "@/lib/payment-methods";
 import { authenticated, failure, ApiError } from "@/lib/api";
 import { dateInSaoPaulo } from "@/lib/finance";
 import {
@@ -31,6 +32,7 @@ export async function GET(request: Request) {
 
     const yearPeriod = annualPeriods(year, today).current;
     const periods = month ? monthlyPeriods(month) : annualPeriods(year, today);
+    const paymentTotals = new Map<PaymentMethod | null, number>();
     const category = params.get("category");
     if (category !== null) {
       if (!category.trim() || category.length > 60)
@@ -42,6 +44,7 @@ export async function GET(request: Request) {
       const entries: {
         id: string;
         description: string;
+        payment_method: PaymentMethod | null;
         amount: number;
         date: string;
       }[] = [];
@@ -49,7 +52,7 @@ export async function GET(request: Request) {
       for (;;) {
         let query = db
           .from("nc_entries")
-          .select("id,description,amount,date")
+          .select("id,description,amount,date,payment_method")
           .eq("kind", "expense")
           .eq("confirmed", true)
           .is("deleted_at", null)
@@ -89,13 +92,14 @@ export async function GET(request: Request) {
         end: string;
       },
       includeMonthTotals = false,
+      includePaymentTotals = false,
     ) {
       const totals = new Map<string, number>();
       let cursor: string | undefined;
       for (;;) {
         let query = db
           .from("nc_entries")
-          .select("id,category,amount,date")
+          .select("id,category,amount,date,payment_method")
           .eq("kind", "expense")
           .eq("confirmed", true)
           .is("deleted_at", null)
@@ -112,6 +116,13 @@ export async function GET(request: Request) {
             monthTotals.set(key, (monthTotals.get(key) ?? 0) + row.amount);
             if (key !== month) continue;
           }
+          if (includePaymentTotals) {
+            const method: PaymentMethod | null = row.payment_method;
+            paymentTotals.set(
+              method,
+              (paymentTotals.get(method) ?? 0) + row.amount,
+            );
+          }
           totals.set(
             row.category,
             (totals.get(row.category) ?? 0) + row.amount,
@@ -123,13 +134,20 @@ export async function GET(request: Request) {
     }
 
     const [current, previous] = await Promise.all([
-      categoryTotals(month ? yearPeriod : periods.current, month !== null),
+      categoryTotals(
+        month ? yearPeriod : periods.current,
+        month !== null,
+        true,
+      ),
       categoryTotals(periods.previous),
     ]);
     return Response.json(
       {
         periods,
         ...annualTotals(current, previous),
+        paymentMethods: [...paymentTotals]
+          .map(([method, total]) => ({ method, total }))
+          .sort((a, b) => b.total - a.total),
         ...(month
           ? {
               months: [...monthTotals].map(([month, total]) => ({

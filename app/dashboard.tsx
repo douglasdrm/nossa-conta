@@ -9,6 +9,11 @@ import UpcomingPanel from "@/components/upcoming-panel";
 import { upcomingEnd } from "@/lib/finance-reports";
 import SavingsPanel from "@/components/savings-panel";
 import { expenseCategories, incomeCategories } from "@/lib/categories";
+import {
+  paymentMethods,
+  paymentMethodLabels,
+  type PaymentMethod,
+} from "@/lib/payment-methods";
 import CategoryManager from "@/components/category-manager";
 import CategoryPicker from "@/components/category-picker";
 import SharePanel from "@/components/share-panel";
@@ -55,6 +60,7 @@ type Entry = {
   date: string;
   confirmed: boolean;
   payer: string | null;
+  payment_method?: PaymentMethod | null;
   payer_user_id?: string | null;
   payer_display?: string | null;
   confirmed_at: string | null;
@@ -303,6 +309,8 @@ export default function Dashboard({
           ...Object.fromEntries(f),
           kind: modal,
           amount,
+          paymentMethod:
+            modal === "expense" ? f.get("paymentMethod") || null : undefined,
           confirmed: f.get("paymentStatus") === "confirmed",
           payer:
             modal === "expense" && f.get("paymentStatus") === "confirmed"
@@ -377,7 +385,7 @@ export default function Dashboard({
   }
   function exportCsv() {
     const text =
-      "\uFEFFData;Descrição;Tipo;Categoria;Pessoa;Valor;Situação;Pago por\n" +
+      "\uFEFFData;Descrição;Tipo;Categoria;Pessoa;Valor;Situação;Pago por;Forma de pagamento\n" +
       rows
         .map((e) =>
           [
@@ -400,6 +408,7 @@ export default function Dashboard({
             e.kind === "expense" && e.confirmed
               ? e.payer_display || e.payer || "Não informado"
               : "",
+            e.payment_method ? paymentMethodLabels[e.payment_method] : "",
           ]
             .map((x) => '"' + x.replaceAll('"', '""') + '"')
             .join(";"),
@@ -558,6 +567,11 @@ export default function Dashboard({
                 </td>
                 <td>
                   <span className="pill">{e.category}</span>
+                  {e.payment_method && (
+                    <small className="entry-payer">
+                      {paymentMethodLabels[e.payment_method]}
+                    </small>
+                  )}
                 </td>
                 <td>
                   <span className="entry-responsible">{e.person}</span>
@@ -1365,6 +1379,28 @@ export default function Dashboard({
                       ))}
                     </datalist>
                   </label>
+                  {modal === "expense" && (
+                    <label>
+                      Forma de pagamento
+                      <select
+                        name="paymentMethod"
+                        defaultValue={editing?.payment_method ?? ""}
+                      >
+                        <option value="">Não informada</option>
+                        {paymentMethods.map((method) => (
+                          <option key={method} value={method}>
+                            {paymentMethodLabels[method]}
+                          </option>
+                        ))}
+                      </select>
+                      {!editing && entryMode === "recurring" && (
+                        <small className="field-hint">
+                          As próximas ocorrências herdam essa forma de
+                          pagamento.
+                        </small>
+                      )}
+                    </label>
+                  )}
                   <label className="check">
                     <input
                       type="checkbox"
@@ -1416,8 +1452,10 @@ export default function Dashboard({
                   {editing?.id.includes(":") && (
                     <>
                       <label className="check">
-                        <input type="checkbox" name="future" /> Usar este valor
-                        como padrão nos próximos meses
+                        <input type="checkbox" name="future" />{" "}
+                        {modal === "expense"
+                          ? "Usar valor e forma de pagamento como padrão nos próximos meses"
+                          : "Usar este valor como padrão nos próximos meses"}
                         <small>Meses já registrados não serão alterados.</small>
                       </label>
                       <button

@@ -1371,6 +1371,94 @@ test("migration, household isolation, invitations and recurring month edits", as
     },
   );
   await t.test(
+    "keeps payment method separate from category and versions recurring defaults",
+    async () => {
+      await as(alice);
+      const payload = {
+        ...base,
+        category: "Contas e serviços",
+        date: "2028-01-05",
+        paymentMethod: "credit_card",
+      };
+      const entry = await rpc<{ id: string; payment_method: string }>(
+        "add_entry",
+        [payload],
+      );
+      assert.equal(entry.payment_method, "credit_card");
+      await rpc("edit_entry", [
+        entry.id,
+        { ...payload, paymentMethod: "pix" },
+        false,
+      ]);
+      await rpc("sync_month", ["2028-02-01"]);
+      const feb = entry.id.replace(/2028-01$/, "2028-02");
+      assert.deepEqual(
+        (
+          await db.query(
+            "select category,payment_method,confirmed from nc_entries where id=$1",
+            [feb],
+          )
+        ).rows,
+        [
+          {
+            category: "Contas e serviços",
+            payment_method: "credit_card",
+            confirmed: false,
+          },
+        ],
+      );
+      await rpc("edit_entry", [
+        feb,
+        { ...payload, date: "2028-02-05", paymentMethod: "cash" },
+        true,
+      ]);
+      await rpc("sync_month", ["2028-03-01"]);
+      const mar = entry.id.replace(/2028-01$/, "2028-03");
+      await rpc("edit_entry", [
+        mar,
+        { ...base, category: payload.category, date: "2028-03-05" },
+        true,
+      ]);
+      await rpc("sync_month", ["2028-04-01"]);
+      const apr = entry.id.replace(/2028-01$/, "2028-04");
+      assert.deepEqual(
+        (
+          await db.query(
+            "select payment_method from nc_entries where id in ($1,$2,$3) order by date",
+            [entry.id, mar, apr],
+          )
+        ).rows,
+        [
+          { payment_method: "pix" },
+          { payment_method: "cash" },
+          { payment_method: "cash" },
+        ],
+      );
+      await assert.rejects(() =>
+        rpc("add_entry", [{ ...payload, paymentMethod: "invalid" }]),
+      );
+      const group = "00000000-0000-4000-8000-000000000099";
+      await rpc("add_installments", [
+        {
+          ...payload,
+          repeats: false,
+          installmentGroup: group,
+          installmentCount: 2,
+          installmentMode: "total",
+        },
+      ]);
+      assert.deepEqual(
+        (
+          await db.query(
+            "select distinct payment_method from nc_entries where installment_group=$1",
+            [group],
+          )
+        ).rows,
+        [{ payment_method: "credit_card" }],
+      );
+    },
+  );
+  await t.test(
     "renaming an income category updates its recurrence without affecting expense categories",
     async () => {
       await as(alice);

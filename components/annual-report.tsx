@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useState } from "react";
+import { paymentMethodLabels, type PaymentMethod } from "@/lib/payment-methods";
 import type { AnnualReport } from "@/lib/finance-reports";
 
 const currency = new Intl.NumberFormat("pt-BR", {
@@ -37,7 +38,13 @@ function variationClass(current: number, previous: number, history: boolean) {
 }
 
 type Detail = {
-  entries: { id: string; description: string; amount: number; date: string }[];
+  entries: {
+    id: string;
+    description: string;
+    amount: number;
+    date: string;
+    payment_method: PaymentMethod | null;
+  }[];
   period: { start: string; end: string };
 };
 
@@ -86,7 +93,12 @@ function CategoryDetail({ name, query }: { name: string; query: string }) {
                 <li key={entry.id}>
                   <span>{entry.description}</span>
                   <strong>{money(entry.amount)}</strong>
-                  <time dateTime={entry.date}>{date(entry.date)}</time>
+                  <time dateTime={entry.date}>
+                    {date(entry.date)}
+                    {entry.payment_method
+                      ? ` · ${paymentMethodLabels[entry.payment_method]}`
+                      : ""}
+                  </time>
                 </li>
               ))}
             </ul>
@@ -322,6 +334,23 @@ export default function AnnualSpending({ today }: { today: string }) {
                 {variation(report.total, report.previousTotal, true)}
               </strong>
             </p>
+          )}
+          {Boolean(report.paymentMethods?.length) && (
+            <details className="report-category-detail" open>
+              <summary>
+                <strong>Gastos por forma de pagamento</strong>
+              </summary>
+              <ul>
+                {report.paymentMethods?.map(({ method, total }) => (
+                  <li key={method ?? "unknown"}>
+                    <span>
+                      {method ? paymentMethodLabels[method] : "Não informada"}
+                    </span>
+                    <strong>{money(total)}</strong>
+                  </li>
+                ))}
+              </ul>
+            </details>
           )}
           {!report.categories.length ? (
             <p>Nenhuma despesa paga nos períodos selecionados.</p>
