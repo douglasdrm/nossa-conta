@@ -1,8 +1,11 @@
+import Brand from "@/components/brand";
 export default function Setup() {
   return (
     <main className="auth-page">
       <section className="auth-card">
-        <div className="auth-brand">Nossa Conta.</div>
+        <div className="auth-brand">
+          <Brand stacked />
+        </div>
         <h1>Seu espaço está quase pronto.</h1>
         <p>
           Conecte o projeto ao Supabase para habilitar login, dados salvos e

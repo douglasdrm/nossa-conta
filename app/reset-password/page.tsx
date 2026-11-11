@@ -1,4 +1,5 @@
 "use client";
+import Brand from "@/components/brand";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/browser";
 export default function Reset() {
@@ -7,8 +8,8 @@ export default function Reset() {
   return (
     <main className="auth-page">
       <section className="auth-card">
-        <a href="/" className="auth-brand">
-          Nossa Conta.
+        <a href="/" className="auth-brand" aria-label="Nossa Conta — início">
+          <Brand stacked />
         </a>
         <h1>Uma nova senha.</h1>
         <form

@@ -6,13 +6,20 @@ export const metadata = {
   title: "Nossa Conta • Finanças em conjunto",
   description: "Um lugar para entender e organizar as finanças da casa.",
   robots: { index: false, follow: false },
-  icons: { icon: "/favicon.svg", apple: "/icons/apple-touch-icon.png" },
-  appleWebApp: { capable: true, title: "Nossa Conta", statusBarStyle: "default" },
+  icons: { icon: "/favicon.svg?v=nc", apple: "/icons/nc-apple-touch-icon.png" },
+  appleWebApp: {
+    capable: true,
+    title: "Nossa Conta",
+    statusBarStyle: "default",
+  },
 };
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-BR">
-      <body>{children}<InstallApp /></body>
+      <body>
+        {children}
+        <InstallApp />
+      </body>
     </html>
   );
 }

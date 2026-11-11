@@ -63,17 +63,6 @@ aside {
   letter-spacing: -1px;
   white-space: nowrap;
 }
-.brand > span:first-child {
-  display: flex;
-  background: #286653;
-  color: #fff;
-  padding: 9px;
-  border-radius: 12px;
-}
-.brand .dot {
-  color: #cc9e61;
-  margin-left: -9px;
-}
 .home-label {
   font-size: 10px;
   letter-spacing: 1.7px;
@@ -1948,3 +1937,24 @@ aside .nav.active[href="/relatorio-anual"], .savings-shortcut[href="/relatorio-a
   flex: 0 0 auto;
 }
 .records .entry-person-secondary { color: #536259; font-size: 10px; font-weight: 500; }
+
+
+@font-face {
+  font-family: "Fredoka";
+  src: url("/fonts/fredoka-medium.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+}
+.nc-brand { display: inline-flex; align-items: center; justify-content: center; gap: 10px; color: #0a4d1b; }
+.nc-brand img { display: block; width: 42px; height: auto; flex-shrink: 0; }
+.nc-brand-name { font-family: "Fredoka", sans-serif; font-size: 25px; font-weight: 500; letter-spacing: -.65px; line-height: 1; white-space: nowrap; }
+.nc-brand-stacked { display: flex; flex-direction: column; gap: 12px; }
+.nc-brand-stacked img { width: 105px; }
+.nc-brand-stacked .nc-brand-name { font-size: 34px; }
+.auth-brand { width: fit-content; margin-inline: auto; }
+@media (min-width: 851px) and (max-width: 1150px) {
+  .brand .nc-brand { gap: 8px; }
+  .brand .nc-brand img { width: 36px; }
+  .brand .nc-brand-name { font-size: 22px; }
+}

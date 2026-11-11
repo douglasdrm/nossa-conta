@@ -1,4 +1,5 @@
 "use client";
+import Brand from "@/components/brand";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/browser";
 export default function AcceptInvite({
@@ -13,7 +14,9 @@ export default function AcceptInvite({
   return (
     <main className="auth-page">
       <section className="auth-card">
-        <div className="auth-brand">Nossa Conta.</div>
+        <div className="auth-brand">
+          <Brand stacked />
+        </div>
         <h1>Organizar fica melhor juntos.</h1>
         <p>
           Você está entrando como <b>{email}</b>. Ao aceitar, poderá ver e

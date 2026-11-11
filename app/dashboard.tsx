@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, useRef } from "react";
+import Brand from "@/components/brand";
 import AnnualSpending from "@/components/annual-report";
 import BudgetPlanPanel from "@/components/budget-plan-panel";
 import { suggestedBudget, type BudgetPlan } from "@/lib/budget-plan";
@@ -822,11 +823,8 @@ function DashboardContent({
   return (
     <div className={view === "entries" ? "shell entries-page" : "shell"}>
       <aside>
-        <a className="brand" href="/">
-          <span>
-            <Wallet size={24} />
-          </span>
-          Nossa Conta<span className="dot">.</span>
+        <a className="brand" href="/" aria-label="Nossa Conta — visão geral">
+          <Brand />
         </a>
         <div className="home-label">ESPAÇO DA FAMÍLIA</div>
         {navigation}
