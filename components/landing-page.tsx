@@ -1,3 +1,4 @@
+import Image from "next/image";
 import {
   ArrowDownLeft,
   ArrowRight,
@@ -172,6 +173,8 @@ export default function LandingPage() {
               conta. Um espaço para a casa.
             </p>
           </div>
+          <div className="marketing-hero-visual">
+            <Image className="marketing-couple-photo" src="/images/planning-together.webp" alt="Casal em casa olhando o celular e planejando o mês juntos" width={1200} height={800} priority sizes="(max-width: 650px) 100vw, 50vw" />
           <div
             className="marketing-preview"
             aria-label="Exemplo ilustrativo do painel financeiro"
@@ -225,6 +228,7 @@ export default function LandingPage() {
               </div>
             </div>
           </div>
+          </div>
         </section>
 
         <section
@@ -256,6 +260,16 @@ export default function LandingPage() {
                 <p>{text}</p>
               </article>
             ))}
+          </div>
+        </section>
+
+        <section className="marketing-personal" aria-labelledby="personal-title">
+          <Image src="/images/planning-your-month.webp" alt="Mulher organizando suas contas pelo celular em casa" width={1200} height={800} sizes="(max-width: 650px) 100vw, 50vw" />
+          <div>
+            <span className="marketing-eyebrow">NO SEU RITMO. DO SEU JEITO.</span>
+            <h2 id="personal-title">Seu dinheiro, seus planos.</h2>
+            <p>A vida fica melhor quando as contas fazem sentido. Comece organizando o seu mês e convide alguém para planejar junto quando quiser.</p>
+            <a className="marketing-text-link" href="/login?mode=signup">Começar meu planejamento <ArrowRight size={18} aria-hidden="true" /></a>
           </div>
         </section>
 

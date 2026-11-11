@@ -126,3 +126,28 @@
   .marketing-footer p { width: 100%; margin: 0; }
 }
 @media(prefers-reduced-motion: reduce) { .marketing * { scroll-behavior: auto; } }
+
+/* Lifestyle campaign imagery and a compact product preview. */
+.marketing-hero-visual { position: relative; min-width: 0; padding-bottom: 95px; }
+.marketing-couple-photo { display: block; width: 100%; height: 410px; object-fit: cover; border-radius: 100px 24px 24px 24px; }
+.marketing-hero-visual .marketing-preview { position: absolute; width: 78%; right: -10px; bottom: 0; padding: 16px; transform: rotate(-2deg); background: #fff; box-shadow: 0 18px 50px #173a2520; }
+.marketing-hero-visual .marketing-preview-category, .marketing-hero-visual .marketing-preview-goal { display: none; }
+.marketing-hero-visual .marketing-preview-balance { padding: 16px; }
+.marketing-hero-visual .marketing-preview-top { margin-bottom: 12px; }
+.marketing-hero-visual .marketing-preview-balance > strong { font-size: 28px; }
+.marketing-hero-visual .marketing-preview-totals { margin-bottom: 0; }
+.marketing-personal { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: center; padding: 72px 0 0; }
+.marketing-personal > img { width: 100%; height: 340px; object-fit: cover; border-radius: 24px 80px 24px 24px; }
+.marketing-personal p { color: var(--landing-muted); font-size: 15px; line-height: 1.9; max-width: 430px; }
+.marketing-personal .marketing-text-link { margin-top: 14px; font-weight: 700; }
+@media(max-width: 900px) {
+ .marketing-hero-visual .marketing-preview { width: 95%; right: -5px; }
+ .marketing-personal { gap: 30px; }
+}
+@media(max-width: 650px) {
+ .marketing-hero-visual { padding-bottom: 115px; }
+ .marketing-couple-photo { height: 330px; border-radius: 60px 20px 20px 20px; }
+ .marketing-hero-visual .marketing-preview { width: 88%; right: 0; transform: none; }
+ .marketing-personal { grid-template-columns: 1fr; gap: 24px; padding-top: 44px; }
+ .marketing-personal > img { height: auto; aspect-ratio: 3 / 2; }
+}
