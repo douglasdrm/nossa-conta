@@ -1,4 +1,4 @@
-.marketing { --landing-green: #0a4d1b; --landing-text: #20352b; --landing-muted: #64736b; color: var(--landing-text); background: #fff; }
+.marketing { --landing-green: #0a4d1b; --landing-text: #20352b; --landing-muted: #64736b; color: var(--landing-text); background: #fff; overflow-x: clip; }
 .marketing a { text-decoration: none; }
 .marketing-header { height: auto; min-height: 92px; max-width: 1216px; margin: auto; padding: 22px 32px; display: flex; align-items: center; justify-content: space-between; gap: 24px; border-bottom: 1px solid #edf0e9; }
 .marketing-brand, .marketing-login { display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0; }
@@ -75,6 +75,25 @@
 .marketing-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; border-top: 1px solid #e7ece2; padding: 30px 32px 80px; max-width: 1216px; margin: 0 auto; }
 .marketing-footer p, .marketing-footer > span, .marketing-footer > a:last-child { font-size: 11px; color: var(--landing-muted); }
 .marketing-footer .nc-brand img { width: 30px; }.marketing-footer .nc-brand-name { font-size: 21px; }
+/* Alternating section backgrounds stay scoped to the public landing page. */
+.marketing-features, .marketing-plans { position: relative; isolation: isolate; padding-top: 64px; padding-bottom: 64px; }
+.marketing-features::before, .marketing-plans::before { content: ""; position: absolute; z-index: -1; inset: 0 calc((min(100vw, 1216px) - 100vw) / 2 - 32px); background: #eaf2e2; }
+.marketing-feature-grid article, .marketing-feature-grid article:nth-child(2n) { background: #fff; border-color: #d7e4cf; }
+.marketing-how { margin-top: 64px; margin-bottom: 64px; background: #f6f8f1; }
+.marketing-plans::before { background: #eef2e8; }
+.marketing-plan-live { background: #e1eed5; }
+.marketing-faq { padding-top: 64px; }
+.marketing-final { background: #174f32; }
+.marketing-final h2 { color: #fff; }
+.marketing-final .marketing-eyebrow { color: #c5dbb8; }
+.marketing-final .marketing-cta { background: #e2efcf; border-color: #e2efcf; color: #174f32; }
+.marketing-final .marketing-cta:hover { background: #d1e5b6; }
+@media(max-width: 650px) {
+  .marketing-features::before, .marketing-plans::before { inset-inline: -20px; }
+  .marketing-features, .marketing-plans { padding-block: 44px; }
+  .marketing-how { margin-block: 44px; }
+  .marketing-faq { padding-top: 44px; }
+}
 @media(max-width: 900px) {
   .marketing-header nav { gap: 16px; }
   .marketing-hero { gap: 25px; padding-top: 55px; }
