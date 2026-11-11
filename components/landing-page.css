@@ -1,0 +1,109 @@
+.marketing { --landing-green: #0a4d1b; --landing-text: #20352b; --landing-muted: #64736b; color: var(--landing-text); background: #fff; }
+.marketing a { text-decoration: none; }
+.marketing-header { height: auto; min-height: 92px; max-width: 1216px; margin: auto; padding: 22px 32px; display: flex; align-items: center; justify-content: space-between; gap: 24px; border-bottom: 1px solid #edf0e9; }
+.marketing-brand, .marketing-login { display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.marketing-header nav { display: flex; gap: 28px; font-size: 13px; color: #53665a; }
+.marketing-login { padding: 11px 17px; border: 1px solid #cddbc9; border-radius: 8px; font-weight: 600; font-size: 13px; color: var(--landing-green); }
+.marketing-main { margin: 0 auto; width: 100%; max-width: 1216px; padding: 0 32px; }
+.marketing-hero { display: grid; grid-template-columns: 1.15fr 1fr; align-items: center; gap: clamp(30px, 5vw, 80px); padding: 85px 0 95px; }
+.marketing-eyebrow { display: inline-flex; align-items: center; gap: 7px; font-size: 10px; font-weight: 700; letter-spacing: 1.8px; color: #557657; line-height: 1.7; }
+.marketing h1 { font: 800 clamp(34px, 4.1vw, 55px)/1.16 Manrope, sans-serif; letter-spacing: -2.2px; margin: 20px 0; color: #173a25; }
+.marketing h1 span { color: #5b8c50; }
+.marketing-hero-copy > p { max-width: 460px; font-size: 16px; line-height: 1.8; color: var(--landing-muted); }
+.marketing-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 18px; margin-top: 28px; }
+.marketing-cta { display: inline-flex; justify-content: center; align-items: center; gap: 10px; padding: 15px 21px; min-height: 48px; background: var(--landing-green); color: #fff; border: 1px solid var(--landing-green); border-radius: 9px; font-size: 13px; font-weight: 700; }
+.marketing-cta:hover { background: #17612c; }
+.marketing-text-link { display: inline-flex; align-items: center; gap: 3px; font-size: 12px; color: var(--landing-green); }
+.marketing-hero-copy > p.marketing-hero-note { display: flex; align-items: center; gap: 7px; margin-top: 23px; font-size: 11px; line-height: 1.5; }
+.marketing-preview { position: relative; min-width: 0; padding: 22px; border: 1px solid #dce6d5; border-radius: 24px; background: #fafbf7; box-shadow: 0 24px 64px #235a2810; transform: rotate(-1deg); }
+.marketing-preview-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; font-size: 10px; color: #7a897a; }
+.marketing-preview-top > span:first-child { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; color: #315f39; font-weight: 700; }
+.marketing-preview-balance { position: relative; display: grid; gap: 8px; padding: 23px; border-radius: 13px; background: #eaf2e2; color: #244a2e; }
+.marketing-preview-balance > span:first-child { font-size: 11px; font-weight: 600; }
+.marketing-preview-balance > strong { font: 800 33px/1.2 Manrope, sans-serif; letter-spacing: -1px; }
+.marketing-preview-balance > small { font-size: 10px; }
+.marketing-preview-spark { position: absolute; right: 20px; top: 23px; color: #739b65; }
+.marketing-preview-totals { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 12px 0 8px; }
+.marketing-preview-totals > div { display: grid; grid-template-columns: auto 1fr; gap: 7px; align-items: center; padding: 14px; background: #edf3f8; border-radius: 10px; color: #426383; font-size: 10px; }
+.marketing-preview-totals > div:nth-child(2) { background: #fcf0e8; color: #a86442; }
+.marketing-preview-totals strong { grid-column: 1 / -1; font-size: 17px; font-family: Manrope, sans-serif; }
+.marketing-preview-category { display: flex; justify-content: space-between; padding: 11px 3px; border-bottom: 1px solid #e6ebdf; font-size: 11px; }
+.marketing-preview-category > span { display: flex; align-items: center; gap: 7px; }
+.marketing-preview-category i { width: 7px; height: 7px; border-radius: 50%; }
+.preview-dot-home { background: #d4a86b; }.preview-dot-market { background: #80a473; }
+.marketing-preview-goal { display: flex; gap: 12px; align-items: start; padding-top: 18px; color: #6e6686; }
+.marketing-preview-goal > div { flex: 1; }
+.marketing-preview-goal strong, .marketing-preview-goal span { display: block; }
+.marketing-preview-goal strong { font-size: 12px; }.marketing-preview-goal span { font-size: 10px; margin-top: 5px; line-height: 1.5; }
+.marketing-goal-track { height: 5px; background: #e5dfed; border-radius: 5px; margin-top: 12px; overflow: hidden; }
+.marketing-goal-track i { display: block; width: 62%; height: 100%; background: #a28ab8; }
+.marketing-section-heading { max-width: 650px; margin: 0 auto 35px; text-align: center; }
+.marketing h2 { font: 800 clamp(25px, 3vw, 36px)/1.3 Manrope, sans-serif; letter-spacing: -1.1px; margin: 13px 0; color: #203e2b; }
+.marketing-section-heading p { font-size: 14px; line-height: 1.8; color: var(--landing-muted); }
+.marketing-features { padding: 24px 0 72px; scroll-margin-top: 24px; }
+.marketing-feature-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.marketing-feature-grid article { padding: 25px; border: 1px solid #e4eadf; background: #fcfdf9; border-radius: 14px; }
+.marketing-feature-grid article:nth-child(2n) { background: #f5f8f1; }
+.marketing-feature-icon { display: grid; place-items: center; width: 44px; height: 44px; background: #e6efd9; color: #53784a; border-radius: 12px; }
+.marketing h3 { margin: 17px 0 9px; font-size: 16px; font-weight: 700; color: #2c4933; }
+.marketing-feature-grid p, .marketing-how li p { margin: 0; font-size: 12px; line-height: 1.9; color: var(--landing-muted); }
+.marketing-how { padding: 40px 30px; margin-bottom: 75px; border-radius: 20px; background: #f0f5e9; scroll-margin-top: 24px; }
+.marketing-how ol { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 30px; }
+.marketing-how li > span { display: block; font: 500 30px/1 Fredoka, sans-serif; color: #7b9d68; }
+.marketing-plans { padding: 0 0 70px; scroll-margin-top: 24px; }
+.marketing-plan-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 18px; align-items: stretch; }
+.marketing-plan { display: flex; flex-direction: column; min-width: 0; padding: 27px; border: 1px solid #dfe5dc; border-radius: 16px; background: #fff; }
+.marketing-plan-live { border-color: #7ca86c; background: #f6faf0; box-shadow: inset 0 0 0 1px #7ca86c; }
+.marketing-plan-label { font-size: 9px; letter-spacing: 1px; font-weight: 700; color: #6c8860; }
+.marketing-plan h3 { font-family: Manrope,sans-serif; font-size: 24px; margin-bottom: 0; }
+.marketing-plan > p { font-size: 12px; color: var(--landing-muted); line-height: 1.7; min-height: 42px; margin: 12px 0 21px; }
+.marketing-plan-price { display: block; color: #244b2c; font-size: 24px; font-family: Manrope,sans-serif; }
+.marketing-plan > small { margin-top: 8px; font-size: 10px; line-height: 1.7; color: var(--landing-muted); }
+.marketing-plan ul { list-style: none; padding: 22px 0; margin: 0; display: grid; gap: 13px; }
+.marketing-plan li { display: flex; align-items: start; gap: 7px; font-size: 11px; line-height: 1.6; }
+.marketing-plan li svg { color: #648a55; flex-shrink: 0; margin-top: 1px; }
+.marketing-plan .marketing-cta, .marketing-plan-soon { margin-top: auto; }
+.marketing-plan-soon { display: block; padding: 15px; border-radius: 9px; background: #f2f4f0; color: #778276; font-size: 12px; text-align: center; }
+.marketing-plan-footnote { margin: 18px auto 0; text-align: center; color: #73806f; font-size: 11px; line-height: 1.7; }
+.marketing-faq { display: grid; grid-template-columns: .8fr 1.2fr; gap: 50px; padding: 24px 0 75px; }
+.marketing-faq .marketing-section-heading { margin: 0; text-align: left; }
+.marketing-faq details { border-bottom: 1px solid #e4e9e0; padding: 18px 0; }
+.marketing-faq summary { cursor: pointer; color: #2c4933; font-size: 14px; font-weight: 600; line-height: 1.5; }
+.marketing-faq details p { font-size: 12px; line-height: 1.9; color: var(--landing-muted); margin: 12px 0 0; }
+.marketing-final { display: flex; justify-content: space-between; align-items: center; gap: 24px; padding: 35px; background: #e9f1df; border-radius: 20px; margin-bottom: 65px; }
+.marketing-final h2 { margin-bottom: 0; }
+.marketing-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; border-top: 1px solid #e7ece2; padding: 30px 32px 80px; max-width: 1216px; margin: 0 auto; }
+.marketing-footer p, .marketing-footer > span, .marketing-footer > a:last-child { font-size: 11px; color: var(--landing-muted); }
+.marketing-footer .nc-brand img { width: 30px; }.marketing-footer .nc-brand-name { font-size: 21px; }
+@media(max-width: 900px) {
+  .marketing-header nav { gap: 16px; }
+  .marketing-hero { gap: 25px; padding-top: 55px; }
+  .marketing h1 { letter-spacing: -1.4px; }
+  .marketing-feature-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .marketing-plan { padding: 21px; }
+  .marketing-faq { gap: 25px; }
+}
+@media(max-width: 650px) {
+  .marketing-header { padding: 18px 20px; min-height: 78px; gap: 12px; flex-wrap: wrap; }
+  .marketing-header .nc-brand img { width: 32px; }.marketing-header .nc-brand-name { font-size: 23px; }
+  .marketing-header nav { order: 3; width: 100%; justify-content: center; gap: 25px; padding-top: 6px; }
+  .marketing-login { padding: 10px 12px; font-size: 12px; }
+  .marketing-main { padding: 0 20px; }
+  .marketing-hero { grid-template-columns: 1fr; gap: 35px; padding: 42px 0 65px; }
+  .marketing-hero-copy > p { font-size: 15px; }
+  .marketing h1 { font-size: 36px; }
+  .marketing-preview { max-width: 430px; width: 100%; margin: auto; transform: none; padding: 18px; }
+  .marketing-preview-balance > strong { font-size: 30px; }
+  .marketing-feature-grid, .marketing-plan-grid, .marketing-how ol, .marketing-faq { grid-template-columns: 1fr; }
+  .marketing-feature-grid { gap: 12px; }
+  .marketing-feature-grid article { padding: 22px; }
+  .marketing-how { padding: 30px 23px; margin-bottom: 55px; }
+  .marketing-how ol { gap: 28px; }
+  .marketing-faq { gap: 10px; padding-bottom: 50px; }
+  .marketing-faq .marketing-section-heading { text-align: center; }
+  .marketing-final { flex-direction: column; align-items: flex-start; padding: 26px; margin-bottom: 45px; }
+  .marketing-final .marketing-cta { width: 100%; }
+  .marketing-footer { padding: 25px 20px 80px; gap: 13px; }
+  .marketing-footer p { width: 100%; margin: 0; }
+}
+@media(prefers-reduced-motion: reduce) { .marketing * { scroll-behavior: auto; } }

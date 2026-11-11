@@ -6,7 +6,10 @@ export const metadata = {
   title: "Nossa Conta • Finanças em conjunto",
   description: "Um lugar para entender e organizar as finanças da casa.",
   robots: { index: false, follow: false },
-  icons: { icon: "/favicon.svg?v=nc", apple: "/icons/nc-apple-touch-icon.png" },
+  icons: {
+    icon: "/favicon.svg?v=nc2",
+    apple: "/icons/nc-apple-touch-icon.png?v=2",
+  },
   appleWebApp: {
     capable: true,
     title: "Nossa Conta",

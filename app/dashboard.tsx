@@ -1268,7 +1268,8 @@ function DashboardContent({
               <CalendarRange size={19} aria-hidden="true" /> Ver relatórios
             </a>
             <div className="footnote">
-              Nossa Conta <span>•</span> Um passo de cada vez, juntos.
+              Nossa Conta <span>•</span> Um passo de cada vez, juntos.{" "}
+              <a href="/conheca">Conheça o projeto</a>
             </div>
           </>
         )}

@@ -65,7 +65,7 @@ export default function InstallApp() {
       </button>
       <dialog ref={dialog} className="app-install-dialog" aria-labelledby="install-title" onClick={event => { if (event.target === event.currentTarget) event.currentTarget.close(); }}>
         <button type="button" className="app-install-close" aria-label="Fechar" onClick={() => dialog.current?.close()}><X size={20} /></button>
-        <img src="/icons/apple-touch-icon.png" width="64" height="64" alt="" />
+        <img src="/icons/nc-apple-touch-icon.png?v=2" width="64" height="64" alt="" />
         <h2 id="install-title">Nossa Conta sempre à mão</h2>
         <p>Adicione o app à sua tela inicial para abrir suas finanças com um toque.</p>
         {platform === "ios" ? (

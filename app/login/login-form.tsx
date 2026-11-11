@@ -7,7 +7,9 @@ import { safeNext } from "@/lib/validation";
 export default function LoginForm() {
   const params = useSearchParams();
   const next = safeNext(params.get("next"));
-  const [mode, setMode] = useState<"login" | "signup" | "reset">("login"),
+  const [mode, setMode] = useState<"login" | "signup" | "reset">(
+      params.get("mode") === "signup" ? "signup" : "login",
+    ),
     [busy, setBusy] = useState(false),
     [message, setMessage] = useState(
       params.get("error")

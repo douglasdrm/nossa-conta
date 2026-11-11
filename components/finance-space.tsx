@@ -7,16 +7,19 @@ import Dashboard, { type FinanceView } from "@/app/dashboard";
 export default async function FinanceSpace({
   view = "overview",
   initialMonth,
+  guest,
 }: {
   view?: FinanceView;
   initialMonth?: string;
+  guest?: React.ReactNode;
 }) {
-  if (!isConfigured()) return <Setup />;
+  if (!isConfigured()) return guest ?? <Setup />;
   const db = await createClient();
   const {
     data: { user },
   } = await db.auth.getUser();
-  if (!user || user.is_anonymous || !user.email_confirmed_at)
+  if (!user || user.is_anonymous || !user.email_confirmed_at) {
+    if (guest) return guest;
     redirect(
       {
         overview: "/login",
@@ -31,6 +34,7 @@ export default async function FinanceSpace({
         annual: "/login?next=/relatorio-anual",
       }[view],
     );
+  }
   const { error } = await db.rpc("nc_ensure_household");
   if (error)
     throw new Error(

@@ -14,19 +14,19 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: "#286653",
     icons: [
       {
-        src: "/icons/nc-192.png",
+        src: "/icons/nc-192.png?v=2",
         sizes: "192x192",
         type: "image/png",
         purpose: "any",
       },
       {
-        src: "/icons/nc-512.png",
+        src: "/icons/nc-512.png?v=2",
         sizes: "512x512",
         type: "image/png",
         purpose: "any",
       },
       {
-        src: "/icons/nc-maskable-512.png",
+        src: "/icons/nc-maskable-512.png?v=2",
         sizes: "512x512",
         type: "image/png",
         purpose: "maskable",
