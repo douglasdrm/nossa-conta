@@ -3,7 +3,7 @@ import Pricing from "@/components/marketing/pricing";
 import { publicMetadata } from "@/lib/marketing/seo";
 export const metadata = publicMetadata(
   "Planos e preços | Nossa Conta",
-  "Conheça os planos do Nossa Conta: mensal de R$ 14,90, trimestral de R$ 38,70 e anual de R$ 118,80. Uma assinatura para organizar juntos.",
+  "Conheça os planos do Nossa Conta: mensal de R$ 14,90, trimestral de R$ 39,90 e anual de R$ 119,90. Uma assinatura para organizar juntos.",
   "/planos",
 );
 export default function PlansPage() {
@@ -35,8 +35,8 @@ export default function PlansPage() {
         </p>
         <h2>Como funciona o anual?</h2>
         <p>
-          O valor é R$ 118,80 por ano, equivalente a R$ 9,90 por mês. A
-          economia é de R$ 60 em comparação com 12 mensalidades de R$ 14,90.
+          O valor é R$ 119,90 por ano, equivalente a R$ 9,99 por mês. A
+          economia é de R$ 58,90 em comparação com 12 mensalidades de R$ 14,90.
         </p>
       </section>
     </MarketingFrame>

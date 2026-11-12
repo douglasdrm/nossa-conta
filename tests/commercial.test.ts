@@ -4,10 +4,10 @@ import { plans } from "../lib/plans";
 import { acquisitionSchema, adminMutationSchema } from "../lib/commercial";
 test("billing totals and advertised savings match each period", () => {
   for (const p of plans) {
-    assert.equal(p.monthly * p.months, p.total);
+    assert.equal(p.monthly, Math.round(p.total / p.months));
     assert.equal(1490 * p.months - p.total, p.saving);
   }
-  assert.equal(plans[2].total, 11880);
+  assert.equal(plans[2].total, 11990);
 });
 test("acquisition accepts safe source data and rejects private query strings or invalid cycles", () => {
   assert.equal(

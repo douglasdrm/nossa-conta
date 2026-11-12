@@ -72,7 +72,7 @@ const questions = [
   ],
   [
     "Quanto custa o Premium?",
-    "A proposta é R$ 14,90 por mês, R$ 38,70 a cada três meses ou R$ 118,80 por ano (equivalente a R$ 9,90 por mês). A contratação está em preparação; nesta etapa não há cobrança e os recursos atuais continuam gratuitos.",
+    "A proposta é R$ 14,90 por mês, R$ 39,90 a cada três meses ou R$ 119,90 por ano (equivalente a R$ 9,99 por mês). A contratação está em preparação; nesta etapa não há cobrança e os recursos atuais continuam gratuitos.",
   ],
 ];
 
