@@ -1,0 +1,163 @@
+"use client";
+import { useEffect, useState } from "react";
+import { brl, plans, type BillingCycle } from "@/lib/plans";
+export default function BillingSandbox({
+  cycle = "yearly",
+  panel = false,
+}: {
+  cycle?: BillingCycle;
+  panel?: boolean;
+}) {
+  const [method, setMethod] = useState<"card" | "pix">("card");
+  const [busy, setBusy] = useState(false),
+    [message, setMessage] = useState("");
+  const [state, setState] = useState<{
+    webhook: boolean;
+    orders: {
+      id: string;
+      cycle: string;
+      method: string;
+      amount: number;
+      status: string;
+      created_at: string;
+      checkout_id: string | null;
+    }[];
+  } | null>(null);
+  async function load() {
+    const r = await fetch("/api/admin/billing");
+    const body = await r.json();
+    if (!r.ok) throw new Error(body.error || "Não foi possível conectar.");
+    setState(body);
+  }
+  useEffect(() => {
+    load().catch((e) => setMessage(e.message));
+  }, []);
+  async function run(action: string, id?: string) {
+    setBusy(true);
+    setMessage("");
+    try {
+      const r = await fetch(
+        action === "checkout" ? "/api/billing/checkout" : "/api/admin/billing",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(
+            action === "checkout" ? { cycle, method } : { action, id },
+          ),
+        },
+      );
+      const body = await r.json();
+      if (!r.ok) throw new Error(body.error || "Não foi possível concluir.");
+      if (body.url) {
+        window.location.assign(body.url);
+        return;
+      }
+      await load();
+      setMessage(
+        action === "connect"
+          ? "Asaas conectado. Você já pode testar os planos."
+          : "Resultado atualizado com o Asaas.",
+      );
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : "Tente novamente.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  const labels: Record<string, string> = {
+    creating: "Criando",
+    pending: "Aguardando pagamento",
+    paid: "Pago em teste",
+    canceled: "Cancelado",
+    expired: "Expirado",
+    failed: "Falhou",
+  };
+  return (
+    <section className="billing-sandbox" aria-label="Testes de cobrança">
+      <h2>Asaas · ambiente de testes</h2>
+      <p>
+        Disponível somente para administradores. Os pagamentos são simulados e
+        não alteram o acesso dos usuários.
+      </p>
+      <p>
+        {state
+          ? state.webhook
+            ? "Conectado · confirmação automática ativa."
+            : "Chave aceita · conecte a confirmação automática antes de testar."
+          : "Conferindo conexão…"}
+      </p>
+      <button type="button" disabled={busy} onClick={() => run("connect")}>
+        Conectar Asaas de testes
+      </button>
+      {panel ? (
+        <div className="seo-links">
+          {plans.map((p) => (
+            <a key={p.id} href={"/assinatura?periodo=" + p.id}>
+              Testar {p.name.toLowerCase()} · {brl(p.total)}
+            </a>
+          ))}
+        </div>
+      ) : (
+        <>
+          <label>
+            Forma de pagamento
+            <select
+              value={method}
+              onChange={(e) => setMethod(e.target.value as "card" | "pix")}
+            >
+              <option value="card">Cartão · renovação automática</option>
+              <option value="pix">Pix · pagamento único do período</option>
+            </select>
+          </label>
+          <p>
+            {method === "card"
+              ? "O total do plano será cobrado a cada período. Não é parcelamento."
+              : "O Pix paga somente o período escolhido, sem renovação automática."}
+          </p>
+          <button
+            type="button"
+            disabled={busy || !state?.webhook}
+            onClick={() => run("checkout")}
+          >
+            {busy ? "Aguarde…" : "Abrir checkout de teste"}
+          </button>
+        </>
+      )}
+      {message && <p role="status">{message}</p>}
+      {!!state?.orders.length && (
+        <>
+          <h3>Últimos testes</h3>
+          <div className="billing-orders">
+            {state.orders.map((o) => (
+              <article key={o.id}>
+                <strong>
+                  {plans.find((p) => p.id === o.cycle)?.name} · {brl(o.amount)}
+                </strong>
+                <p>
+                  {o.method === "card" ? "Cartão recorrente" : "Pix"} ·{" "}
+                  {labels[o.status] || o.status}
+                </p>
+                <small>{new Date(o.created_at).toLocaleString("pt-BR")}</small>
+                {o.checkout_id && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => run("sync", o.id)}
+                  >
+                    Atualizar resultado
+                  </button>
+                )}
+              </article>
+            ))}
+          </div>
+        </>
+      )}
+      <p>
+        Após pagar, a confirmação pode levar alguns instantes. Voltar do
+        checkout não confirma pagamento. Esta etapa registra o resultado
+        inicial; renovações, estornos e cancelamento de assinatura serão
+        validados antes de liberar vendas.
+      </p>
+    </section>
+  );
+}

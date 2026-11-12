@@ -1960,3 +1960,6 @@ aside .nav.active[href="/relatorio-anual"], .savings-shortcut[href="/relatorio-a
 }
 
 .nc-brand.nc-brand-white { color: #fff; }
+
+.billing-sandbox {width:100%;max-width:100%;padding:24px;border:1px solid #b7d3c7;border-radius:20px;background:#edf5f0;color:#173e32}
+.billing-sandbox label{display:grid;gap:8px;max-width:420px;margin:20px 0}.billing-sandbox select{padding:12px;border:1px solid #abc6bb;border-radius:10px;background:white;color:#173e32}.billing-sandbox button{padding:10px 16px;border:0;border-radius:10px;background:#1b614b;color:white;margin:8px 8px 8px 0;cursor:pointer}.billing-sandbox button:disabled{opacity:.55;cursor:wait}.billing-orders{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:12px}.billing-orders article{padding:16px;background:white;border-radius:12px}.billing-orders small{display:block}

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { isConfigured } from "@/lib/supabase/config";
 import { brl, plans } from "@/lib/plans";
 import MarketingFrame from "@/components/marketing/frame";
+import BillingSandbox from "@/components/billing-sandbox";
 import SubscriptionInterest from "@/components/subscription-interest";
 export const dynamic = "force-dynamic";
 export default async function Subscription({
@@ -36,6 +37,7 @@ export default async function Subscription({
     .gt("valid_until", new Date().toISOString())
     .maybeSingle();
   if (error) throw new Error("Não foi possível consultar sua assinatura.");
+  const { data: isAdmin } = await db.rpc("nc_is_system_admin");
   return (
     <MarketingFrame>
       <section className="seo-intro">
@@ -57,6 +59,11 @@ export default async function Subscription({
           </p>
         )}
       </section>
+      {isAdmin === true && (
+        <section className="seo-copy">
+          <BillingSandbox cycle={plan.id} />
+        </section>
+      )}
       <section className="seo-copy">
         <h2>Contratação em preparação</h2>
         <p>

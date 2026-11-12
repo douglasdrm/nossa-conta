@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import BillingSandbox from "./billing-sandbox";
 import Brand from "./brand";
 import { leadStages, type Lead, type AdminData } from "@/lib/commercial";
 import { plans, brl } from "@/lib/plans";
@@ -15,6 +16,7 @@ const tabs = {
   users: "Usuários",
   subscriptions: "Espaços e assinaturas",
   plans: "Planos",
+  billing: "Cobranças · testes",
   audit: "Histórico",
 };
 const actions: Record<string, string> = {
@@ -427,6 +429,7 @@ export default function AdminPanel({
             </p>
           </section>
         )}
+        {current === "billing" && <BillingSandbox panel />}
         {current === "audit" && (
           <section className="admin-card">
             <h2>Últimas 20 alterações administrativas</h2>

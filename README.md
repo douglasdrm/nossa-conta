@@ -200,3 +200,14 @@ As entradas usam as mesmas opções das despesas recorrentes: ajustar apenas o l
 ### Entrada administrativa separada
 
 A administração é acessada diretamente em `/admin` (com entrada própria em `/admin/login`) e não aparece no menu financeiro do cliente. A autenticação utiliza a mesma conta, mas a autorização administrativa exige cadastro explícito em `nc_system_admins`; Premium não concede esse acesso. Sair da conta administrativa também encerra a sessão do aplicativo neste navegador.
+
+
+### Asaas Sandbox
+
+A integração atual é uma etapa de teste restrita aos administradores do sistema. `ASAAS_ENVIRONMENT=sandbox`, `ASAAS_API_KEY` e `ASAAS_WEBHOOK_TOKEN` são variáveis privadas do servidor. A implementação recusa qualquer outro ambiente e usa exclusivamente `api-sandbox.asaas.com`. Nunca versionar chaves. O hash SHA-256 do token deve estar em `nossa_conta_private.billing_config`; o valor original fica somente no ambiente privado da Vercel.
+
+Em `/admin?tab=billing`, clicar **Conectar Asaas de testes** cadastra/atualiza somente o webhook deste aplicativo, sem alterar outros sites. O webhook recebe eventos de checkout, valida o token, valida a associação e o valor do pedido e registra o resultado de forma idempotente. Nenhum callback de navegador confirma pagamento. A chave precisa permitir operações de Checkout e Webhooks.
+
+Planos: mensal R$14,90; trimestral R$39,90; anual R$119,90. Cartão usa `RECURRENT` nos ciclos MONTHLY/QUARTERLY/YEARLY; Pix usa `DETACHED`, sem renovação automática. Dados de cartão e documento são informados no checkout hospedado do Asaas, nunca no app. Use apenas os dados/cartões fictícios oficiais do Sandbox.
+
+Pedidos Sandbox são separados das cortesias e das finanças domésticas. Não geram receita real nem habilitam/bloqueiam recursos. O painel acompanha o primeiro checkout; sincronização de renovações, estornos, chargebacks, cancelamento de assinaturas e regras de acesso ainda precisam ser implementados e validados antes da liberação comercial. A chave de teste atual expira em 20/11/2026; substitua-a diretamente na Vercel e faça novo deploy antes de continuar os testes após essa data.

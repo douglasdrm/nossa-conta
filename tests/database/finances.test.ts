@@ -376,7 +376,7 @@ test("migration, household isolation, invitations and recurring month edits", as
           "select relname,relrowsecurity from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='r' and c.relname like 'nc_%'",
         )
       ).rows;
-      assert.equal(tables.length, 15);
+      assert.equal(tables.length, 16);
       assert.ok(tables.every((t) => t.relrowsecurity));
       const unsafe = (
         await db.query(
@@ -1698,6 +1698,145 @@ test("migration, household isolation, invitations and recurring month edits", as
         () => db.query("select nc_admin_data()"),
         /admin_required/,
       );
+    },
+  );
+  await t.test(
+    "sandbox billing is admin-only, token-protected and idempotent",
+    async () => {
+      await as(outsider);
+      await assert.rejects(
+        () => rpc("billing_reserve", ["yearly", "card"]),
+        /admin_required/,
+      );
+      await db.exec("reset role");
+      await db.query("insert into nc_system_admins(user_id) values($1)", [
+        alice,
+      ]);
+      const token = "test-token-for-billing-not-a-real-secret-123456";
+      await db.query(
+        "insert into nossa_conta_private.billing_config(token_hash) values(encode(sha256(convert_to($1,'UTF8')),'hex'))",
+        [token],
+      );
+      await as(alice);
+      const order = await rpc<any>("billing_reserve", ["yearly", "card"]);
+      assert.equal(order.amount, 11990);
+      assert.equal(order.environment, "sandbox");
+      const reused = await rpc<any>("billing_reserve", ["yearly", "card"]);
+      assert.equal(reused.id, order.id);
+      assert.equal(reused.reused, true);
+      await assert.rejects(
+        () => rpc("billing_reserve", ["monthly", "pix"]),
+        /checkout_already_pending/,
+      );
+      await assert.rejects(() =>
+        db.query("update nc_billing_orders set status='paid'"),
+      );
+      await as("", "anon");
+      await assert.rejects(() => db.query("select * from nc_billing_orders"));
+      await assert.rejects(
+        () =>
+          rpc("billing_result", [
+            "wrong",
+            order.id,
+            "checkout-test",
+            "paid",
+            "event-1",
+            11990,
+          ]),
+        /invalid_billing_token/,
+      );
+      await assert.rejects(
+        () =>
+          rpc("billing_result", [
+            token,
+            order.id,
+            "checkout-test",
+            "paid",
+            "event-1",
+            1,
+          ]),
+        /amount_mismatch/,
+      );
+      await rpc("billing_result", [
+        token,
+        order.id,
+        "checkout-test",
+        "pending",
+        null,
+        11990,
+      ]);
+      assert.equal(
+        await rpc("billing_result", [
+          token,
+          order.id,
+          "checkout-test",
+          "paid",
+          "event-1",
+          11990,
+        ]),
+        true,
+      );
+      assert.equal(
+        await rpc("billing_result", [
+          token,
+          order.id,
+          "checkout-test",
+          "paid",
+          "event-1",
+          11990,
+        ]),
+        true,
+      );
+      await rpc("billing_result", [
+        token,
+        order.id,
+        "checkout-test",
+        "pending",
+        "event-2",
+        11990,
+      ]);
+      await assert.rejects(
+        () =>
+          rpc("billing_result", [
+            token,
+            order.id,
+            "other-checkout",
+            "paid",
+            "event-3",
+            11990,
+          ]),
+        /checkout_mismatch/,
+      );
+      await as(outsider);
+      assert.equal(
+        (await db.query("select * from nc_billing_orders")).rows.length,
+        0,
+      );
+      await as(alice);
+      assert.equal(
+        (
+          await db.query<any>(
+            "select status from nc_billing_orders where id=$1",
+            [order.id],
+          )
+        ).rows[0].status,
+        "paid",
+      );
+      await db.exec("reset role");
+      assert.equal(
+        (await db.query("select * from nossa_conta_private.billing_events"))
+          .rows.length,
+        2,
+      );
+      assert.equal(
+        (
+          await db.query(
+            "select * from nc_subscriptions where kind<>'courtesy'",
+          )
+        ).rows.length,
+        0,
+      );
+      await db.query("delete from nc_system_admins where user_id=$1", [alice]);
     },
   );
   await db.close();
