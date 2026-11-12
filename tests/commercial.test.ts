@@ -7,7 +7,7 @@ test("billing totals and advertised savings match each period", () => {
     assert.equal(p.monthly * p.months, p.total);
     assert.equal(1490 * p.months - p.total, p.saving);
   }
-  assert.equal(plans[2].total, 15480);
+  assert.equal(plans[2].total, 11880);
 });
 test("acquisition accepts safe source data and rejects private query strings or invalid cycles", () => {
   assert.equal(

@@ -185,7 +185,7 @@ As entradas usam as mesmas opções das despesas recorrentes: ajustar apenas o l
 
 ## Planos, aquisição e administração (12/11/2026)
 
-- Catálogo único em `lib/plans.ts`: Premium mensal R$ 14,90; trimestral R$ 41,70 (R$ 13,90/mês); anual R$ 154,80 (R$ 12,90/mês). Uma assinatura por espaço compartilhado.
+- Catálogo único em `lib/plans.ts`: Premium mensal R$ 14,90; trimestral R$ 38,70 (R$ 12,90/mês); anual R$ 118,80 (R$ 9,90/mês). Uma assinatura por espaço compartilhado.
 - `/planos` compara os períodos e informa que a contratação está em preparação. `/assinatura` exige conta confirmada e registra interesse, sem checkout ou compromisso de pagamento. Nenhum limite foi aplicado aos recursos financeiros atuais.
 - `/admin` usa autorização no servidor e no banco por `nc_system_admins`. Não existe autoatribuição de administrador, nem autorização por metadados editáveis do usuário. O cadastro inicial de administradores exige aprovação explícita do responsável pelo produto. A instalação não concede acesso a nenhum usuário automaticamente.
 - Administração: visão geral, leads com busca e paginação de 25, etapas e anotações, usuários confirmados, espaços/participantes, cortesias com validade e histórico das últimas 20 ações. O painel não retorna descrições, valores, renda ou saldos dos clientes; utiliza apenas a existência de lançamentos como sinal agregado de uso.
