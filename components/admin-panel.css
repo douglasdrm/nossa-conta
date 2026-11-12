@@ -242,3 +242,13 @@
 .admin-overlay:not([open]) {
   display: none;
 }
+
+.admin-signout {
+  border: 1px solid #ffffff50;
+  border-radius: 8px;
+  padding: 10px 14px;
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+}

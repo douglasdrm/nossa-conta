@@ -9,13 +9,13 @@ export default async function Admin({
 }: {
   searchParams: Promise<{ q?: string; p?: string; tab?: string }>;
 }) {
-  if (!isConfigured()) redirect("/login");
+  if (!isConfigured()) redirect("/admin/login");
   const db = await createClient();
   const {
     data: { user },
   } = await db.auth.getUser();
   if (!user || user.is_anonymous || !user.email_confirmed_at)
-    redirect("/login?next=/admin");
+    redirect("/admin/login");
   const { data: isAdmin, error: permissionError } =
     await db.rpc("nc_is_system_admin");
   if (permissionError || isAdmin !== true)

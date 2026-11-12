@@ -112,6 +112,12 @@ export default function AdminPanel({
           ))}
         </nav>
         <a href="/">Voltar ao aplicativo</a>
+        <form action="/auth/signout" method="post">
+          <input type="hidden" name="next" value="/admin/login" />
+          <button type="submit" className="admin-signout">
+            Sair da conta
+          </button>
+        </form>
       </aside>
       <main className="admin-main">
         <header>

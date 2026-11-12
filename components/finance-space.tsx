@@ -42,12 +42,10 @@ export default async function FinanceSpace({
       "Não foi possível abrir o espaço da família. Verifique a configuração do banco.",
     );
   const profile = await myProfile(db, user);
-  const { data: isAdmin } = await db.rpc("nc_is_system_admin");
   return (
     <>
       <AcquisitionCapture register />
       <Dashboard
-        isAdmin={isAdmin === true}
         name={profile.name}
         photo={profile.photo}
         view={view}

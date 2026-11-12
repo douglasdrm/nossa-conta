@@ -4,11 +4,15 @@ import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
 import { safeNext } from "@/lib/validation";
-export default function LoginForm() {
+export default function LoginForm({
+  administrative = false,
+}: {
+  administrative?: boolean;
+}) {
   const params = useSearchParams();
-  const next = safeNext(params.get("next"));
+  const next = administrative ? "/admin" : safeNext(params.get("next"));
   const [mode, setMode] = useState<"login" | "signup" | "reset">(
-      params.get("mode") === "signup" ? "signup" : "login",
+      !administrative && params.get("mode") === "signup" ? "signup" : "login",
     ),
     [busy, setBusy] = useState(false),
     [message, setMessage] = useState(
@@ -90,15 +94,25 @@ export default function LoginForm() {
         <a href="/" className="auth-brand" aria-label="Nossa Conta — início">
           <Brand stacked />
         </a>
-        <span className="tag">FINANÇAS EM CONJUNTO</span>
+        <span className="tag">
+          {administrative
+            ? "ADMINISTRAÇÃO DO NOSSA CONTA"
+            : "FINANÇAS EM CONJUNTO"}
+        </span>
         <h1>
-          {mode === "signup"
-            ? "Comecem por aqui."
-            : mode === "reset"
-              ? "Recupere seu acesso."
-              : "Bom ter você por aqui."}
+          {administrative && mode !== "reset"
+            ? "Acesso administrativo."
+            : mode === "signup"
+              ? "Comecem por aqui."
+              : mode === "reset"
+                ? "Recupere seu acesso."
+                : "Bom ter você por aqui."}
         </h1>
-        <p>Um lugar para entender os gastos e organizar os planos da casa.</p>
+        <p>
+          {administrative
+            ? "Entre com uma conta autorizada para gerenciar clientes, leads e assinaturas. Assinar o Premium não concede acesso a esta área."
+            : "Um lugar para entender os gastos e organizar os planos da casa."}
+        </p>
         {next.startsWith("/invite") && (
           <p className="notice">
             Você recebeu um convite. Entre ou crie uma conta com o e-mail
@@ -181,19 +195,23 @@ export default function LoginForm() {
                   : "Entrar"}
           </button>
         </form>
-        <p className="shared-account-note">
-          Já usa o Juntô? Você pode entrar com a mesma conta. Os espaços e
-          lançamentos do Nossa Conta são separados.
-        </p>
+        {!administrative && (
+          <p className="shared-account-note">
+            Já usa o Juntô? Você pode entrar com a mesma conta. Os espaços e
+            lançamentos do Nossa Conta são separados.
+          </p>
+        )}
         <div className="auth-links">
-          <button
-            onClick={() => {
-              setMode(mode === "signup" ? "login" : "signup");
-              setMessage("");
-            }}
-          >
-            {mode === "signup" ? "Já tenho uma conta" : "Criar minha conta"}
-          </button>
+          {!administrative && (
+            <button
+              onClick={() => {
+                setMode(mode === "signup" ? "login" : "signup");
+                setMessage("");
+              }}
+            >
+              {mode === "signup" ? "Já tenho uma conta" : "Criar minha conta"}
+            </button>
+          )}
           <button
             onClick={() => {
               setMode(mode === "reset" ? "login" : "reset");

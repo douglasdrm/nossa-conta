@@ -196,3 +196,7 @@ As entradas usam as mesmas opções das despesas recorrentes: ajustar apenas o l
 - SEO público: `/`, `/planos`, `/financas-para-casal`, `/controle-financeiro-familiar` e quatro guias em `/guias/`. `/conheca` mantém a apresentação e aponta o canonical para `/`. Páginas públicas têm títulos, descrições, canonical e prévias sociais. Sitemap lista somente conteúdo público; áreas privadas herdam `noindex` e recebem `X-Robots-Tag`. O dashboard autenticado na raiz recebe `X-Robots-Tag: noindex, nofollow`.
 - Search Console: verificar a propriedade do domínio e enviar `https://nossaconta.unodev.com.br/sitemap.xml`. A variável opcional **server-side** `GOOGLE_SITE_VERIFICATION` permite verificação HTML de propriedade por prefixo de URL. Não há garantia de indexação ou classificação.
 - Validação: `npm test`, `npm run test:database`, `npm run typecheck`, `npm run build`. Os testes de banco incluem negação de autoatribuição de admin, isolamento de leads, registro individual de interesse, preservação da primeira origem, associação de lead manual por e-mail confirmado, cortesias e revogação do acesso administrativo.
+
+### Entrada administrativa separada
+
+A administração é acessada diretamente em `/admin` (com entrada própria em `/admin/login`) e não aparece no menu financeiro do cliente. A autenticação utiliza a mesma conta, mas a autorização administrativa exige cadastro explícito em `nc_system_admins`; Premium não concede esse acesso. Sair da conta administrativa também encerra a sessão do aplicativo neste navegador.
