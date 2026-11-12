@@ -109,6 +109,7 @@ export type FinanceView =
   | "categories";
 
 type DashboardProps = {
+  isAdmin?: boolean;
   name: string;
   photo?: string;
   view?: FinanceView;
@@ -122,6 +123,7 @@ export default function Dashboard(props: DashboardProps) {
   );
 }
 function DashboardContent({
+  isAdmin = false,
   name,
   photo,
   view = "overview",
@@ -815,6 +817,14 @@ function DashboardContent({
       >
         <Users size={19} /> Compartilhar
       </button>
+      <a className="nav" href="/assinatura">
+        <Wallet size={19} /> Minha assinatura
+      </a>
+      {isAdmin && (
+        <a className="nav" href="/admin">
+          <SlidersHorizontal size={19} /> Administração
+        </a>
+      )}
       <a className="nav" href="/profile">
         <UserRound size={19} /> Meu perfil
       </a>

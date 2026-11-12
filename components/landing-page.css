@@ -151,3 +151,12 @@
  .marketing-personal { grid-template-columns: 1fr; gap: 24px; padding-top: 44px; }
  .marketing-personal > img { height: auto; aspect-ratio: 3 / 2; }
 }
+.price-unit { font-size: 15px; font-weight: 500; }
+.seo-intro { max-width: 840px; padding: 70px 0 30px; }
+.seo-intro p, .seo-copy p, .seo-copy li { color: var(--landing-muted); line-height: 1.85; font-size: 16px; }
+.seo-copy { max-width: 800px; padding: 30px 0 65px; }
+.seo-copy h2 { margin-top: 36px; }
+.seo-copy h3 { margin-top: 28px; }
+.seo-actions { display:flex; flex-wrap:wrap; gap:16px; margin:28px 0; align-items:center; }
+.seo-links { display:flex; gap:16px; flex-wrap:wrap; margin:30px 0; }
+@media(max-width:650px) { .seo-intro {padding-top:40px;} }

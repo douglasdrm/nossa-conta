@@ -11,7 +11,7 @@ test("migration, household isolation, invitations and recurring month edits", as
   const db = new PGlite();
   await db.exec(`create role anon nologin;create role authenticated nologin;
  create schema auth;
- create table auth.users(id uuid primary key,email text,email_confirmed_at timestamptz,is_anonymous boolean default false,raw_user_meta_data jsonb);
+ create table auth.users(id uuid primary key,email text,email_confirmed_at timestamptz,is_anonymous boolean default false,raw_user_meta_data jsonb,created_at timestamptz default now());
  create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
  grant usage on schema auth to authenticated,anon;
  grant execute on function auth.uid() to authenticated,anon;
@@ -376,7 +376,7 @@ test("migration, household isolation, invitations and recurring month edits", as
           "select relname,relrowsecurity from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='r' and c.relname like 'nc_%'",
         )
       ).rows;
-      assert.equal(tables.length, 11);
+      assert.equal(tables.length, 15);
       assert.ok(tables.every((t) => t.relrowsecurity));
       const unsafe = (
         await db.query(
@@ -1588,6 +1588,115 @@ test("migration, household isolation, invitations and recurring month edits", as
           ])
         ).rows,
         [{ kind: "expense", category: "Despesa renomeada" }],
+      );
+    },
+  );
+
+  await t.test(
+    "commercial data stays admin-only; users can only register their own interest",
+    async () => {
+      await as(alice);
+      const hAlice = await rpc<string>("ensure_household");
+      await assert.rejects(
+        () => db.query("select nc_admin_data()"),
+        /admin_required/,
+      );
+      await assert.rejects(() =>
+        db.query("insert into nc_system_admins(user_id) values($1)", [alice]),
+      );
+      await db.query("select nc_capture_lead($1,$2,$3,$4,$5)", [
+        "google",
+        "cpc",
+        "casal",
+        "/financas-para-casal",
+        "yearly",
+      ]);
+      assert.equal((await db.query("select * from nc_leads")).rows.length, 0);
+      await as(bob);
+      await db.query("select nc_capture_lead() ");
+      await assert.rejects(
+        () =>
+          db.query(
+            "select nc_admin_courtesy($1,now()+interval '1 month','forged grant')",
+            [hAlice],
+          ),
+        /admin_required/,
+      );
+      await as("", "anon");
+      await assert.rejects(() => db.query("select nc_capture_lead()"));
+      await db.exec("reset role");
+      await db.query("insert into nc_system_admins(user_id) values($1)", [
+        alice,
+      ]);
+      await as(alice);
+      assert.equal(
+        (
+          await db.query<{ nc_is_system_admin: boolean }>(
+            "select nc_is_system_admin()",
+          )
+        ).rows[0].nc_is_system_admin,
+        true,
+      );
+      let snapshot = (
+        await db.query<{ data: any }>("select nc_admin_data() as data")
+      ).rows[0].data;
+      assert.equal(snapshot.summary.leads, 2);
+      const original = snapshot.leads.find((l: any) => l.user_id === alice);
+      assert.equal(original.source, "google");
+      assert.equal(original.cycle, "yearly");
+      await db.query("select nc_capture_lead('direct','','','/','quarterly')");
+      snapshot = (
+        await db.query<{ data: any }>("select nc_admin_data() as data")
+      ).rows[0].data;
+      const updated = snapshot.leads.find((l: any) => l.user_id === alice);
+      assert.equal(updated.source, "google");
+      assert.equal(updated.cycle, "quarterly");
+      assert.equal(snapshot.summary.leads, 2);
+      assert.ok(snapshot.users.every((u: any) => !("amount" in u)));
+      await db.query(
+        "select nc_admin_save_lead(null,'Manual','charlie@example.com','','contacted','Test note','event')",
+      );
+      await as(charlie);
+      await db.query("select nc_capture_lead() ");
+      await as(alice);
+      snapshot = (
+        await db.query<{ data: any }>("select nc_admin_data() as data")
+      ).rows[0].data;
+      assert.equal(snapshot.summary.leads, 3);
+      assert.equal(
+        snapshot.leads.find((l: any) => l.email === "charlie@example.com")
+          .source,
+        "event",
+      );
+      await db.query(
+        "select nc_admin_courtesy($1,now()+interval '1 month','Partner trial')",
+        [hAlice],
+      );
+      await as(outsider);
+      assert.equal(
+        (await db.query("select * from nc_subscriptions")).rows.length,
+        0,
+      );
+      await as(alice);
+      assert.equal(
+        (await db.query("select * from nc_subscriptions")).rows.length,
+        1,
+      );
+      await db.query(
+        "select nc_admin_courtesy($1,now()-interval '1 day','End trial')",
+        [hAlice],
+      );
+      snapshot = (
+        await db.query<{ data: any }>("select nc_admin_data() as data")
+      ).rows[0].data;
+      assert.equal(snapshot.summary.courtesies, 0);
+      assert.equal(snapshot.audit.length, 3);
+      await db.exec("reset role");
+      await db.query("delete from nc_system_admins where user_id=$1", [alice]);
+      await as(alice);
+      await assert.rejects(
+        () => db.query("select nc_admin_data()"),
+        /admin_required/,
       );
     },
   );

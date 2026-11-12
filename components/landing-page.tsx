@@ -1,11 +1,11 @@
 import Image from "next/image";
+import Pricing from "./marketing/pricing";
 import {
   ArrowDownLeft,
   ArrowRight,
   ArrowUpRight,
   BellRing,
   CalendarRange,
-  Check,
   ChevronRight,
   CircleHelp,
   Heart,
@@ -53,51 +53,6 @@ const features = [
   },
 ];
 
-const plans = [
-  {
-    name: "Casa",
-    label: "DISPONÍVEL AGORA",
-    description: "Para começar a entender as finanças da casa.",
-    price: "Gratuito",
-    note: "Comece com os recursos disponíveis hoje.",
-    features: [
-      "Espaço financeiro compartilhado",
-      "Entradas, despesas e parcelamentos",
-      "Recorrências e previsão do mês",
-      "Relatórios, Caixinhas e Plano do mês",
-    ],
-    live: true,
-  },
-  {
-    name: "Juntos",
-    label: "EM PREPARAÇÃO",
-    description: "Para quem quer planejar cada vez melhor.",
-    price: "Valor a definir",
-    note: "Proposta de assinatura para uma próxima etapa.",
-    features: [
-      "Evolução dos relatórios e análises",
-      "Mais opções para acompanhar metas",
-      "Novas formas de personalizar o espaço",
-      "Recursos e limites em definição",
-    ],
-    live: false,
-  },
-  {
-    name: "Círculo",
-    label: "EM PREPARAÇÃO",
-    description: "Para organizar diferentes espaços e grupos.",
-    price: "Valor a definir",
-    note: "Proposta de assinatura para uma próxima etapa.",
-    features: [
-      "Planejamento de múltiplos espaços",
-      "Organização para grupos maiores",
-      "Mais opções de gestão de participantes",
-      "Recursos e limites em definição",
-    ],
-    live: false,
-  },
-];
-
 const questions = [
   [
     "Preciso informar o meu salário?",
@@ -116,8 +71,8 @@ const questions = [
     "Sim. O Nossa Conta pode ser adicionado à tela inicial como app web, inclusive no Android. Use o botão Instalar app disponível no site.",
   ],
   [
-    "Já existem assinaturas pagas?",
-    "Nesta etapa, os recursos disponíveis são gratuitos. Juntos e Círculo são propostas de planos futuros, com valores, limites e recursos ainda em definição.",
+    "Quanto custa o Premium?",
+    "A proposta é R$ 14,90 por mês, R$ 41,70 a cada três meses ou R$ 154,80 por ano (equivalente a R$ 12,90 por mês). A contratação está em preparação; nesta etapa não há cobrança e os recursos atuais continuam gratuitos.",
   ],
 ];
 
@@ -133,9 +88,9 @@ export default function LandingPage() {
           <Brand />
         </a>
         <nav aria-label="Navegação da apresentação">
-          <a href="#recursos">Recursos</a>
-          <a href="#como-funciona">Como funciona</a>
-          <a href="#planos">Planos</a>
+          <a href="/conheca#recursos">Recursos</a>
+          <a href="/conheca#como-funciona">Como funciona</a>
+          <a href="/planos">Planos</a>
         </nav>
         <a className="marketing-login" href="/login">
           Entrar <ArrowUpRight size={16} aria-hidden="true" />
@@ -155,15 +110,16 @@ export default function LandingPage() {
               <span>Mais planos juntos.</span>
             </h1>
             <p>
-              Um lugar para organizar o dinheiro da casa, dividir
-              responsabilidades e abrir espaço para o que vocês querem viver.
+              Um app de controle financeiro para casais e famílias organizarem o
+              dinheiro da casa, dividirem responsabilidades e abrir espaço para
+              o que vocês querem viver.
             </p>
             <div className="marketing-actions">
               <a className="marketing-cta" href="/login?mode=signup">
                 Começar gratuitamente{" "}
                 <ArrowRight size={18} aria-hidden="true" />
               </a>
-              <a className="marketing-text-link" href="#como-funciona">
+              <a className="marketing-text-link" href="/conheca#como-funciona">
                 Conhecer o Nossa Conta{" "}
                 <ChevronRight size={16} aria-hidden="true" />
               </a>
@@ -174,60 +130,70 @@ export default function LandingPage() {
             </p>
           </div>
           <div className="marketing-hero-visual">
-            <Image className="marketing-couple-photo" src="/images/planning-together.webp" alt="Casal em casa olhando o celular e planejando o mês juntos" width={1200} height={800} priority sizes="(max-width: 650px) 100vw, 50vw" />
-          <div
-            className="marketing-preview"
-            aria-label="Exemplo ilustrativo do painel financeiro"
-          >
-            <div className="marketing-preview-top">
-              <span>
-                <Wallet size={17} aria-hidden="true" /> Nosso mês
-              </span>
-              <span>Exemplo ilustrativo</span>
-            </div>
-            <div className="marketing-preview-balance">
-              <span>Saldo previsto</span>
-              <strong>R$ 3.300,00</strong>
-              <small>Depois das receitas e contas lançadas</small>
-              <span className="marketing-preview-spark">
-                <Sparkles size={24} aria-hidden="true" />
-              </span>
-            </div>
-            <div className="marketing-preview-totals">
-              <div>
-                <ArrowDownLeft size={16} aria-hidden="true" />
-                <span>Entradas</span>
-                <strong>R$ 8.400,00</strong>
+            <Image
+              className="marketing-couple-photo"
+              src="/images/planning-together.webp"
+              alt="Casal em casa olhando o celular e planejando o mês juntos"
+              width={1200}
+              height={800}
+              priority
+              sizes="(max-width: 650px) 100vw, 50vw"
+            />
+            <div
+              className="marketing-preview"
+              aria-label="Exemplo ilustrativo do painel financeiro"
+            >
+              <div className="marketing-preview-top">
+                <span>
+                  <Wallet size={17} aria-hidden="true" /> Nosso mês
+                </span>
+                <span>Exemplo ilustrativo</span>
               </div>
-              <div>
-                <ArrowUpRight size={16} aria-hidden="true" />
-                <span>Pagos + a pagar</span>
-                <strong>R$ 5.100,00</strong>
+              <div className="marketing-preview-balance">
+                <span>Saldo previsto</span>
+                <strong>R$ 3.300,00</strong>
+                <small>Depois das receitas e contas lançadas</small>
+                <span className="marketing-preview-spark">
+                  <Sparkles size={24} aria-hidden="true" />
+                </span>
               </div>
-            </div>
-            <div className="marketing-preview-category">
-              <span>
-                <i className="preview-dot-home" /> Moradia
-              </span>
-              <b>R$ 2.100,00</b>
-            </div>
-            <div className="marketing-preview-category">
-              <span>
-                <i className="preview-dot-market" /> Mercado
-              </span>
-              <b>R$ 850,00</b>
-            </div>
-            <div className="marketing-preview-goal">
-              <PiggyBank size={23} aria-hidden="true" />
-              <div>
-                <strong>A próxima viagem</strong>
-                <span>Um objetivo de vocês, uma Caixinha para acompanhar.</span>
-                <div className="marketing-goal-track">
-                  <i />
+              <div className="marketing-preview-totals">
+                <div>
+                  <ArrowDownLeft size={16} aria-hidden="true" />
+                  <span>Entradas</span>
+                  <strong>R$ 8.400,00</strong>
+                </div>
+                <div>
+                  <ArrowUpRight size={16} aria-hidden="true" />
+                  <span>Pagos + a pagar</span>
+                  <strong>R$ 5.100,00</strong>
+                </div>
+              </div>
+              <div className="marketing-preview-category">
+                <span>
+                  <i className="preview-dot-home" /> Moradia
+                </span>
+                <b>R$ 2.100,00</b>
+              </div>
+              <div className="marketing-preview-category">
+                <span>
+                  <i className="preview-dot-market" /> Mercado
+                </span>
+                <b>R$ 850,00</b>
+              </div>
+              <div className="marketing-preview-goal">
+                <PiggyBank size={23} aria-hidden="true" />
+                <div>
+                  <strong>A próxima viagem</strong>
+                  <span>
+                    Um objetivo de vocês, uma Caixinha para acompanhar.
+                  </span>
+                  <div className="marketing-goal-track">
+                    <i />
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
           </div>
         </section>
 
@@ -263,13 +229,31 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section className="marketing-personal" aria-labelledby="personal-title">
-          <Image src="/images/planning-your-month.webp" alt="Mulher organizando suas contas pelo celular em casa" width={1200} height={800} sizes="(max-width: 650px) 100vw, 50vw" />
+        <section
+          className="marketing-personal"
+          aria-labelledby="personal-title"
+        >
+          <Image
+            src="/images/planning-your-month.webp"
+            alt="Mulher organizando suas contas pelo celular em casa"
+            width={1200}
+            height={800}
+            sizes="(max-width: 650px) 100vw, 50vw"
+          />
           <div>
-            <span className="marketing-eyebrow">NO SEU RITMO. DO SEU JEITO.</span>
+            <span className="marketing-eyebrow">
+              NO SEU RITMO. DO SEU JEITO.
+            </span>
             <h2 id="personal-title">Seu dinheiro, seus planos.</h2>
-            <p>A vida fica melhor quando as contas fazem sentido. Comece organizando o seu mês e convide alguém para planejar junto quando quiser.</p>
-            <a className="marketing-text-link" href="/login?mode=signup">Começar meu planejamento <ArrowRight size={18} aria-hidden="true" /></a>
+            <p>
+              A vida fica melhor quando as contas fazem sentido. Comece
+              organizando o seu mês e convide alguém para planejar junto quando
+              quiser.
+            </p>
+            <a className="marketing-text-link" href="/login?mode=signup">
+              Começar meu planejamento{" "}
+              <ArrowRight size={18} aria-hidden="true" />
+            </a>
           </div>
         </section>
 
@@ -306,62 +290,7 @@ export default function LandingPage() {
           </ol>
         </section>
 
-        <section
-          className="marketing-plans"
-          id="planos"
-          aria-labelledby="plans-title"
-        >
-          <div className="marketing-section-heading">
-            <span className="marketing-eyebrow">
-              UM ESPAÇO PARA CADA MOMENTO
-            </span>
-            <h2 id="plans-title">Comece pela sua casa.</h2>
-            <p>
-              Hoje você pode usar o Nossa Conta gratuitamente. Estamos
-              preparando novas possibilidades para quem quiser ir além.
-            </p>
-          </div>
-          <div className="marketing-plan-grid">
-            {plans.map((plan) => (
-              <article
-                key={plan.name}
-                className={
-                  plan.live
-                    ? "marketing-plan marketing-plan-live"
-                    : "marketing-plan"
-                }
-              >
-                <span className="marketing-plan-label">{plan.label}</span>
-                <h3>{plan.name}</h3>
-                <p>{plan.description}</p>
-                <strong className="marketing-plan-price">{plan.price}</strong>
-                <small>{plan.note}</small>
-                <ul>
-                  {plan.features.map((item) => (
-                    <li key={item}>
-                      <Check size={16} aria-hidden="true" />
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-                {plan.live ? (
-                  <a className="marketing-cta" href="/login?mode=signup">
-                    Criar minha conta{" "}
-                    <ArrowRight size={16} aria-hidden="true" />
-                  </a>
-                ) : (
-                  <span className="marketing-plan-soon">
-                    Novidades em breve
-                  </span>
-                )}
-              </article>
-            ))}
-          </div>
-          <p className="marketing-plan-footnote">
-            As propostas Juntos e Círculo estão em desenvolvimento. A
-            contratação ainda será disponibilizada.
-          </p>
-        </section>
+        <Pricing />
 
         <section className="marketing-faq" aria-labelledby="faq-title">
           <div className="marketing-section-heading">
@@ -399,6 +328,9 @@ export default function LandingPage() {
           <Brand />
         </a>
         <p>Um passo de cada vez, juntos.</p>
+        <a href="/financas-para-casal">Finanças para casal</a>
+        <a href="/controle-financeiro-familiar">Controle familiar</a>
+        <a href="/guias/organizar-contas-do-casal">Guia do casal</a>
         <span>Desenvolvido pela UNODEV</span>
         <a href="/login">Acessar minha conta</a>
       </footer>

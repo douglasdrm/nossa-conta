@@ -1,10 +1,10 @@
+import { publicMetadata } from "@/lib/marketing/seo";
 import LandingPage from "@/components/landing-page";
-export const metadata = {
-  title: "Nossa Conta • Mais planos juntos",
-  description:
-    "Organize receitas, despesas e metas da casa em um espaço compartilhado. Conheça o Nossa Conta.",
-  robots: { index: true, follow: true },
-};
+export const metadata = publicMetadata(
+  "Nossa Conta — Controle financeiro para casais e famílias",
+  "Organize receitas, despesas, parcelas e metas com quem divide as contas com você. Conheça o Nossa Conta e acompanhem juntos o orçamento do mês.",
+  "/",
+);
 export default function PresentationPage() {
   return <LandingPage />;
 }

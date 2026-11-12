@@ -1,3 +1,4 @@
+import AcquisitionCapture from "@/components/marketing/acquisition-capture";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isConfigured } from "@/lib/supabase/config";
@@ -41,12 +42,17 @@ export default async function FinanceSpace({
       "Não foi possível abrir o espaço da família. Verifique a configuração do banco.",
     );
   const profile = await myProfile(db, user);
+  const { data: isAdmin } = await db.rpc("nc_is_system_admin");
   return (
-    <Dashboard
-      name={profile.name}
-      photo={profile.photo}
-      view={view}
-      initialMonth={initialMonth}
-    />
+    <>
+      <AcquisitionCapture register />
+      <Dashboard
+        isAdmin={isAdmin === true}
+        name={profile.name}
+        photo={profile.photo}
+        view={view}
+        initialMonth={initialMonth}
+      />
+    </>
   );
 }

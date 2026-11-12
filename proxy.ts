@@ -7,7 +7,22 @@ import {
 } from "./lib/supabase/config";
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
-  if (!isConfigured()) return response;
+  const publicPaths = [
+    "/",
+    "/conheca",
+    "/robots.txt",
+    "/sitemap.xml",
+    "/planos",
+    "/financas-para-casal",
+    "/controle-financeiro-familiar",
+  ];
+  const isPublic =
+    publicPaths.includes(request.nextUrl.pathname) ||
+    request.nextUrl.pathname.startsWith("/guias/");
+  if (!isPublic) response.headers.set("X-Robots-Tag", "noindex, nofollow");
+  // Marketing pages do not need session refresh and can keep their static caching.
+  if ((isPublic && request.nextUrl.pathname !== "/") || !isConfigured())
+    return response;
   const { url, key } = supabaseConfig();
   const supabase = createServerClient(url, key, {
     cookieOptions: authCookieOptions,
@@ -26,7 +41,9 @@ export async function proxy(request: NextRequest) {
     },
   });
   // Never authorize with getSession(): verify the JWT on every request.
-  await supabase.auth.getClaims();
+  const { data } = await supabase.auth.getClaims();
+  if (!isPublic || (request.nextUrl.pathname === "/" && data?.claims?.sub))
+    response.headers.set("X-Robots-Tag", "noindex, nofollow");
   response.headers.set("Cache-Control", "private, no-store");
   return response;
 }
