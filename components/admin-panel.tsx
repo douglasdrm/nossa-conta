@@ -97,7 +97,7 @@ export default function AdminPanel({
     <div className="admin-shell">
       <aside className="admin-sidebar">
         <a href="/">
-          <Brand />
+          <Brand variant="white" />
         </a>
         <span className="admin-caption">ADMINISTRAÇÃO</span>
         <nav aria-label="Administração">
