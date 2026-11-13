@@ -21,6 +21,7 @@ export default function BillingSandbox({
       status: string;
       created_at: string;
       checkout_id: string | null;
+      sandbox_entitlement?: { state: "active" | "expired" | "inactive"; validUntil: string | null };
     }[];
   } | null>(null);
   async function load() {
@@ -90,7 +91,7 @@ export default function BillingSandbox({
         Conectar Asaas de testes
       </button>
       {panel ? (
-        <div className="seo-links">
+        <div className="billing-test-plans">
           {plans.map((p) => (
             <a key={p.id} href={"/assinatura?periodo=" + p.id}>
               Testar {p.name.toLowerCase()} · {brl(p.total)}
@@ -138,6 +139,10 @@ export default function BillingSandbox({
                   {labels[o.status] || o.status}
                 </p>
                 <small>{new Date(o.created_at).toLocaleString("pt-BR")}</small>
+                {o.sandbox_entitlement?.state === "active" && o.sandbox_entitlement.validUntil && (
+                  <p role="status"><strong>Premium simulado ativo</strong> até {new Date(o.sandbox_entitlement.validUntil).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}. Não altera o acesso real.</p>
+                )}
+                {o.sandbox_entitlement?.state === "expired" && <p>Premium simulado expirado. Acesso real inalterado.</p>}
                 {o.checkout_id && (
                   <button
                     type="button"
