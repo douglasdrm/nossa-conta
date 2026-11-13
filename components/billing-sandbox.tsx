@@ -58,7 +58,7 @@ export default function BillingSandbox({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(
-            action === "checkout" ? { cycle, method } : { action, id, subscriptionId, paymentId, confirmed: action === "link-subscription" || action === "generate-next-charge" || action === "confirm-sandbox-renewal" },
+            action === "checkout" ? { cycle, method } : { action, id, subscriptionId, paymentId, confirmed: action === "link-subscription" || action === "generate-next-charge" || action === "confirm-sandbox-renewal" || action === "replay-sandbox-renewal" },
           ),
         },
       );
@@ -66,6 +66,14 @@ export default function BillingSandbox({
       if (!r.ok) throw new Error(body.error || "Não foi possível concluir.");
       if (body.url) {
         window.location.assign(body.url);
+        return;
+      }
+      if (action === "replay-sandbox-renewal") {
+        await load();
+        setMessage(body.result === "duplicate" && body.unchanged
+          ? "Teste de duplicidade aprovado: cobrança já processada, validade mantida e " +
+            body.renewalCountAfter + " renovação(ões) registrada(s), sem novo crédito."
+          : "Resultado inesperado. Confira o histórico antes de repetir qualquer teste.");
         return;
       }
       if (action === "confirm-sandbox-renewal") {
@@ -306,6 +314,15 @@ export default function BillingSandbox({
                         Cobrança {r.payment_id} · vencimento {r.due_date} · validade:
                         {" "}{new Date(r.previous_valid_until).toLocaleDateString("pt-BR",{timeZone:"America/Sao_Paulo"})}
                         {" → "}{new Date(r.new_valid_until).toLocaleDateString("pt-BR",{timeZone:"America/Sao_Paulo"})}
+                        {panel && (
+                          <>{" "}
+                            <button type="button" disabled={busy} onClick={() => {
+                              if (window.confirm("Reprocessar esta MESMA cobrança confirmada no Asaas Sandbox? O teste consulta o pagamento e verifica se a proteção impede prorrogação duplicada. Não gera nova cobrança, não confirma janeiro e não altera Premium real.")) {
+                                void run("replay-sandbox-renewal",o.id,undefined,r.payment_id);
+                              }
+                            }}>Testar proteção contra duplicidade</button>
+                          </>
+                        )}
                       </p>
                     ))}
                     <small>Somente Premium simulado. Estornos são sinalizados para revisão, sem revogação automática.</small>
