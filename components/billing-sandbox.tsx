@@ -59,7 +59,13 @@ export default function BillingSandbox({
       setMessage(
         action === "connect"
           ? "Asaas conectado. Você já pode testar os planos."
-          : "Resultado atualizado com o Asaas.",
+          : body.reason === "subscription_missing"
+            ? "Pagamento confirmado, mas o Asaas ainda não informou o ID da assinatura recorrente, nem na cobrança detalhada. Confira a assinatura no Asaas Sandbox; não gere outra cobrança."
+            : body.payment === "not_confirmed"
+              ? "Não foi encontrado pagamento confirmado para este checkout. Confira o Sandbox do Asaas."
+              : body.linked
+                ? "Pagamento confirmado e assinatura recorrente vinculada!"
+                : "Resultado consultado no Asaas. Não foi necessário vincular assinatura recorrente.",
       );
     } catch (e) {
       setMessage(e instanceof Error ? e.message : "Tente novamente.");

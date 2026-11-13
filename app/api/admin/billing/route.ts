@@ -16,7 +16,7 @@ export async function GET() {
     const { db } = await billingAdmin();
     const { data: orders, error } = await db
       .from("nc_billing_orders")
-      .select("id,cycle,method,amount,status,created_at,sandbox_valid_until,checkout_id,provider_subscription_id,method")
+      .select("id,cycle,method,amount,status,created_at,sandbox_valid_until,checkout_id,provider_subscription_id")
       .order("created_at", { ascending: false })
       .limit(30);
     if (error) throw new Error("Não foi possível consultar os testes.");
@@ -93,13 +93,32 @@ export async function POST(request: Request) {
           Math.round(p.value * 100) === order.amount &&
           ["RECEIVED", "CONFIRMED"].includes(p.status),
       );
-      if (paid) {
-        await recordResult(order.id, order.checkout_id, "paid", undefined, order.amount);
-        if (order.method === "card" && paid.subscription) {
-          await linkSandboxSubscription(order.id, order.checkout_id, paid.subscription);
+      if (!paid) {
+        return Response.json({ ok: true, payment: "not_confirmed", linked: false });
+      }
+      await recordResult(order.id, order.checkout_id, "paid", undefined, order.amount);
+      if (order.method !== "card") {
+        return Response.json({ ok: true, payment: "confirmed", linked: false, method: "pix" });
+      }
+
+      // A checkout payment may initially omit its recurring subscription.
+      // Check the single payment resource before concluding the link is missing.
+      let subscription = paid.subscription;
+      if (!subscription) {
+        const detail = await asaas<{
+          id: string; value: number; status: string; subscription?: string | null;
+        }>("/payments/" + encodeURIComponent(paid.id));
+        if (detail.id === paid.id &&
+            Math.round(detail.value * 100) === order.amount &&
+            ["RECEIVED", "CONFIRMED"].includes(detail.status)) {
+          subscription = detail.subscription;
         }
       }
-      return Response.json({ ok: true, linked: !!(paid?.subscription && order.method === "card") });
+      if (!subscription) {
+        return Response.json({ ok: true, payment: "confirmed", linked: false, reason: "subscription_missing" });
+      }
+      await linkSandboxSubscription(order.id, order.checkout_id, subscription);
+      return Response.json({ ok: true, payment: "confirmed", linked: true });
     }
     throw new ApiError("Operação inválida.", 400);
   } catch (error) {
