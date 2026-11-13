@@ -53,7 +53,7 @@ export async function generateSandboxPaymentBook(
   subscriptionId: string, dueDate: string,
 ): Promise<void> {
   if (!/^sub_[A-Za-z0-9_-]{6,100}$/.test(subscriptionId) ||
-      !/^\\d{4}-\\d{2}-\\d{2}$/.test(dueDate))
+      !/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(dueDate))
     throw new Error("Assinatura ou vencimento inválido.");
   const { key } = sandboxConfig();
   const month = Number(dueDate.slice(5,7));
