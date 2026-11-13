@@ -13,6 +13,7 @@ export default function BillingSandbox({
     [message, setMessage] = useState("");
   const [state, setState] = useState<{
     webhook: boolean;
+    lifecycleEvents?: { id: string; order_id: string; resource_type: string; event_type: string; created_at: string }[];
     orders: {
       id: string;
       cycle: string;
@@ -21,6 +22,7 @@ export default function BillingSandbox({
       status: string;
       created_at: string;
       checkout_id: string | null;
+      provider_subscription_id: string | null;
       sandbox_entitlement?: { state: "active" | "expired" | "inactive"; validUntil: string | null };
     }[];
   } | null>(null);
@@ -139,6 +141,9 @@ export default function BillingSandbox({
                   {labels[o.status] || o.status}
                 </p>
                 <small>{new Date(o.created_at).toLocaleString("pt-BR")}</small>
+                {o.method === "card" && o.status === "paid" && (
+                  <p>Assinatura recorrente: <strong>{o.provider_subscription_id ? "vinculada para monitoramento" : "vínculo pendente — clique em Atualizar resultado"}</strong></p>
+                )}
                 {o.sandbox_entitlement?.state === "active" && o.sandbox_entitlement.validUntil && (
                   <p role="status"><strong>Premium simulado ativo</strong> até {new Date(o.sandbox_entitlement.validUntil).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}. Não altera o acesso real.</p>
                 )}
@@ -157,6 +162,23 @@ export default function BillingSandbox({
           </div>
         </>
       )}
+      {!!state?.lifecycleEvents?.length && (
+        <section aria-label="Eventos de recorrência de teste">
+          <h3>Histórico de renovações e ocorrências · Sandbox</h3>
+          <div className="billing-orders">
+            {state.lifecycleEvents.map((event) => (
+              <article key={event.id}>
+                <strong>{event.event_type.replaceAll("_", " ")}</strong>
+                <small>{new Date(event.created_at).toLocaleString("pt-BR")}</small>
+                <small>{event.resource_type === "payment" ? "Cobrança" : "Assinatura"} · evento associado a um pedido do Nossa Conta</small>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+      <p>
+        O histórico de eventos é somente um monitor de testes: não ativa nem suspende Premium real. Renovações e estornos precisam ser homologados antes de usar produção.
+      </p>
       <p>
         Após pagar, a confirmação pode levar alguns instantes. Voltar do
         checkout não confirma pagamento. Esta etapa registra o resultado
