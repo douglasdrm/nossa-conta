@@ -4,6 +4,7 @@ import { billingAdmin, recordResult, linkSandboxSubscription } from "@/lib/billi
 import { monitoredAsaasEvents } from "@/lib/asaas-lifecycle";
 import { matchesLegacySandboxSubscription, type SandboxSubscriptionCandidate } from "@/lib/asaas-reconcile";
 import { sandboxEntitlementPreview } from "@/lib/sandbox-entitlement";
+import { summarizeSandboxLifecycle } from "@/lib/asaas-lifecycle-review";
 const events = [
   "CHECKOUT_CREATED",
   "CHECKOUT_PAID",
@@ -23,7 +24,7 @@ export async function GET() {
     if (error) throw new Error("Não foi possível consultar os testes.");
     const { data: lifecycleEvents, error: eventsError } = await db
       .from("nc_billing_lifecycle_events")
-      .select("id,order_id,resource_type,event_type,created_at")
+      .select("id,order_id,resource_type,resource_id,event_type,created_at")
       .order("created_at", { ascending: false }).limit(40);
     if (eventsError) throw new Error("Não foi possível consultar o histórico de recorrência.");
     const { data: hooks } = await asaas<{ data: Hook[] }>(
@@ -37,6 +38,10 @@ export async function GET() {
       connected: true,
       webhook: !!hook?.enabled && !hook.interrupted,
       lifecycleEvents: lifecycleEvents ?? [],
+      lifecycleSummary: Object.fromEntries((orders ?? []).map((order) => [
+        order.id,
+        summarizeSandboxLifecycle((lifecycleEvents ?? []).filter((event) => event.order_id === order.id)),
+      ])),
       orders: (orders ?? []).map((order) => ({
         ...order,
         sandbox_entitlement: sandboxEntitlementPreview(order as Parameters<typeof sandboxEntitlementPreview>[0]),
