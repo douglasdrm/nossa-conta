@@ -14,7 +14,7 @@ export async function GET() {
     const { db } = await billingAdmin();
     const { data: orders, error } = await db
       .from("nc_billing_orders")
-      .select("id,cycle,method,amount,status,created_at,updated_at,checkout_id")
+      .select("id,cycle,method,amount,status,created_at,sandbox_valid_until,checkout_id")
       .order("created_at", { ascending: false })
       .limit(30);
     if (error) throw new Error("Não foi possível consultar os testes.");
