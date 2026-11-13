@@ -33,6 +33,11 @@ export default function BillingSandbox({
     }[];
   } | null>(null);
   const [chargeGeneration, setChargeGeneration] = useState<{orderId:string;message:string;error:boolean}|null>(null);
+  const [riskReview, setRiskReview] = useState<{
+    orderId:string; category:string; notes:string[];nextDueDate:string;
+    nextPaymentStatus:string|null;reversedPaymentDueDates:string[];
+    futureChargesExpected:boolean; simulatedValidityUnaffected:boolean;
+  }|null>(null);
   const [replayResult, setReplayResult] = useState<{paymentId:string;ok:boolean;message:string;count?:number;validUntil?:string}|null>(null);
   const [renewalReview, setRenewalReview] = useState<{
     orderId: string; candidates: { chargeId: string; dueDate: string; status: string; projectedUntil: string | null; readyForReview: boolean }[];
@@ -67,6 +72,11 @@ export default function BillingSandbox({
       if (!r.ok) throw new Error(body.error || "Não foi possível concluir.");
       if (body.url) {
         window.location.assign(body.url);
+        return;
+      }
+      if (action === "review-sandbox-risks") {
+        setRiskReview({orderId:id!,...body.review});
+        setMessage("Auditoria de riscos consultada no Asaas Sandbox. Nenhum pagamento ou acesso foi alterado.");
         return;
       }
       if (action === "replay-sandbox-renewal") {
@@ -247,6 +257,26 @@ export default function BillingSandbox({
                         </p>
                       );
                     })()}
+                  </div>
+                )}
+                {panel && o.method === "card" && o.status === "paid" && o.provider_subscription_id && (
+                  <div className="sandbox-risk-review">
+                    <button type="button" disabled={busy} onClick={() => run("review-sandbox-risks",o.id)}>
+                      Verificar estornos, cancelamentos e falhas no Asaas
+                    </button>
+                    {riskReview?.orderId === o.id && (
+                      <div role="status">
+                        <p><strong>Revisão de riscos (somente leitura):</strong> {riskReview.category}.</p>
+                        <p>Próximo vencimento de referência: {riskReview.nextDueDate}.
+                          {" "}Status da cobrança: {riskReview.nextPaymentStatus ?? "não localizada"}.
+                          {" "}Novas cobranças previstas pela assinatura: {riskReview.futureChargesExpected ? "sim" : "não"}.</p>
+                        {riskReview.notes.map((note,i) => <p key={i}>{note}</p>)}
+                        {!!riskReview.reversedPaymentDueDates.length && (
+                          <p>Vencimentos de cobranças revertidas: {riskReview.reversedPaymentDueDates.join(", ")}.</p>
+                        )}
+                        <small>Esta auditoria não altera nenhuma cobrança, validade ou Premium real. O prazo já pago permanece protegido.</small>
+                      </div>
+                    )}
                   </div>
                 )}
                 {panel && o.method === "card" && o.status === "paid" &&
