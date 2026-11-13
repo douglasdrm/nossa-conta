@@ -20,7 +20,7 @@ test("same charge transitions from pending to paid without double counting", () 
   ]);
   assert.equal(status.successfulCharges,1);
   assert.equal(status.pendingCharges,0);
-  assert.equal(status.state,"renewal_observed");
+  assert.equal(status.state,"payment_observed");
 });
 test("overdue charges and refunds are not treated as successful payments", () => {
   const status = summarizeSandboxLifecycle([
