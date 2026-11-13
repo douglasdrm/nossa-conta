@@ -28,6 +28,11 @@ export async function GET() {
       .select("id,order_id,resource_type,resource_id,event_type,created_at")
       .order("created_at", { ascending: false }).limit(40);
     if (eventsError) throw new Error("Não foi possível consultar o histórico de recorrência.");
+    const { data: appliedRenewals, error: renewalsError } = await db
+      .from("nc_billing_sandbox_renewals")
+      .select("payment_id,order_id,due_date,previous_valid_until,new_valid_until,applied_at")
+      .order("applied_at", { ascending: false }).limit(30);
+    if (renewalsError) throw new Error("Não foi possível consultar as renovações de teste.");
     const { data: hooks } = await asaas<{ data: Hook[] }>(
       "/webhooks?limit=100",
     );
@@ -39,6 +44,7 @@ export async function GET() {
       connected: true,
       webhook: !!hook?.enabled && !hook.interrupted,
       lifecycleEvents: lifecycleEvents ?? [],
+      appliedRenewals: appliedRenewals ?? [],
       lifecycleSummary: Object.fromEntries((orders ?? []).map((order) => [
         order.id,
         summarizeSandboxLifecycle((lifecycleEvents ?? []).filter((event) => event.order_id === order.id)),

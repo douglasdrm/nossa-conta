@@ -62,7 +62,7 @@ export async function recordSandboxLifecycleEvent(event: {
   subscriptionId: string;
   amount: number | null;
 }) {
-  const { error } = await billingDb().rpc("nc_billing_lifecycle_event", {
+  const { data, error } = await billingDb().rpc("nc_billing_lifecycle_event", {
     p_token: sandboxConfig().token,
     p_event_id: event.id,
     p_resource: event.resource,
@@ -72,4 +72,21 @@ export async function recordSandboxLifecycleEvent(event: {
     p_amount: event.amount,
   });
   if (error) throw new Error("Não foi possível registrar o evento de cobrança de teste.");
+  return data === true;
+}
+
+/** Atomic, token-gated Sandbox renewal. The webhook only sends validated API data. */
+export async function applySandboxRenewal(payment: {
+  id: string; subscription: string; amount: number; dueDate: string; status: string;
+}): Promise<string> {
+  const { data, error } = await billingDb().rpc("nc_billing_apply_sandbox_renewal", {
+    p_token: sandboxConfig().token,
+    p_subscription: payment.subscription,
+    p_payment: payment.id,
+    p_amount: payment.amount,
+    p_due_date: payment.dueDate,
+    p_verified_status: payment.status,
+  });
+  if (error) throw new Error("Não foi possível conciliar a renovação de teste.");
+  return data as string;
 }

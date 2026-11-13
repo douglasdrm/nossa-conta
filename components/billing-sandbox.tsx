@@ -14,6 +14,7 @@ export default function BillingSandbox({
     [message, setMessage] = useState("");
   const [state, setState] = useState<{
     webhook: boolean;
+    appliedRenewals?: {payment_id:string;order_id:string;due_date:string;previous_valid_until:string;new_valid_until:string;applied_at:string}[];
     lifecycleSummary?: Record<string, {
       state: string; successfulCharges: number; pendingCharges: number;
       problemCharges: number; lastEvent: string | null;
@@ -225,6 +226,19 @@ export default function BillingSandbox({
                         {renewalReview.morePages && <p>Há mais cobranças no Asaas; este resultado não é uma conferência completa.</p>}
                       </div>
                     )}
+                  </div>
+                )}
+                {!!state.appliedRenewals?.filter(r => r.order_id === o.id).length && (
+                  <div className="sandbox-renewal-history">
+                    <h4>Renovações confirmadas pelo Asaas · Sandbox</h4>
+                    {state.appliedRenewals.filter(r => r.order_id === o.id).map(r => (
+                      <p key={r.payment_id}>
+                        Cobrança {r.payment_id} · vencimento {r.due_date} · validade:
+                        {" "}{new Date(r.previous_valid_until).toLocaleDateString("pt-BR",{timeZone:"America/Sao_Paulo"})}
+                        {" → "}{new Date(r.new_valid_until).toLocaleDateString("pt-BR",{timeZone:"America/Sao_Paulo"})}
+                      </p>
+                    ))}
+                    <small>Somente Premium simulado. Estornos são sinalizados para revisão, sem revogação automática.</small>
                   </div>
                 )}
                 {o.sandbox_entitlement?.state === "active" && o.sandbox_entitlement.validUntil && (
