@@ -267,3 +267,27 @@
 
 .admin-toolbar .admin-clear-filters { display:inline-flex; align-items:center; justify-content:center; min-height:42px; padding:10px 13px; border:1px solid #cadbce; border-radius:8px; background:#fff; color:#214e35; font:inherit; font-size:13px; font-weight:600; text-decoration:none; white-space:nowrap; }
 .admin-toolbar .admin-clear-filters:hover { background:#ecf3e9; }
+
+
+/* Isolated local simulation: no provider actions and no persistent changes. */
+.sandbox-simulator {
+  margin: 18px 0;
+  padding: 16px;
+  border: 1px dashed #a2c1b2;
+  background: #f7faf7;
+  border-radius: 12px;
+}
+.sandbox-simulator h4 { margin: 0 0 8px; font-size: 16px; }
+.sandbox-simulator p { margin: 8px 0; }
+.sandbox-simulator-actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0; }
+.admin-main .sandbox-simulator-actions button[aria-pressed="true"] {
+  background: #175a42;
+  color: #fff;
+  border-color: #175a42;
+}
+.sandbox-simulator-result {
+  border-top: 1px solid #d8e7dc;
+  padding-top: 10px;
+  margin-top: 12px;
+}
+.sandbox-simulator small { display: block; margin-top: 10px; color: #536d5e; }
