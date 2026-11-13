@@ -33,6 +33,7 @@ export default function BillingSandbox({
     }[];
   } | null>(null);
   const [chargeGeneration, setChargeGeneration] = useState<{orderId:string;message:string;error:boolean}|null>(null);
+  const [replayResult, setReplayResult] = useState<{paymentId:string;ok:boolean;message:string;count?:number;validUntil?:string}|null>(null);
   const [renewalReview, setRenewalReview] = useState<{
     orderId: string; candidates: { chargeId: string; dueDate: string; status: string; projectedUntil: string | null; readyForReview: boolean }[];
     morePages: boolean; listedPayments:number;
@@ -70,10 +71,13 @@ export default function BillingSandbox({
       }
       if (action === "replay-sandbox-renewal") {
         await load();
-        setMessage(body.result === "duplicate" && body.unchanged
-          ? "Teste de duplicidade aprovado: cobrança já processada, validade mantida e " +
-            body.renewalCountAfter + " renovação(ões) registrada(s), sem novo crédito."
-          : "Resultado inesperado. Confira o histórico antes de repetir qualquer teste.");
+        const passed = body.result === "duplicate" && body.unchanged;
+        const response = passed
+          ? "Proteção contra duplicidade aprovada: a cobrança já estava processada. A validade e o número de renovações permaneceram iguais."
+          : "Resultado inesperado. Confira o histórico antes de repetir o teste.";
+        setReplayResult({paymentId:paymentId!,ok:passed,message:response,
+          count:body.renewalCountAfter,validUntil:body.validUntil});
+        setMessage(response);
         return;
       }
       if (action === "confirm-sandbox-renewal") {
@@ -137,6 +141,9 @@ export default function BillingSandbox({
       const reason = e instanceof Error ? e.message : "Tente novamente.";
       if (action === "generate-next-charge") {
         setChargeGeneration({orderId:id!,message:"A geração não foi confirmada: " + reason + " Não repita até conferir as cobranças existentes.",error:true});
+      }
+      if (action === "replay-sandbox-renewal") {
+        setReplayResult({paymentId:paymentId!,ok:false,message:"Não foi possível concluir a verificação: " + reason});
       }
       setMessage(reason);
     } finally {
@@ -322,6 +329,16 @@ export default function BillingSandbox({
                               }
                             }}>Testar proteção contra duplicidade</button>
                           </>
+                        )}
+                        {replayResult?.paymentId === r.payment_id && (
+                          <span role="status" style={{display:"block",marginTop:"0.75rem"}}>
+                            <strong>{replayResult.ok ? "Teste aprovado" : "Teste não concluído"}</strong>
+                            {" · "}{replayResult.message}
+                            {replayResult.ok && replayResult.validUntil && (
+                              <>{" "}Validade preservada: {new Date(replayResult.validUntil).toLocaleDateString("pt-BR",{timeZone:"America/Sao_Paulo"})}.
+                              {" "}Total de renovações: {replayResult.count}.</>
+                            )}
+                          </span>
                         )}
                       </p>
                     ))}
