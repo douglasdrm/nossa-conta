@@ -26,6 +26,7 @@ export default function BillingSandbox({
       sandbox_entitlement?: { state: "active" | "expired" | "inactive"; validUntil: string | null };
     }[];
   } | null>(null);
+  const [candidates, setCandidates] = useState<{ orderId: string; options: { id: string; value: number; cycle: string; dateCreated?: string; nextDueDate?: string }[] } | null>(null);
   async function load() {
     const r = await fetch("/api/admin/billing");
     const body = await r.json();
@@ -35,7 +36,7 @@ export default function BillingSandbox({
   useEffect(() => {
     load().catch((e) => setMessage(e.message));
   }, []);
-  async function run(action: string, id?: string) {
+  async function run(action: string, id?: string, subscriptionId?: string) {
     setBusy(true);
     setMessage("");
     try {
@@ -45,7 +46,7 @@ export default function BillingSandbox({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(
-            action === "checkout" ? { cycle, method } : { action, id },
+            action === "checkout" ? { cycle, method } : { action, id, subscriptionId, confirmed: action === "link-subscription" },
           ),
         },
       );
@@ -55,6 +56,14 @@ export default function BillingSandbox({
         window.location.assign(body.url);
         return;
       }
+      if (action === "find-subscriptions") {
+        setCandidates({ orderId: id!, options: body.candidates || [] });
+        setMessage(body.candidates?.length
+          ? "Confira a data e o valor antes de vincular. Não será feita outra cobrança."
+          : "Não foi encontrada assinatura compatível. Verifique se a assinatura aparece na conta Sandbox correta.");
+        return;
+      }
+      if (action === "link-subscription") setCandidates(null);
       await load();
       const statuses = Array.isArray(body.paymentStatuses) && body.paymentStatuses.length
         ? " Status da cobrança: " + body.paymentStatuses.join(", ") + "."
@@ -62,6 +71,8 @@ export default function BillingSandbox({
       setMessage(
         action === "connect"
           ? "Asaas conectado. Você já pode testar os planos."
+          : action === "link-subscription"
+            ? "Assinatura de teste vinculada após confirmação administrativa."
           : body.linked
             ? "Assinatura recorrente vinculada ao pedido de teste."
             : body.reason === "no_matching_payment"
@@ -161,6 +172,27 @@ export default function BillingSandbox({
                   <p role="status"><strong>Premium simulado ativo</strong> até {new Date(o.sandbox_entitlement.validUntil).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}. Não altera o acesso real.</p>
                 )}
                 {o.sandbox_entitlement?.state === "expired" && <p>Premium simulado expirado. Acesso real inalterado.</p>}
+                {o.method === "card" && o.status === "paid" && !o.provider_subscription_id && (
+                  <button type="button" disabled={busy} onClick={() => run("find-subscriptions", o.id)}>
+                    Localizar assinatura existente
+                  </button>
+                )}
+                {candidates?.orderId === o.id && (
+                  <div role="region" aria-label="Assinaturas candidatas no Sandbox">
+                    <p>Conciliação manual de teste: confirme que a assinatura é a mesma exibida no Asaas. Isso não gera nova cobrança.</p>
+                    {candidates.options.length === 0 && <p>Nenhuma assinatura compatível encontrada nesta consulta.</p>}
+                    {candidates.options.map((candidate) => (
+                      <div key={candidate.id}>
+                        <p><strong>{candidate.id}</strong> · {brl(Math.round(candidate.value * 100))} · {candidate.cycle} · criada em {candidate.dateCreated || "data não disponível"} · próximo vencimento {candidate.nextDueDate || "não disponível"}</p>
+                        <button type="button" disabled={busy} onClick={() => {
+                          if (window.confirm("Confirma que esta é a assinatura do pagamento de teste do Nossa Conta? Nenhuma cobrança será criada.")) {
+                            void run("link-subscription", o.id, candidate.id);
+                          }
+                        }}>Confirmar vínculo desta assinatura</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 {o.checkout_id && (
                   <button
                     type="button"

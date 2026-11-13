@@ -2,6 +2,7 @@ import { checkOrigin, failure, ApiError } from "@/lib/api";
 import { asaas, billingOrigin, sandboxConfig } from "@/lib/asaas";
 import { billingAdmin, recordResult, linkSandboxSubscription } from "@/lib/billing-server";
 import { monitoredAsaasEvents } from "@/lib/asaas-lifecycle";
+import { matchesLegacySandboxSubscription, type SandboxSubscriptionCandidate } from "@/lib/asaas-reconcile";
 import { sandboxEntitlementPreview } from "@/lib/sandbox-entitlement";
 const events = [
   "CHECKOUT_CREATED",
@@ -49,7 +50,7 @@ export async function POST(request: Request) {
   try {
     checkOrigin(request);
     const { db, user } = await billingAdmin();
-    const { action, id } = await request.json();
+    const { action, id, subscriptionId, confirmed } = await request.json();
     if (action === "connect") {
       const { data: hooks } = await asaas<{ data: Hook[] }>(
         "/webhooks?limit=100",
@@ -72,6 +73,43 @@ export async function POST(request: Request) {
         existing ? "PUT" : "POST",
       );
       return Response.json({ ok: true });
+    }
+    if ((action === "find-subscriptions" || action === "link-subscription") &&
+        typeof id === "string") {
+      const { data: order, error } = await db.from("nc_billing_orders")
+        .select("id,checkout_id,amount,method,cycle,status,created_at,provider_subscription_id")
+        .eq("id", id).single();
+      if (error || !order || !order.checkout_id) throw new ApiError("Pedido não encontrado.", 404);
+      if (order.method !== "card" || order.status !== "paid" || order.provider_subscription_id) {
+        throw new ApiError("Esse pedido não precisa de conciliação manual.", 409);
+      }
+      // Read-only listing from Asaas Sandbox; never create a second subscription.
+      // Scan a bounded window to avoid making expensive API queries.
+      const candidates: SandboxSubscriptionCandidate[] = [];
+      for (let offset = 0; offset < 300; offset += 100) {
+        const page = await asaas<{ data: SandboxSubscriptionCandidate[]; hasMore?: boolean }>(
+          "/subscriptions?limit=100&offset=" + offset + "&billingType=CREDIT_CARD"
+        );
+        candidates.push(...page.data.filter((s) => matchesLegacySandboxSubscription(order, s)));
+        if (!page.hasMore) break;
+      }
+      if (action === "find-subscriptions") {
+        return Response.json({
+          ok: true,
+          candidates: candidates.map((s) => ({
+            id: s.id, value: s.value, cycle: s.cycle,
+            dateCreated: s.dateCreated, nextDueDate: s.nextDueDate,
+          })),
+        });
+      }
+      if (confirmed !== true || typeof subscriptionId !== "string" ||
+          !candidates.some((s) => s.id === subscriptionId)) {
+        throw new ApiError("Assinatura não corresponde ao pedido ou não foi confirmada.", 400);
+      }
+      // Explicit administrator verification in Sandbox only; the RPC also
+      // enforces an already paid checkout and one-to-one subscription IDs.
+      await linkSandboxSubscription(order.id, order.checkout_id, subscriptionId);
+      return Response.json({ ok: true, linked: true });
     }
     if (action === "sync" && typeof id === "string") {
       const { data: order, error } = await db
