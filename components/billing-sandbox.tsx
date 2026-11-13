@@ -32,7 +32,12 @@ export default function BillingSandbox({
       sandbox_entitlement?: { state: "active" | "expired" | "inactive"; validUntil: string | null };
     }[];
   } | null>(null);
-  const [renewalReview, setRenewalReview] = useState<{orderId: string; candidates: { chargeId: string; dueDate: string; status: string; projectedUntil: string | null; readyForReview: boolean }[]; morePages: boolean} | null>(null);
+  const [chargeGeneration, setChargeGeneration] = useState<{orderId:string;message:string;error:boolean}|null>(null);
+  const [renewalReview, setRenewalReview] = useState<{
+    orderId: string; candidates: { chargeId: string; dueDate: string; status: string; projectedUntil: string | null; readyForReview: boolean }[];
+    morePages: boolean; listedPayments:number;
+    paymentSummary: {dueDate:string;status:string;matchesSubscription:boolean;matchesAmount:boolean}[];
+  } | null>(null);
   const [candidates, setCandidates] = useState<{ orderId: string; options: { id: string; value: number; cycle: string; dateCreated?: string; nextDueDate?: string }[] } | null>(null);
   async function load() {
     const r = await fetch("/api/admin/billing");
@@ -65,16 +70,17 @@ export default function BillingSandbox({
       }
       if (action === "generate-next-charge") {
         await load();
-        setMessage(body.alreadyGenerated
-          ? "A cobrança do próximo ciclo já existe no Asaas. Nenhuma cobrança adicional foi gerada."
+        const generationMessage = body.alreadyGenerated
+          ? "Já havia uma cobrança com esse vencimento no Asaas. Nenhuma outra foi solicitada."
           : body.found
-            ? "Cobrança futura localizada no Asaas Sandbox. Ainda não está paga; confira o status na consulta de cobranças."
-            : "O Asaas aceitou a solicitação. Consulte novamente para conferir se a cobrança foi criada."
-        );
+            ? "O Asaas retornou uma cobrança do próximo período. Ela ainda não foi considerada paga."
+            : "A API aceitou a geração, mas a consulta seguinte ainda não retornou cobrança correspondente. Não repita a operação; revise a conferência.";
+        setChargeGeneration({orderId:id!,message:generationMessage,error:false});
+        setMessage(generationMessage);
         return;
       }
       if (action === "review-renewal") {
-        setRenewalReview({orderId: id!, candidates: body.candidates ?? [], morePages: body.morePages === true});
+        setRenewalReview({orderId: id!, candidates: body.candidates ?? [], morePages: body.morePages === true, listedPayments:body.listedPayments ?? 0, paymentSummary:body.paymentSummary ?? []});
         setMessage("Conciliação de leitura concluída. Nenhuma validade ou cobrança foi alterada.");
         return;
       }
@@ -108,7 +114,11 @@ export default function BillingSandbox({
                     : "Resultado consultado no Asaas." + statuses,
       );
     } catch (e) {
-      setMessage(e instanceof Error ? e.message : "Tente novamente.");
+      const reason = e instanceof Error ? e.message : "Tente novamente.";
+      if (action === "generate-next-charge") {
+        setChargeGeneration({orderId:id!,message:"A geração não foi confirmada: " + reason + " Não repita até conferir as cobranças existentes.",error:true});
+      }
+      setMessage(reason);
     } finally {
       setBusy(false);
     }
@@ -223,6 +233,9 @@ export default function BillingSandbox({
                       }}>
                         Gerar cobrança futura de teste
                       </button>
+                      {chargeGeneration?.orderId === o.id && (
+                        <p role="status"><strong>{chargeGeneration.error ? "Atenção:" : "Resultado da geração:"}</strong> {chargeGeneration.message}</p>
+                      )}
                     </div>
                   )}
                 {panel && o.method === "card" && o.status === "paid" && o.provider_subscription_id && (
@@ -233,6 +246,13 @@ export default function BillingSandbox({
                     {renewalReview?.orderId === o.id && (
                       <div role="status">
                         <p><strong>Conferência de leitura:</strong> a validade registrada não foi alterada.</p>
+                        <p><strong>Cobranças retornadas pelo Asaas:</strong> {renewalReview.listedPayments}.</p>
+                        {renewalReview.paymentSummary.map((p,i) => (
+                          <p key={i}>Cobrança {i+1}: vencimento {p.dueDate || "não informado"} · {p.status}.
+                            {p.matchesSubscription ? "" : " Identificador de assinatura não correspondente."}
+                            {p.matchesAmount ? "" : " Valor não correspondente."}
+                          </p>
+                        ))}
                         {!renewalReview.candidates.length && (
                           <p>Nenhuma cobrança do próximo período foi encontrada. Não significa falha no pagamento; a próxima cobrança pode não ter sido gerada ainda.</p>
                         )}
