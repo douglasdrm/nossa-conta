@@ -175,11 +175,11 @@ export default function BillingSandbox({
                 {o.provider_subscription_id && (
                   <div role="status" className="sandbox-lifecycle-summary">
                     {(() => {
-                      const summary = state.lifecycleSummary?.[o.id];
+                      const summary = state?.lifecycleSummary?.[o.id];
                       if (!summary) return <p>Conferindo eventos de recorrência…</p>;
                       const messages: Record<string, string> = {
                         awaiting_events: "Assinatura vinculada. Aguardando eventos de novas cobranças.",
-                        renewal_observed: "Cobrança de recorrência confirmada no histórico; validar vencimento antes de renovar o Premium.",
+                        payment_observed: "Pagamento associado à assinatura detectado; confirmar o vencimento antes de considerar uma renovação.",
                         payment_pending: "Existe cobrança recorrente pendente no histórico.",
                         payment_problem: "Atenção: há cobrança vencida ou tentativa de cartão recusada.",
                         refund_or_dispute: "Atenção: estorno ou contestação detectado. Revisão administrativa necessária.",
