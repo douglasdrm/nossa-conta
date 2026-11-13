@@ -40,8 +40,8 @@ test("duplicate notifications or queries cannot multiply renewal candidates", ()
 });
 
 test("quarterly and yearly periods use their corresponding cycles", () => {
-  assert.equal(findRenewalCandidates({...order,cycle:"quarterly"},[charge("pay_q","RECEIVED","2026-12-13")])[0].projectedUntil,
+  assert.equal(findRenewalCandidates({...order,cycle:"quarterly"},[charge("pay_quarterly","RECEIVED","2026-12-13")])[0].projectedUntil,
     "2027-03-13T14:30:00.000Z");
-  assert.equal(findRenewalCandidates({...order,cycle:"yearly"},[charge("pay_y","RECEIVED","2026-12-13")])[0].projectedUntil,
+  assert.equal(findRenewalCandidates({...order,cycle:"yearly"},[charge("pay_yearly","RECEIVED","2026-12-13")])[0].projectedUntil,
     "2027-12-13T14:30:00.000Z");
 });
