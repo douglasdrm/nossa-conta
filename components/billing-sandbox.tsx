@@ -48,7 +48,7 @@ export default function BillingSandbox({
   useEffect(() => {
     load().catch((e) => setMessage(e.message));
   }, []);
-  async function run(action: string, id?: string, subscriptionId?: string) {
+  async function run(action: string, id?: string, subscriptionId?: string, paymentId?: string) {
     setBusy(true);
     setMessage("");
     try {
@@ -58,7 +58,7 @@ export default function BillingSandbox({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(
-            action === "checkout" ? { cycle, method } : { action, id, subscriptionId, confirmed: action === "link-subscription" || action === "generate-next-charge" },
+            action === "checkout" ? { cycle, method } : { action, id, subscriptionId, paymentId, confirmed: action === "link-subscription" || action === "generate-next-charge" || action === "confirm-sandbox-renewal" },
           ),
         },
       );
@@ -66,6 +66,18 @@ export default function BillingSandbox({
       if (!r.ok) throw new Error(body.error || "Não foi possível concluir.");
       if (body.url) {
         window.location.assign(body.url);
+        return;
+      }
+      if (action === "confirm-sandbox-renewal") {
+        await load();
+        setRenewalReview(null);
+        setMessage(body.result === "applied"
+          ? "Renovação confirmada no Asaas Sandbox e validade simulada prorrogada uma vez."
+          : body.result === "duplicate"
+            ? "Essa cobrança já foi registrada anteriormente. Nenhuma extensão duplicada foi aplicada."
+            : body.result === "awaiting_confirmation"
+              ? "O Asaas recebeu a solicitação, mas ainda não confirmou a cobrança na consulta. Não repita; confira novamente o status."
+              : "Resultado da confirmação: " + body.result + ". Consulte o histórico de renovações.");
         return;
       }
       if (action === "generate-next-charge") {
@@ -259,6 +271,21 @@ export default function BillingSandbox({
                         {renewalReview.candidates.map(ch => (
                           <p key={ch.chargeId}>
                             Vencimento: {ch.dueDate} · Status no Asaas: {ch.status}.
+                            {!ch.readyForReview && ch.status === "PENDING" &&
+                              renewalReview.candidates.length === 1 && !renewalReview.morePages &&
+                              o.method === "card" && o.status === "paid" && o.provider_subscription_id && (
+                                <span>
+                                  {" "}Teste controlado da renovação:{" "}
+                                  <button type="button" disabled={busy} onClick={() => {
+                                    if (window.confirm(
+                                      "Confirmar o pagamento fictício de R$ " +
+                                      (o.amount / 100).toFixed(2).replace(".",",") +
+                                      " no Asaas SANDBOX, vencimento " + ch.dueDate +
+                                      "? Isso altera o estado dessa cobrança no ambiente de testes e poderá estender o Premium SIMULADO. Não gera movimento real."
+                                    )) void run("confirm-sandbox-renewal",o.id,undefined,ch.chargeId);
+                                  }}>Confirmar pagamento de teste deste vencimento</button>
+                                </span>
+                              )}
                             {ch.readyForReview && ch.projectedUntil
                               ? " Candidata a renovação confirmada; projeção até " +
                                 new Date(ch.projectedUntil).toLocaleDateString("pt-BR",{timeZone:"UTC"}) +
