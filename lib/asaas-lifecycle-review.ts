@@ -12,7 +12,7 @@ export type SandboxLifecycleEvent = {
 };
 
 export type SandboxLifecycleState =
-  | "awaiting_events" | "renewal_observed" | "payment_pending"
+  | "awaiting_events" | "payment_observed" | "payment_pending"
   | "payment_problem" | "refund_or_dispute" | "subscription_stopped";
 
 const successful = new Set(["PAYMENT_CONFIRMED", "PAYMENT_RECEIVED"]);
@@ -31,7 +31,7 @@ export function summarizeSandboxLifecycle(events: SandboxLifecycleEvent[]): {
   problemCharges: number;
   lastEvent: string | null;
 } {
-  const sorted = [...events].sort((a, b) =>
+  const sorted = [...new Map(events.map(e => [e.id, e])).values()].sort((a, b) =>
     a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id));
   const byResource = new Map<string, SandboxLifecycleEvent>();
   // The latest *received* state for each charge is useful operationally but
@@ -49,6 +49,6 @@ export function summarizeSandboxLifecycle(events: SandboxLifecycleEvent[]): {
     refundOrDispute ? "refund_or_dispute" :
     problemCharges ? "payment_problem" :
     pendingCharges ? "payment_pending" :
-    successfulCharges ? "renewal_observed" : "awaiting_events";
+    successfulCharges ? "payment_observed" : "awaiting_events";
   return { state, successfulCharges, pendingCharges, problemCharges, lastEvent: last?.event_type ?? null };
 }
