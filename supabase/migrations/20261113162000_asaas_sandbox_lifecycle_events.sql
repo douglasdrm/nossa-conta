@@ -44,7 +44,7 @@ create function public.nc_billing_link_subscription(
 as $$ select nossa_conta_private.billing_link_subscription(p_token,p_order,p_checkout,p_subscription) $$;
 revoke all on function nossa_conta_private.billing_link_subscription(text,uuid,text,text),
  public.nc_billing_link_subscription(text,uuid,text,text) from public;
-grant execute on function public.nc_billing_link_subscription(text,uuid,text,text) to authenticated;
+grant execute on function public.nc_billing_link_subscription(text,uuid,text,text) to anon,authenticated;
 
 -- Ignore unrelated events from other sites on the shared Asaas account.
 -- Only record matched and amount-checked lifecycle notifications; never grant access here.
