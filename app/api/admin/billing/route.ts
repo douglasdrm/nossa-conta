@@ -64,6 +64,51 @@ export async function POST(request: Request) {
     checkOrigin(request);
     const { db, user } = await billingAdmin();
     const { action, id, subscriptionId, paymentId, confirmed } = await request.json();
+    if (action === "replay-sandbox-renewal" && typeof id === "string") {
+      if (confirmed !== true || typeof paymentId !== "string" ||
+          !/^pay_[A-Za-z0-9_-]{3,120}$/.test(paymentId))
+        throw new ApiError("Confirmação explícita e cobrança registrada são obrigatórias.",400);
+      const { data: order, error: orderError } = await db.from("nc_billing_orders")
+        .select("id,environment,method,status,amount,provider_subscription_id,sandbox_valid_until")
+        .eq("id",id).single();
+      if (orderError || !order || order.environment !== "sandbox" ||
+          order.method !== "card" || order.status !== "paid" ||
+          !order.provider_subscription_id || !order.sandbox_valid_until)
+        throw new ApiError("Pedido Sandbox vinculado não encontrado.",409);
+      const { data: prior, error: priorError } = await db
+        .from("nc_billing_sandbox_renewals")
+        .select("payment_id,due_date,new_valid_until")
+        .eq("order_id",id).eq("payment_id",paymentId).single();
+      if (priorError || !prior) throw new ApiError("Essa cobrança ainda não foi renovada; replay bloqueado.",409);
+      const beforeUntil = order.sandbox_valid_until;
+      const { count: beforeCount, error: countError } = await db
+        .from("nc_billing_sandbox_renewals").select("payment_id",{count:"exact",head:true})
+        .eq("order_id",id);
+      if (countError || beforeCount === null) throw new Error("Não foi possível ler o histórico de renovações.");
+      const charge = await asaas<AsaasCharge>("/payments/" + encodeURIComponent(paymentId));
+      const verified = verifiedSandboxRenewalPayment(paymentId,order.provider_subscription_id,charge);
+      if (!verified || verified.amount !== order.amount || verified.dueDate !== prior.due_date ||
+          new Date(beforeUntil).getTime() < new Date(prior.new_valid_until).getTime())
+        throw new ApiError("Cobrança não está confirmada ou não corresponde ao histórico registrado.",409);
+      // Same validation and atomic RPC as the webhook, without generating any new
+      // Asaas event or changing the payment status. The expected result is duplicate.
+      const result = await applySandboxRenewal(verified);
+      const { data: after, error: afterError } = await db.from("nc_billing_orders")
+        .select("sandbox_valid_until").eq("id",id).single();
+      const { count: afterCount, error: afterCountError } = await db
+        .from("nc_billing_sandbox_renewals").select("payment_id",{count:"exact",head:true})
+        .eq("order_id",id);
+      if (afterError || !after || afterCountError || afterCount === null)
+        throw new Error("Não foi possível confirmar o resultado do replay.");
+      const unchanged = beforeUntil === after.sandbox_valid_until && beforeCount === afterCount;
+      return Response.json({
+        ok:result === "duplicate" && unchanged,
+        result,unchanged,
+        renewalCountBefore:beforeCount,renewalCountAfter:afterCount,
+        validityUnchanged:beforeUntil === after.sandbox_valid_until,
+        validUntil:after.sandbox_valid_until,
+      },{status:result === "duplicate" && unchanged ? 200 : 409});
+    }
     if (action === "confirm-sandbox-renewal" && typeof id === "string") {
       if (confirmed !== true || typeof paymentId !== "string" ||
           !/^pay_[A-Za-z0-9_-]{3,120}$/.test(paymentId))
