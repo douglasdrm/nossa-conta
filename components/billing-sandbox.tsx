@@ -53,7 +53,7 @@ export default function BillingSandbox({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(
-            action === "checkout" ? { cycle, method } : { action, id, subscriptionId, confirmed: action === "link-subscription" },
+            action === "checkout" ? { cycle, method } : { action, id, subscriptionId, confirmed: action === "link-subscription" || action === "generate-next-charge" },
           ),
         },
       );
@@ -61,6 +61,16 @@ export default function BillingSandbox({
       if (!r.ok) throw new Error(body.error || "Não foi possível concluir.");
       if (body.url) {
         window.location.assign(body.url);
+        return;
+      }
+      if (action === "generate-next-charge") {
+        await load();
+        setMessage(body.alreadyGenerated
+          ? "A cobrança do próximo ciclo já existe no Asaas. Nenhuma cobrança adicional foi gerada."
+          : body.found
+            ? "Cobrança futura localizada no Asaas Sandbox. Ainda não está paga; confira o status na consulta de cobranças."
+            : "O Asaas aceitou a solicitação. Consulte novamente para conferir se a cobrança foi criada."
+        );
         return;
       }
       if (action === "review-renewal") {
@@ -202,6 +212,19 @@ export default function BillingSandbox({
                     })()}
                   </div>
                 )}
+                {panel && o.method === "card" && o.status === "paid" &&
+                  o.provider_subscription_id && o.sandbox_entitlement?.validUntil && (
+                    <div className="sandbox-charge-generation">
+                      <p>Homologação do próximo período: o Asaas Sandbox pode antecipar a criação da cobrança futura. Isso não paga a cobrança nem altera o Premium.</p>
+                      <button type="button" disabled={busy} onClick={() => {
+                        if (window.confirm("Gerar antecipadamente apenas a cobrança do PRÓXIMO período no Asaas SANDBOX? Não haverá pagamento, mas uma nova cobrança de teste poderá aparecer na conta Asaas.")) {
+                          void run("generate-next-charge",o.id);
+                        }
+                      }}>
+                        Gerar cobrança futura de teste
+                      </button>
+                    </div>
+                  )}
                 {panel && o.method === "card" && o.status === "paid" && o.provider_subscription_id && (
                   <div className="sandbox-renewal-review">
                     <button type="button" disabled={busy} onClick={() => run("review-renewal", o.id)}>
