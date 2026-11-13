@@ -66,13 +66,15 @@ export async function POST(request: Request) {
       if (error || !order || order.status !== "paid" || order.method !== "card" ||
           !order.provider_subscription_id || !order.sandbox_valid_until)
         throw new ApiError("Assinatura vinculada e paga não encontrada.", 404);
+      if (!["monthly","quarterly","yearly"].includes(order.cycle))
+        throw new ApiError("Período inválido.", 400);
       // Read only; this endpoint never updates a subscription or the simulated access.
       const provider = await asaas<{ data: AsaasCharge[]; hasMore?: boolean }>(
         "/subscriptions/" + encodeURIComponent(order.provider_subscription_id) +
         "/payments?limit=100"
       );
       const candidates = findRenewalCandidates({
-        cycle: order.cycle, amount: order.amount,
+        cycle: order.cycle as "monthly" | "quarterly" | "yearly", amount: order.amount,
         provider_subscription_id: order.provider_subscription_id,
         sandbox_valid_until: order.sandbox_valid_until,
       }, provider.data ?? []);
