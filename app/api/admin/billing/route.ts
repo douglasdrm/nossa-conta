@@ -1,6 +1,7 @@
 import { checkOrigin, failure, ApiError } from "@/lib/api";
 import { asaas, billingOrigin, sandboxConfig, generateSandboxPaymentBook } from "@/lib/asaas";
-import { billingAdmin, recordResult, linkSandboxSubscription } from "@/lib/billing-server";
+import { billingAdmin, recordResult, linkSandboxSubscription, applySandboxRenewal } from "@/lib/billing-server";
+import { verifiedSandboxRenewalPayment } from "@/lib/asaas-renewal-verification";
 import { monitoredAsaasEvents } from "@/lib/asaas-lifecycle";
 import { matchesLegacySandboxSubscription, type SandboxSubscriptionCandidate } from "@/lib/asaas-reconcile";
 import { sandboxEntitlementPreview } from "@/lib/sandbox-entitlement";
@@ -62,7 +63,56 @@ export async function POST(request: Request) {
   try {
     checkOrigin(request);
     const { db, user } = await billingAdmin();
-    const { action, id, subscriptionId, confirmed } = await request.json();
+    const { action, id, subscriptionId, paymentId, confirmed } = await request.json();
+    if (action === "confirm-sandbox-renewal" && typeof id === "string") {
+      if (confirmed !== true || typeof paymentId !== "string" ||
+          !/^pay_[A-Za-z0-9_-]{3,120}$/.test(paymentId))
+        throw new ApiError("Confirmação explícita e identificador de cobrança são obrigatórios.",400);
+      const { data: order, error } = await db.from("nc_billing_orders")
+        .select("id,environment,method,status,amount,cycle,provider_subscription_id,sandbox_valid_until")
+        .eq("id",id).single();
+      if (error || !order || order.environment !== "sandbox" ||
+          order.method !== "card" || order.status !== "paid" ||
+          !order.provider_subscription_id || !order.sandbox_valid_until ||
+          !["monthly","quarterly","yearly"].includes(order.cycle))
+        throw new ApiError("Assinatura de teste elegível não encontrada.",409);
+      const path = "/subscriptions/" + encodeURIComponent(order.provider_subscription_id) + "/payments?limit=100";
+      const list = await asaas<{data:AsaasCharge[];hasMore?:boolean}>(path);
+      if (list.hasMore)
+        throw new ApiError("A lista tem mais páginas. Confirmação bloqueada por segurança.",409);
+      const candidates = findRenewalCandidates({
+        cycle:order.cycle as "monthly"|"quarterly"|"yearly", amount:order.amount,
+        provider_subscription_id:order.provider_subscription_id,
+        sandbox_valid_until:order.sandbox_valid_until,
+      },list.data ?? []);
+      if (candidates.length !== 1 || candidates[0].chargeId !== paymentId)
+        throw new ApiError("A cobrança não é a única candidata para o próximo vencimento.",409);
+      const before = await asaas<AsaasCharge>("/payments/" + encodeURIComponent(paymentId));
+      if (before.id !== paymentId ||
+          before.subscription !== order.provider_subscription_id ||
+          Math.round(before.value*100) !== order.amount ||
+          before.dueDate !== candidates[0].dueDate)
+        throw new ApiError("Cobrança não corresponde à assinatura e ao período esperado.",409);
+      if (["CONFIRMED","RECEIVED"].includes(before.status)) {
+        const verified = verifiedSandboxRenewalPayment(paymentId,order.provider_subscription_id,before);
+        if (!verified) throw new ApiError("Dados da cobrança inconsistentes.",409);
+        const result = await applySandboxRenewal(verified);
+        return Response.json({ok:true,result,alreadyPaid:true});
+      }
+      if (before.status !== "PENDING")
+        throw new ApiError("A cobrança não está pendente; não foi alterada.",409);
+      // Official Asaas endpoint exists only in Sandbox. It changes the
+      // provider payment status, which can emit a real provider webhook.
+      // Never retry automatically after an inconclusive API response.
+      await asaas("/sandbox/payment/" + encodeURIComponent(paymentId) + "/confirm",{},"POST");
+      const after = await asaas<AsaasCharge>("/payments/" + encodeURIComponent(paymentId));
+      const verified = verifiedSandboxRenewalPayment(paymentId,order.provider_subscription_id,after);
+      if (!verified || verified.dueDate !== candidates[0].dueDate ||
+          verified.amount !== order.amount)
+        return Response.json({ok:true,result:"awaiting_confirmation",alreadyPaid:false});
+      const result = await applySandboxRenewal(verified);
+      return Response.json({ok:true,result,alreadyPaid:false});
+    }
     if (action === "generate-next-charge" && typeof id === "string") {
       if (confirmed !== true)
         throw new ApiError("Confirme explicitamente a geração da cobrança de teste.", 400);
