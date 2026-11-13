@@ -56,16 +56,23 @@ export default function BillingSandbox({
         return;
       }
       await load();
+      const statuses = Array.isArray(body.paymentStatuses) && body.paymentStatuses.length
+        ? " Status da cobrança: " + body.paymentStatuses.join(", ") + "."
+        : "";
       setMessage(
         action === "connect"
           ? "Asaas conectado. Você já pode testar os planos."
-          : body.reason === "subscription_missing"
-            ? "Pagamento confirmado, mas o Asaas ainda não informou o ID da assinatura recorrente, nem na cobrança detalhada. Confira a assinatura no Asaas Sandbox; não gere outra cobrança."
-            : body.payment === "not_confirmed"
-              ? "Não foi encontrado pagamento confirmado para este checkout. Confira o Sandbox do Asaas."
-              : body.linked
-                ? "Pagamento confirmado e assinatura recorrente vinculada!"
-                : "Resultado consultado no Asaas. Não foi necessário vincular assinatura recorrente.",
+          : body.linked
+            ? "Assinatura recorrente vinculada ao pedido de teste."
+            : body.reason === "no_matching_payment"
+              ? "O checkout está marcado como pago, mas a API não retornou cobrança do mesmo valor para esta sessão. A confirmação do checkout permanece preservada. Confira a assinatura no Sandbox, sem criar outra cobrança."
+              : body.reason === "payment_not_settled"
+                ? "O checkout está registrado, mas a API ainda não considera a cobrança liquidada." + statuses + " Não é necessário pagar novamente."
+                : body.reason === "subscription_missing"
+                  ? "Checkout confirmado, mas nenhum ID de assinatura foi encontrado na cobrança nem pela referência exata do pedido." + statuses + " Confira a área de Assinaturas do Sandbox."
+                  : body.reason === "pix_confirmed"
+                    ? "Pagamento Pix de teste confirmado, sem renovação automática."
+                    : "Resultado consultado no Asaas." + statuses,
       );
     } catch (e) {
       setMessage(e instanceof Error ? e.message : "Tente novamente.");
