@@ -1,5 +1,5 @@
 import { checkOrigin, failure, ApiError } from "@/lib/api";
-import { asaas, billingOrigin, sandboxConfig } from "@/lib/asaas";
+import { asaas, billingOrigin, sandboxConfig, generateSandboxPaymentBook } from "@/lib/asaas";
 import { billingAdmin, recordResult, linkSandboxSubscription } from "@/lib/billing-server";
 import { monitoredAsaasEvents } from "@/lib/asaas-lifecycle";
 import { matchesLegacySandboxSubscription, type SandboxSubscriptionCandidate } from "@/lib/asaas-reconcile";
@@ -63,6 +63,55 @@ export async function POST(request: Request) {
     checkOrigin(request);
     const { db, user } = await billingAdmin();
     const { action, id, subscriptionId, confirmed } = await request.json();
+    if (action === "generate-next-charge" && typeof id === "string") {
+      if (confirmed !== true)
+        throw new ApiError("Confirme explicitamente a geração da cobrança de teste.", 400);
+      const { data: order, error } = await db.from("nc_billing_orders")
+        .select("id,method,status,amount,cycle,environment,provider_subscription_id,sandbox_valid_until")
+        .eq("id",id).single();
+      if (error || !order || order.environment !== "sandbox" ||
+          order.method !== "card" || order.status !== "paid" ||
+          !order.provider_subscription_id || !order.sandbox_valid_until ||
+          !["monthly","quarterly","yearly"].includes(order.cycle)) {
+        throw new ApiError("Pedido recorrente de teste inválido.", 409);
+      }
+      // Independent provider verification before creating any future charge.
+      const subscription = await asaas<{
+        id:string; value:number; cycle:string; billingType:string;
+        status:string; nextDueDate:string;
+      }>("/subscriptions/" + encodeURIComponent(order.provider_subscription_id));
+      const cycleMap:Record<string,string> = {monthly:"MONTHLY",quarterly:"QUARTERLY",yearly:"YEARLY"};
+      const due = new Intl.DateTimeFormat("en-CA",{
+        timeZone:"America/Sao_Paulo",year:"numeric",month:"2-digit",day:"2-digit"
+      }).format(new Date(order.sandbox_valid_until));
+      if (subscription.id !== order.provider_subscription_id ||
+          subscription.status !== "ACTIVE" || subscription.billingType !== "CREDIT_CARD" ||
+          subscription.cycle !== cycleMap[order.cycle] ||
+          Math.round(subscription.value * 100) !== order.amount ||
+          subscription.nextDueDate !== due) {
+        throw new ApiError("Os dados da assinatura no Asaas não correspondem ao próximo ciclo. Nenhuma cobrança foi gerada.",409);
+      }
+      const next = Date.parse(due + "T12:00:00Z");
+      const now = Date.now();
+      if (!Number.isFinite(next) || next < now - 2*86400000 || next > now + 120*86400000)
+        throw new ApiError("O próximo vencimento está fora da janela segura de homologação.",409);
+      const path = "/subscriptions/" + encodeURIComponent(subscription.id) + "/payments?limit=100";
+      const before = await asaas<{data:AsaasCharge[];hasMore?:boolean}>(path);
+      if (before.hasMore) throw new ApiError("Há mais cobranças a verificar. Operação bloqueada por segurança.",409);
+      if (before.data.some(p => p.dueDate === due)) {
+        return Response.json({ok:true,alreadyGenerated:true,dueDate:due});
+      }
+      await generateSandboxPaymentBook(subscription.id,due);
+      const after = await asaas<{data:AsaasCharge[];hasMore?:boolean}>(path);
+      const generated = after.data.filter(p =>
+        p.subscription === subscription.id && p.dueDate === due &&
+        Math.round(p.value*100) === order.amount
+      );
+      return Response.json({ok:true,alreadyGenerated:false,
+        dueDate:due,found:generated.length,
+        message:generated.length ? "Cobrança futura localizada no Asaas Sandbox." :
+          "Geração solicitada ao Asaas; consulte novamente para confirmar a cobrança."});
+    }
     if (action === "review-renewal" && typeof id === "string") {
       const { data: order, error } = await db
         .from("nc_billing_orders")
