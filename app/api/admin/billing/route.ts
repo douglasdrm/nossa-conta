@@ -88,37 +88,67 @@ export async function POST(request: Request) {
           encodeURIComponent(order.checkout_id) +
           "&limit=100",
       );
-      const paid = result.data.find(
-        (p) =>
-          Math.round(p.value * 100) === order.amount &&
-          ["RECEIVED", "CONFIRMED"].includes(p.status),
+      // Treat checkout confirmation and charge settlement as separate facts.
+      // Only inspect values/status; never return payer identity or card details.
+      const matching = result.data.filter((p) =>
+        Number.isFinite(p.value) && Math.round(p.value * 100) === order.amount
       );
-      if (!paid) {
-        return Response.json({ ok: true, payment: "not_confirmed", linked: false });
+      const confirmed = matching.find((p) => ["RECEIVED", "CONFIRMED"].includes(p.status));
+      const statuses = [...new Set(matching.map((p) => p.status))].slice(0, 10);
+      if (confirmed) {
+        await recordResult(order.id, order.checkout_id, "paid", undefined, order.amount);
       }
-      await recordResult(order.id, order.checkout_id, "paid", undefined, order.amount);
       if (order.method !== "card") {
-        return Response.json({ ok: true, payment: "confirmed", linked: false, method: "pix" });
+        return Response.json({
+          ok: true, linked: false, reason: confirmed ? "pix_confirmed" : "payment_not_settled",
+          matchingPayments: matching.length, paymentStatuses: statuses
+        });
       }
-
-      // A checkout payment may initially omit its recurring subscription.
-      // Check the single payment resource before concluding the link is missing.
-      let subscription = paid.subscription;
-      if (!subscription) {
+      // A paid checkout may be followed by a separate recurring subscription.
+      // First use the charge's subscription ID; then search by the *exact*
+      // order reference, never by customer name, e-mail or a price alone.
+      let subscription = confirmed?.subscription ?? null;
+      if (confirmed && !subscription) {
         const detail = await asaas<{
           id: string; value: number; status: string; subscription?: string | null;
-        }>("/payments/" + encodeURIComponent(paid.id));
-        if (detail.id === paid.id &&
+        }>("/payments/" + encodeURIComponent(confirmed.id));
+        if (detail.id === confirmed.id &&
             Math.round(detail.value * 100) === order.amount &&
             ["RECEIVED", "CONFIRMED"].includes(detail.status)) {
-          subscription = detail.subscription;
+          subscription = detail.subscription ?? null;
         }
       }
+      // This fallback is strictly scoped to the app's order UUID. A single
+      // matching subscription may be linked only after checkout was already
+      // confirmed by its authenticated webhook.
       if (!subscription) {
-        return Response.json({ ok: true, payment: "confirmed", linked: false, reason: "subscription_missing" });
+        const subs = await asaas<{
+          data: { id: string; externalReference?: string | null; value: number;
+            cycle: string; billingType: string }[];
+        }>("/subscriptions?externalReference=" + encodeURIComponent(order.id) + "&limit=100");
+        const cycle = (await db.from("nc_billing_orders").select("cycle,status").eq("id",order.id).single()).data;
+        const providerCycle = cycle?.cycle === "monthly" ? "MONTHLY" :
+          cycle?.cycle === "quarterly" ? "QUARTERLY" :
+          cycle?.cycle === "yearly" ? "YEARLY" : null;
+        const candidates = subs.data.filter((s) =>
+          s.externalReference === order.id && s.billingType === "CREDIT_CARD" &&
+          s.cycle === providerCycle && Math.round(s.value * 100) === order.amount &&
+          /^sub_[a-zA-Z0-9_-]{6,100}$/.test(s.id)
+        );
+        if (cycle?.status === "paid" && candidates.length === 1) {
+          subscription = candidates[0].id;
+        }
       }
-      await linkSandboxSubscription(order.id, order.checkout_id, subscription);
-      return Response.json({ ok: true, payment: "confirmed", linked: true });
+      if (subscription) {
+        await linkSandboxSubscription(order.id, order.checkout_id, subscription);
+        return Response.json({ ok: true, linked: true, reason: "subscription_linked" });
+      }
+      return Response.json({
+        ok: true, linked: false,
+        reason: matching.length === 0 ? "no_matching_payment" :
+          confirmed ? "subscription_missing" : "payment_not_settled",
+        matchingPayments: matching.length, paymentStatuses: statuses
+      });
     }
     throw new ApiError("Operação inválida.", 400);
   } catch (error) {
