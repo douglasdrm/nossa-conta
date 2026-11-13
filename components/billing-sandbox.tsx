@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { brl, plans, type BillingCycle } from "@/lib/plans";
 import SandboxRenewalSimulator from "./sandbox-renewal-simulator";
+import SandboxBillingPolicy from "./sandbox-billing-policy";
 export default function BillingSandbox({
   cycle = "yearly",
   panel = false,
@@ -382,11 +383,17 @@ export default function BillingSandbox({
                 {panel && o.method === "card" && o.status === "paid" &&
                   o.provider_subscription_id && o.sandbox_entitlement?.validUntil &&
                   (o.cycle === "monthly" || o.cycle === "quarterly" || o.cycle === "yearly") && (
+                    <>
                     <SandboxRenewalSimulator
                       key={o.id + ":" + o.sandbox_entitlement.validUntil}
                       cycle={o.cycle}
                       baselineValidUntil={o.sandbox_entitlement.validUntil}
                     />
+                      <SandboxBillingPolicy
+                        key={"policy:" + o.id + ":" + o.sandbox_entitlement.validUntil}
+                        validUntil={o.sandbox_entitlement.validUntil}
+                      />
+                    </>
                   )}
                 {o.method === "card" && o.status === "paid" && !o.provider_subscription_id && (
                   <button type="button" disabled={busy} onClick={() => run("find-subscriptions", o.id)}>
