@@ -1,6 +1,7 @@
 import { checkOrigin, failure, ApiError } from "@/lib/api";
 import { asaas, billingOrigin, sandboxConfig } from "@/lib/asaas";
 import { billingAdmin, recordResult } from "@/lib/billing-server";
+import { sandboxEntitlementPreview } from "@/lib/sandbox-entitlement";
 const events = [
   "CHECKOUT_CREATED",
   "CHECKOUT_PAID",
@@ -13,7 +14,7 @@ export async function GET() {
     const { db } = await billingAdmin();
     const { data: orders, error } = await db
       .from("nc_billing_orders")
-      .select("id,cycle,method,amount,status,created_at,checkout_id")
+      .select("id,cycle,method,amount,status,created_at,updated_at,checkout_id")
       .order("created_at", { ascending: false })
       .limit(30);
     if (error) throw new Error("Não foi possível consultar os testes.");
@@ -27,7 +28,10 @@ export async function GET() {
       environment: "sandbox",
       connected: true,
       webhook: !!hook?.enabled && !hook.interrupted,
-      orders,
+      orders: (orders ?? []).map((order) => ({
+        ...order,
+        sandbox_entitlement: sandboxEntitlementPreview(order as Parameters<typeof sandboxEntitlementPreview>[0]),
+      })),
     });
   } catch (error) {
     return failure(error);
