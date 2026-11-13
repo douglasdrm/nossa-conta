@@ -4,6 +4,7 @@ import { billingAdmin, recordResult, linkSandboxSubscription } from "@/lib/billi
 import { monitoredAsaasEvents } from "@/lib/asaas-lifecycle";
 import { matchesLegacySandboxSubscription, type SandboxSubscriptionCandidate } from "@/lib/asaas-reconcile";
 import { sandboxEntitlementPreview } from "@/lib/sandbox-entitlement";
+import { findRenewalCandidates, type AsaasCharge } from "@/lib/asaas-renewal-reconciliation";
 import { summarizeSandboxLifecycle } from "@/lib/asaas-lifecycle-review";
 const events = [
   "CHECKOUT_CREATED",
@@ -56,6 +57,33 @@ export async function POST(request: Request) {
     checkOrigin(request);
     const { db, user } = await billingAdmin();
     const { action, id, subscriptionId, confirmed } = await request.json();
+    if (action === "review-renewal" && typeof id === "string") {
+      const { data: order, error } = await db
+        .from("nc_billing_orders")
+        .select("id,cycle,method,amount,status,provider_subscription_id,sandbox_valid_until")
+        .eq("id", id)
+        .single();
+      if (error || !order || order.status !== "paid" || order.method !== "card" ||
+          !order.provider_subscription_id || !order.sandbox_valid_until)
+        throw new ApiError("Assinatura vinculada e paga não encontrada.", 404);
+      // Read only; this endpoint never updates a subscription or the simulated access.
+      const provider = await asaas<{ data: AsaasCharge[]; hasMore?: boolean }>(
+        "/subscriptions/" + encodeURIComponent(order.provider_subscription_id) +
+        "/payments?limit=100"
+      );
+      const candidates = findRenewalCandidates({
+        cycle: order.cycle, amount: order.amount,
+        provider_subscription_id: order.provider_subscription_id,
+        sandbox_valid_until: order.sandbox_valid_until,
+      }, provider.data ?? []);
+      return Response.json({
+        ok: true,
+        reviewOnly: true,
+        candidates,
+        morePages: provider.hasMore === true,
+        reason: candidates.length ? "candidates_found" : "no_new_cycle",
+      });
+    }
     if (action === "connect") {
       const { data: hooks } = await asaas<{ data: Hook[] }>(
         "/webhooks?limit=100",
