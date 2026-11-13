@@ -38,6 +38,9 @@ export default async function Subscription({
     .maybeSingle();
   if (error) throw new Error("Não foi possível consultar sua assinatura.");
   const { data: isAdmin } = await db.rpc("nc_is_system_admin");
+  const { data: sandboxStatus, error: sandboxError } = await db.rpc("nc_sandbox_premium_status");
+  if (sandboxError) throw new Error("Não foi possível consultar a simulação de assinatura.");
+  const sandbox = sandboxStatus as { state?: string; cycle?: string; valid_until?: string } | null;
   return (
     <MarketingFrame>
       <section className="seo-intro">
@@ -49,6 +52,13 @@ export default async function Subscription({
           </strong>{" "}
           · equivalente a {brl(plan.monthly)}/mês.
         </p>
+        {sandbox?.state === "active" && sandbox.valid_until && (
+          <p className="notice">
+            <strong>Premium simulado ativo para este espaço compartilhado</strong> até{" "}
+            {new Date(sandbox.valid_until).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}.
+            {" "}Somente teste do Asaas: não libera recursos pagos nem gera cobrança real.
+          </p>
+        )}
         {courtesy && (
           <p className="notice">
             Você tem uma cortesia Premium válida até{" "}
