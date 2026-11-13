@@ -264,3 +264,6 @@
   font: inherit;
   cursor: pointer;
 }
+
+.admin-toolbar .admin-clear-filters { display:inline-flex; align-items:center; justify-content:center; min-height:42px; padding:10px 13px; border:1px solid #cadbce; border-radius:8px; background:#fff; color:#214e35; font:inherit; font-size:13px; font-weight:600; text-decoration:none; white-space:nowrap; }
+.admin-toolbar .admin-clear-filters:hover { background:#ecf3e9; }

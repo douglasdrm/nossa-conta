@@ -215,7 +215,7 @@ export default function AdminPanel({
               />
             </label>
             <button type="submit">Buscar</button>
-            <a href={"/admin?tab=" + current}>Limpar</a>
+            <a className="admin-clear-filters" href={"/admin?tab=" + current} aria-label="Limpar filtros de busca">Limpar filtros</a>
             {current === "leads" && (
               <button
                 type="button"
