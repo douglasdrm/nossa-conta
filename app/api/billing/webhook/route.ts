@@ -1,8 +1,10 @@
 import { timingSafeEqual } from "node:crypto";
 import { z } from "zod";
-import { sandboxConfig, verifiedCheckoutStatus } from "@/lib/asaas";
-import { recordResult, recordSandboxLifecycleEvent } from "@/lib/billing-server";
+import { asaas, sandboxConfig, verifiedCheckoutStatus } from "@/lib/asaas";
+import { recordResult, recordSandboxLifecycleEvent, applySandboxRenewal } from "@/lib/billing-server";
 import { sandboxLifecycleNotification } from "@/lib/asaas-lifecycle";
+import { verifiedSandboxRenewalPayment } from "@/lib/asaas-renewal-verification";
+import type { AsaasCharge } from "@/lib/asaas-renewal-reconciliation";
 export const runtime = "nodejs";
 const eventSchema = z.object({
   id: z.string().min(1).max(250),
@@ -41,7 +43,23 @@ export async function POST(request: Request) {
     const body = JSON.parse(raw);
     if (typeof body?.event === "string" && !body.event.startsWith("CHECKOUT_")) {
       const lifecycle = sandboxLifecycleNotification(body);
-      if (lifecycle) await recordSandboxLifecycleEvent(lifecycle);
+      if (lifecycle) {
+        const matched = await recordSandboxLifecycleEvent(lifecycle);
+        // Shared Asaas account: never query or credit unlinked subscriptions.
+        // An authenticated webhook event is a signal, NOT proof of settlement.
+        if (matched && lifecycle.resource === "payment" &&
+            ["PAYMENT_CONFIRMED","PAYMENT_RECEIVED"].includes(lifecycle.type)) {
+          const providerCharge = await asaas<AsaasCharge>(
+            "/payments/" + encodeURIComponent(lifecycle.resourceId)
+          );
+          const verified = verifiedSandboxRenewalPayment(
+            lifecycle.resourceId, lifecycle.subscriptionId, providerCharge,
+          );
+          if (verified && verified.amount === lifecycle.amount) {
+            await applySandboxRenewal(verified);
+          }
+        }
+      }
       // Unlinked events can belong to other products on the same Asaas account.
       return Response.json({ received: true });
     }
