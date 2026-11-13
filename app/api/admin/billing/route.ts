@@ -109,6 +109,7 @@ export async function POST(request: Request) {
       );
       return Response.json({ok:true,alreadyGenerated:false,
         dueDate:due,found:generated.length,
+        listedPayments:after.data.length,
         message:generated.length ? "Cobrança futura localizada no Asaas Sandbox." :
           "Geração solicitada ao Asaas; consulte novamente para confirmar a cobrança."});
     }
@@ -138,6 +139,14 @@ export async function POST(request: Request) {
         reviewOnly: true,
         candidates,
         morePages: provider.hasMore === true,
+        listedPayments: provider.data?.length ?? 0,
+        // Reveal only billing dates and statuses, never customer identity.
+        paymentSummary: (provider.data ?? []).slice(0,15).map(p => ({
+          dueDate: p.dueDate,
+          status: p.status,
+          matchesSubscription: p.subscription === order.provider_subscription_id,
+          matchesAmount: Number.isFinite(p.value) && Math.round(p.value*100) === order.amount,
+        })),
         reason: candidates.length ? "candidates_found" : "no_new_cycle",
       });
     }
