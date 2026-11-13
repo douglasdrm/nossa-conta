@@ -17,11 +17,10 @@ test("only a settled matching charge for the next paid period is a renewal candi
     charge("pay_second","CONFIRMED","2026-12-13"),
     charge("pay_unpaid","PENDING","2027-01-13")
   ]);
-  assert.equal(result.length,2);
+  assert.equal(result.length,1);
   assert.equal(result[0].readyForReview,true);
   assert.equal(result[0].projectedUntil,"2027-01-13T14:30:00.000Z");
-  assert.equal(result[1].readyForReview,false);
-  assert.equal(result[1].projectedUntil,null);
+  assert.equal(result[0].status,"CONFIRMED");
 });
 
 test("rejects different subscriptions, amount or invalid due dates", () => {
@@ -30,6 +29,7 @@ test("rejects different subscriptions, amount or invalid due dates", () => {
     charge("pay_wrongamount","RECEIVED","2026-12-13",{value:39.9}),
     charge("pay_bad_date","RECEIVED","2026-02-30"),
     charge("pay_missing","RECEIVED","2026-12-13",{subscription:null}),
+    charge("pay_futurecycle","RECEIVED","2027-01-13"),
   ]),[]);
 });
 
