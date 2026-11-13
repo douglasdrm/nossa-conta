@@ -55,7 +55,8 @@ export function findRenewalCandidates(
         !datePattern.test(charge.dueDate)) continue;
     const check = new Date(charge.dueDate + "T00:00:00.000Z");
     if (!Number.isFinite(check.getTime()) || check.toISOString().slice(0,10) !== charge.dueDate) continue;
-    if (charge.dueDate < endDate) continue;
+    // Only the immediately next billing period can be projected once.
+    if (charge.dueDate !== endDate) continue;
     const projected = addBillingMonths(order.sandbox_valid_until, months);
     if (!projected) continue;
     const ready = settled.has(charge.status);
