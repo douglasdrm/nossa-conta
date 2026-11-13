@@ -89,6 +89,7 @@ begin
 end
 $$;
 revoke all on function nossa_conta_private.sandbox_premium_status() from public, anon;
+grant usage on schema nossa_conta_private to authenticated;
 grant execute on function nossa_conta_private.sandbox_premium_status() to authenticated;
 
 create function public.nc_sandbox_premium_status()
