@@ -387,6 +387,16 @@ test("migration, household isolation, invitations and recurring month edits", as
       assert.equal(unsafe.length, 0);
     },
   );
+  await t.test("token-gated billing wrappers can reach their private functions", async () => {
+    await db.exec("reset role");
+    const privileges = (
+      await db.query<{ link_grant: boolean; event_grant: boolean }>(
+        "select has_function_privilege('anon','nossa_conta_private.billing_link_subscription(text,uuid,text,text)','EXECUTE') as link_grant, has_function_privilege('anon','nossa_conta_private.billing_lifecycle_event(text,text,text,text,text,text,integer)','EXECUTE') as event_grant"
+      )
+    ).rows[0];
+    assert.equal(privileges.link_grant, true);
+    assert.equal(privileges.event_grant, true);
+  });
   await t.test("anonymous clients cannot call finance RPCs", async () => {
     await as("", "anon");
     await assert.rejects(() => rpc("ensure_household"));
