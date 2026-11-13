@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const monitoredAsaasEvents = [
+  "PAYMENT_CREATED",
   "PAYMENT_CONFIRMED",
   "PAYMENT_RECEIVED",
   "PAYMENT_OVERDUE",
