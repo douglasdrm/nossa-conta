@@ -50,7 +50,7 @@ export async function POST(request: Request) {
   try {
     checkOrigin(request);
     const { db, user } = await billingAdmin();
-    const { action, id } = await request.json();
+    const { action, id, subscriptionId, confirmed } = await request.json();
     if (action === "connect") {
       const { data: hooks } = await asaas<{ data: Hook[] }>(
         "/webhooks?limit=100",
@@ -102,7 +102,6 @@ export async function POST(request: Request) {
           })),
         });
       }
-      const { subscriptionId, confirmed } = await request.json().catch(() => ({}));
       if (confirmed !== true || typeof subscriptionId !== "string" ||
           !candidates.some((s) => s.id === subscriptionId)) {
         throw new ApiError("Assinatura não corresponde ao pedido ou não foi confirmada.", 400);
