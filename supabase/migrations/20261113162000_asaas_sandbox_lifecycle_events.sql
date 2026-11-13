@@ -42,9 +42,9 @@ create function public.nc_billing_link_subscription(
   p_token text, p_order uuid, p_checkout text, p_subscription text
 ) returns boolean language sql security invoker set search_path = ''
 as $$ select nossa_conta_private.billing_link_subscription(p_token,p_order,p_checkout,p_subscription) $$;
-revoke all on function nossa_conta_private.billing_link_subscription(text,uuid,text,text,text),
- public.nc_billing_link_subscription(text,uuid,text,text,text) from public;
-grant execute on function public.nc_billing_link_subscription(text,uuid,text,text,text) to authenticated;
+revoke all on function nossa_conta_private.billing_link_subscription(text,uuid,text,text),
+ public.nc_billing_link_subscription(text,uuid,text,text) from public;
+grant execute on function public.nc_billing_link_subscription(text,uuid,text,text) to authenticated;
 
 -- Ignore unrelated events from other sites on the shared Asaas account.
 -- Only record matched and amount-checked lifecycle notifications; never grant access here.
