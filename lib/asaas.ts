@@ -42,6 +42,37 @@ export async function asaas<T>(
     );
   return response.json();
 }
+
+/**
+ * Sandbox-only Asaas payment book: GET can create future payments.
+ * Never call from automatic sync or on page load. The administrator must
+ * authorize it explicitly after the linked subscription has been verified.
+ * Only request JSON; do not collect/store PDFs with customer details.
+ */
+export async function generateSandboxPaymentBook(
+  subscriptionId: string, dueDate: string,
+): Promise<void> {
+  if (!/^sub_[A-Za-z0-9_-]{6,100}$/.test(subscriptionId) ||
+      !/^\\d{4}-\\d{2}-\\d{2}$/.test(dueDate))
+    throw new Error("Assinatura ou vencimento inválido.");
+  const { key } = sandboxConfig();
+  const month = Number(dueDate.slice(5,7));
+  const year = Number(dueDate.slice(0,4));
+  const response = await fetch(
+    "https://api-sandbox.asaas.com/v3/subscriptions/" +
+      encodeURIComponent(subscriptionId) +
+      "/paymentBook?month=" + month + "&year=" + year,
+    { headers: {
+      access_token: key,
+      "Accept": "application/json",
+      "User-Agent": "NossaConta/1.0",
+    }, cache:"no-store", signal: AbortSignal.timeout(20000) }
+  );
+  if (!response.ok) throw new Error(
+    "O Asaas não conseguiu antecipar a cobrança de teste. Nenhuma nova tentativa automática será feita."
+  );
+}
+
 export function checkoutUrl(id: string) {
   if (!/^[a-zA-Z0-9_-]{10,100}$/.test(id))
     throw new Error("Identificador de checkout inválido.");
