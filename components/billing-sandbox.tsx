@@ -31,6 +31,7 @@ export default function BillingSandbox({
       sandbox_entitlement?: { state: "active" | "expired" | "inactive"; validUntil: string | null };
     }[];
   } | null>(null);
+  const [renewalReview, setRenewalReview] = useState<{orderId: string; candidates: { chargeId: string; dueDate: string; status: string; projectedUntil: string | null; readyForReview: boolean }[]; morePages: boolean} | null>(null);
   const [candidates, setCandidates] = useState<{ orderId: string; options: { id: string; value: number; cycle: string; dateCreated?: string; nextDueDate?: string }[] } | null>(null);
   async function load() {
     const r = await fetch("/api/admin/billing");
@@ -59,6 +60,11 @@ export default function BillingSandbox({
       if (!r.ok) throw new Error(body.error || "Não foi possível concluir.");
       if (body.url) {
         window.location.assign(body.url);
+        return;
+      }
+      if (action === "review-renewal") {
+        setRenewalReview({orderId: id!, candidates: body.candidates ?? [], morePages: body.morePages === true});
+        setMessage("Conciliação de leitura concluída. Nenhuma validade ou cobrança foi alterada.");
         return;
       }
       if (action === "find-subscriptions") {
@@ -193,6 +199,32 @@ export default function BillingSandbox({
                         </p>
                       );
                     })()}
+                  </div>
+                )}
+                {panel && o.method === "card" && o.status === "paid" && o.provider_subscription_id && (
+                  <div className="sandbox-renewal-review">
+                    <button type="button" disabled={busy} onClick={() => run("review-renewal", o.id)}>
+                      Conferir cobranças da assinatura no Asaas
+                    </button>
+                    {renewalReview?.orderId === o.id && (
+                      <div role="status">
+                        <p><strong>Conferência de leitura:</strong> a validade registrada não foi alterada.</p>
+                        {!renewalReview.candidates.length && (
+                          <p>Nenhuma cobrança do próximo período foi encontrada. Não significa falha no pagamento; a próxima cobrança pode não ter sido gerada ainda.</p>
+                        )}
+                        {renewalReview.candidates.map(ch => (
+                          <p key={ch.chargeId}>
+                            Vencimento: {ch.dueDate} · Status no Asaas: {ch.status}.
+                            {ch.readyForReview && ch.projectedUntil
+                              ? " Candidata a renovação confirmada; projeção até " +
+                                new Date(ch.projectedUntil).toLocaleDateString("pt-BR",{timeZone:"UTC"}) +
+                                ". Requer homologação antes de aplicar."
+                              : " Ainda não há confirmação suficiente para prorrogar o Premium."}
+                          </p>
+                        ))}
+                        {renewalReview.morePages && <p>Há mais cobranças no Asaas; este resultado não é uma conferência completa.</p>}
+                      </div>
+                    )}
                   </div>
                 )}
                 {o.sandbox_entitlement?.state === "active" && o.sandbox_entitlement.validUntil && (
