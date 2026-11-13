@@ -7,6 +7,7 @@ import { matchesLegacySandboxSubscription, type SandboxSubscriptionCandidate } f
 import { sandboxEntitlementPreview } from "@/lib/sandbox-entitlement";
 import { findRenewalCandidates, type AsaasCharge } from "@/lib/asaas-renewal-reconciliation";
 import { summarizeSandboxLifecycle } from "@/lib/asaas-lifecycle-review";
+import { reviewSandboxBillingRisks } from "@/lib/sandbox-billing-risk-review";
 const events = [
   "CHECKOUT_CREATED",
   "CHECKOUT_PAID",
@@ -64,6 +65,31 @@ export async function POST(request: Request) {
     checkOrigin(request);
     const { db, user } = await billingAdmin();
     const { action, id, subscriptionId, paymentId, confirmed } = await request.json();
+    if (action === "review-sandbox-risks" && typeof id === "string") {
+      const { data: order, error } = await db.from("nc_billing_orders")
+        .select("id,environment,method,status,amount,provider_subscription_id,sandbox_valid_until")
+        .eq("id",id).single();
+      if (error || !order || order.environment !== "sandbox" ||
+          order.method !== "card" || order.status !== "paid" ||
+          !order.provider_subscription_id || !order.sandbox_valid_until)
+        throw new ApiError("Assinatura de teste vinculada não encontrada.",409);
+      // Read only: provider status is authoritative; do not make changes to
+      // provider payments, subscriptions, Premium or courtesy.
+      const subscription = await asaas<{id:string;status:string;nextDueDate?:string|null}>(
+        "/subscriptions/" + encodeURIComponent(order.provider_subscription_id)
+      );
+      const list = await asaas<{data:AsaasCharge[];hasMore?:boolean}>(
+        "/subscriptions/" + encodeURIComponent(order.provider_subscription_id) +
+        "/payments?limit=100"
+      );
+      if (list.hasMore)
+        throw new ApiError("Há mais de 100 cobranças; auditoria incompleta. Revisão manual necessária.",409);
+      const audit = reviewSandboxBillingRisks({
+        subscriptionId:order.provider_subscription_id,
+        amount:order.amount,validUntil:order.sandbox_valid_until
+      },subscription,list.data ?? []);
+      return Response.json({ok:true,readOnly:true,review:audit});
+    }
     if (action === "replay-sandbox-renewal" && typeof id === "string") {
       if (confirmed !== true || typeof paymentId !== "string" ||
           !/^pay_[A-Za-z0-9_-]{3,120}$/.test(paymentId))
