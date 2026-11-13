@@ -376,7 +376,8 @@ test("migration, household isolation, invitations and recurring month edits", as
           "select relname,relrowsecurity from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='r' and c.relname like 'nc_%'",
         )
       ).rows;
-      assert.equal(tables.length, 16);
+      assert.equal(tables.length, 17);
+      assert.ok(tables.some((t) => t.relname === "nc_billing_lifecycle_events"));
       assert.ok(tables.every((t) => t.relrowsecurity));
       const unsafe = (
         await db.query(
