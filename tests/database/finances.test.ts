@@ -376,8 +376,9 @@ test("migration, household isolation, invitations and recurring month edits", as
           "select relname,relrowsecurity from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='r' and c.relname like 'nc_%'",
         )
       ).rows;
-      assert.equal(tables.length, 17);
+      assert.equal(tables.length, 18);
       assert.ok(tables.some((t) => t.relname === "nc_billing_lifecycle_events"));
+      assert.ok(tables.some((t) => t.relname === "nc_billing_sandbox_renewals"));
       assert.ok(tables.every((t) => t.relrowsecurity));
       const unsafe = (
         await db.query(
@@ -1703,6 +1704,36 @@ test("migration, household isolation, invitations and recurring month edits", as
       assert.equal(snapshot.summary.courtesies, 0);
       assert.equal(snapshot.audit.length, 3);
       await db.exec("reset role");
+      // Exercise the *actual database RPC* under anon, not just the TS helper.
+      await as("", "anon");
+      const subscription = "sub_sandbox_renewal_test001";
+      const firstPayment = "pay_sandbox_renewal_test001";
+      assert.equal(await rpc("billing_link_subscription", [
+        token, order.id, "checkout-test", subscription,
+      ]), true);
+      await db.exec("reset role");
+      const original = (await db.query<{end_date:string; valid_until:string}>(
+        "select (sandbox_valid_until at time zone 'America/Sao_Paulo')::date::text as end_date,sandbox_valid_until::text as valid_until from nc_billing_orders where id=$1",
+        [order.id]
+      )).rows[0];
+      await as("", "anon");
+      const call = (payment:string, amount:number, due:string, status:string) =>
+        rpc<string>("billing_apply_sandbox_renewal", [
+          token, subscription, payment, amount, due, status,
+        ]);
+      assert.equal(await call(firstPayment,11990,original.end_date,"PENDING"),"rejected");
+      assert.equal(await call(firstPayment,11990,"2026-01-01","RECEIVED"),"not_next_cycle");
+      assert.equal(await call(firstPayment,1490,original.end_date,"RECEIVED"),"not_next_cycle");
+      assert.equal(await call(firstPayment,11990,original.end_date,"RECEIVED"),"applied");
+      assert.equal(await call(firstPayment,11990,original.end_date,"RECEIVED"),"duplicate");
+      assert.equal(await call("pay_other_renewal_001",11990,original.end_date,"RECEIVED"),"not_next_cycle");
+      await db.exec("reset role");
+      const checked = (await db.query<{count:string; before:string; after:string}>(
+        "select count(*)::text as count, min(previous_valid_until)::text as before,min(new_valid_until)::text as after from nc_billing_sandbox_renewals where order_id=$1",
+        [order.id]
+      )).rows[0];
+      assert.equal(checked.count,"1");
+      assert.ok(new Date(checked.after).getTime() > new Date(checked.before).getTime());
       await db.query("delete from nc_system_admins where user_id=$1", [alice]);
       await as(alice);
       await assert.rejects(
