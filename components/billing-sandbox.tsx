@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { brl, plans, type BillingCycle } from "@/lib/plans";
+import SandboxRenewalSimulator from "./sandbox-renewal-simulator";
 export default function BillingSandbox({
   cycle = "yearly",
   panel = false,
@@ -198,6 +199,15 @@ export default function BillingSandbox({
                   <p role="status"><strong>Premium simulado ativo</strong> até {new Date(o.sandbox_entitlement.validUntil).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}. Não altera o acesso real.</p>
                 )}
                 {o.sandbox_entitlement?.state === "expired" && <p>Premium simulado expirado. Acesso real inalterado.</p>}
+                {panel && o.method === "card" && o.status === "paid" &&
+                  o.provider_subscription_id && o.sandbox_entitlement?.validUntil &&
+                  (o.cycle === "monthly" || o.cycle === "quarterly" || o.cycle === "yearly") && (
+                    <SandboxRenewalSimulator
+                      key={o.id + ":" + o.sandbox_entitlement.validUntil}
+                      cycle={o.cycle}
+                      baselineValidUntil={o.sandbox_entitlement.validUntil}
+                    />
+                  )}
                 {o.method === "card" && o.status === "paid" && !o.provider_subscription_id && (
                   <button type="button" disabled={busy} onClick={() => run("find-subscriptions", o.id)}>
                     Localizar assinatura existente
