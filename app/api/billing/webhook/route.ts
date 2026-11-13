@@ -1,7 +1,8 @@
 import { timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import { sandboxConfig, verifiedCheckoutStatus } from "@/lib/asaas";
-import { recordResult } from "@/lib/billing-server";
+import { recordResult, recordSandboxLifecycleEvent } from "@/lib/billing-server";
+import { sandboxLifecycleNotification } from "@/lib/asaas-lifecycle";
 export const runtime = "nodejs";
 const eventSchema = z.object({
   id: z.string().min(1).max(250),
@@ -37,7 +38,14 @@ export async function POST(request: Request) {
     const raw = await request.text();
     if (raw.length > 64000)
       return Response.json({ error: "Too large" }, { status: 413 });
-    const parsed = eventSchema.safeParse(JSON.parse(raw));
+    const body = JSON.parse(raw);
+    if (typeof body?.event === "string" && !body.event.startsWith("CHECKOUT_")) {
+      const lifecycle = sandboxLifecycleNotification(body);
+      if (lifecycle) await recordSandboxLifecycleEvent(lifecycle);
+      // Unlinked events can belong to other products on the same Asaas account.
+      return Response.json({ received: true });
+    }
+    const parsed = eventSchema.safeParse(body);
     if (!parsed.success)
       return Response.json({ error: "Invalid event" }, { status: 400 });
     const event = parsed.data,

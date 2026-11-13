@@ -38,3 +38,38 @@ export async function recordResult(
   if (error || data !== true)
     throw new Error("Não foi possível registrar o resultado do checkout.");
 }
+
+/**
+ * Link a recurring Asaas subscription only after the admin sync verifies
+ * a paid checkout and a matching payment from that exact checkout.
+ */
+export async function linkSandboxSubscription(order: string, checkout: string, subscription: string) {
+  const { data, error } = await billingDb().rpc("nc_billing_link_subscription", {
+    p_token: sandboxConfig().token,
+    p_order: order,
+    p_checkout: checkout,
+    p_subscription: subscription,
+  });
+  if (error || data !== true) throw new Error("Não foi possível vincular a assinatura de teste.");
+}
+
+/** Sandbox audit only: never changes a Premium entitlement or courtesy. */
+export async function recordSandboxLifecycleEvent(event: {
+  id: string;
+  type: string;
+  resource: "payment" | "subscription";
+  resourceId: string;
+  subscriptionId: string;
+  amount: number | null;
+}) {
+  const { error } = await billingDb().rpc("nc_billing_lifecycle_event", {
+    p_token: sandboxConfig().token,
+    p_event_id: event.id,
+    p_resource: event.resource,
+    p_resource_id: event.resourceId,
+    p_subscription: event.subscriptionId,
+    p_event_type: event.type,
+    p_amount: event.amount,
+  });
+  if (error) throw new Error("Não foi possível registrar o evento de cobrança de teste.");
+}
