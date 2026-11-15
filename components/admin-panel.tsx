@@ -191,9 +191,10 @@ export default function AdminPanel({
             <section className="admin-card">
               <h2>Cobrança em preparação</h2>
               <p>
-                Ainda não há integração de pagamentos. Interesse em plano e
-                cortesia não representam receita ou uma assinatura paga. O funil
-                comercial é atualizado pela equipe.
+                A integração com Asaas funciona exclusivamente no ambiente
+                Sandbox. Os testes não representam receita nem concedem Premium
+                real. O diagnóstico de preparação está na aba Cobranças · testes;
+                interesse em plano e cortesia permanecem independentes.
               </p>
             </section>
           </>
