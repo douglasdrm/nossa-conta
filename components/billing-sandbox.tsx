@@ -15,6 +15,13 @@ export default function BillingSandbox({
     [message, setMessage] = useState("");
   const [state, setState] = useState<{
     webhook: boolean;
+    productionReadiness?: {
+      ready:boolean; accessPolicy:"free_for_all_unchanged";
+      realBillingEnabled:false; realPremiumEnforced:false;
+      passed:number; total:number;
+      checks:{key:string;label:string;passed:boolean;required:true}[];
+    };
+    productionDiagnostics?: {activeCourtesies:number;sandboxRenewalsRecorded:number};
     appliedRenewals?: {payment_id:string;order_id:string;due_date:string;previous_valid_until:string;new_valid_until:string;applied_at:string}[];
     lifecycleSummary?: Record<string, {
       state: string; successfulCharges: number; pendingCharges: number;
@@ -221,6 +228,26 @@ export default function BillingSandbox({
         </>
       )}
       {message && <p role="status">{message}</p>}
+      {panel && state?.productionReadiness && (
+        <section className="sandbox-simulator" aria-label="Preparação do Premium real, sem ativação">
+          <h3>Preparação do Premium real · somente diagnóstico</h3>
+          <p><strong>Pagamento real desativado. Recursos atuais continuam gratuitos.</strong>
+            {" "}O Sandbox e as cortesias não concedem acesso Premium pago.</p>
+          <p><strong>Requisitos verificados:</strong> {state.productionReadiness.passed} de {state.productionReadiness.total}.
+            {" "}Mesmo após todos os requisitos, a liberação exige uma implementação específica e aprovação explícita.</p>
+          <p><strong>Cortesias ativas:</strong> {state.productionDiagnostics?.activeCourtesies ?? "—"}.
+            {" "}Renovações registradas somente no Sandbox: {state.productionDiagnostics?.sandboxRenewalsRecorded ?? "—"}.</p>
+          <div className="sandbox-simulator-result">
+            {state.productionReadiness.checks.map(check => (
+              <p key={check.key}>
+                <strong>{check.passed ? "✓ Validado" : "⏳ Pendente"}</strong>
+                {" · "}{check.label}
+              </p>
+            ))}
+          </div>
+          <small>Somente leitura. Não há opção de ativar cobranças reais nesta tela; nenhum direito de acesso é alterado.</small>
+        </section>
+      )}
       {!!state?.orders.length && (
         <>
           <h3>Últimos testes</h3>
