@@ -7,6 +7,7 @@ import { matchesLegacySandboxSubscription, type SandboxSubscriptionCandidate } f
 import { sandboxEntitlementPreview } from "@/lib/sandbox-entitlement";
 import { findRenewalCandidates, type AsaasCharge } from "@/lib/asaas-renewal-reconciliation";
 import { summarizeSandboxLifecycle } from "@/lib/asaas-lifecycle-review";
+import { evaluatePremiumProductionReadiness } from "@/lib/premium-production-readiness";
 import { reviewSandboxBillingRisks } from "@/lib/sandbox-billing-risk-review";
 const events = [
   "CHECKOUT_CREATED",
@@ -35,6 +36,24 @@ export async function GET() {
       .select("payment_id,order_id,due_date,previous_valid_until,new_valid_until,applied_at")
       .order("applied_at", { ascending: false }).limit(30);
     if (renewalsError) throw new Error("Não foi possível consultar as renovações de teste.");
+    // Advisory launch readiness only. Do not enable real billing or
+    // change any authorization: production infrastructure is not present.
+    const { count: activeCourtesyCount, error: courtesyError } = await db
+      .from("nc_subscriptions").select("household_id",{count:"exact",head:true})
+      .eq("kind","courtesy").gt("valid_until",new Date().toISOString());
+    if (courtesyError || activeCourtesyCount === null)
+      throw new Error("Não foi possível conferir as cortesias.");
+    const productionReadiness = evaluatePremiumProductionReadiness({
+      sandboxRenewalVerified:(appliedRenewals ?? []).length > 0,
+      courtesyIsolationPreserved:true,
+      productionCheckoutConfigured:false,
+      productionWebhookVerified:false,
+      productionPaymentLedger:false,
+      householdEntitlementResolver:false,
+      refundDisputeHandling:false,
+      authorizationGatesTested:false,
+      explicitLaunchApproved:false,
+    });
     const { data: hooks } = await asaas<{ data: Hook[] }>(
       "/webhooks?limit=100",
     );
@@ -44,6 +63,11 @@ export async function GET() {
     return Response.json({
       environment: "sandbox",
       connected: true,
+      productionReadiness,
+      productionDiagnostics: {
+        activeCourtesies:activeCourtesyCount,
+        sandboxRenewalsRecorded:(appliedRenewals ?? []).length,
+      },
       webhook: !!hook?.enabled && !hook.interrupted,
       lifecycleEvents: lifecycleEvents ?? [],
       appliedRenewals: appliedRenewals ?? [],
