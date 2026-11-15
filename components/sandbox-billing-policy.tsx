@@ -76,7 +76,7 @@ export default function SandboxBillingPolicy({validUntil}:{validUntil:string}) {
         {validation && (
           <div role="status" aria-live="polite">
             <p><strong>{validation.allPassed ? "Validação aprovada" : "Atenção: diferenças identificadas"}</strong> · {validation.passed} de {validation.total} verificações corretas.</p>
-            <table>
+            <div className="sandbox-policy-matrix-scroll"><table>
               <thead><tr><th>Cenário</th><th>Antes</th><th>Venc.</th><th>+1 dia</th><th>+3 dias</th><th>+4 dias</th></tr></thead>
               <tbody>
                 {scenarios.map(s => (
@@ -91,7 +91,7 @@ export default function SandboxBillingPolicy({validUntil}:{validUntil:string}) {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></div>
             {!validation.allPassed && <p>Não habilite nenhuma regra de acesso real. Revise os cenários com diferenças.</p>}
             <p>Esta verificação é local: não reenvia webhooks, não confirma cobranças e não grava resultados no banco.</p>
           </div>
