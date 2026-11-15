@@ -291,3 +291,9 @@
   margin-top: 12px;
 }
 .sandbox-simulator small { display: block; margin-top: 10px; color: #536d5e; }
+
+.sandbox-policy-matrix-scroll { max-width: 100%; overflow-x: auto; margin: 12px 0; }
+.sandbox-policy-matrix-scroll table { border-collapse: collapse; width: 100%; min-width: 680px; font-size: 12px; }
+.sandbox-policy-matrix-scroll th,
+.sandbox-policy-matrix-scroll td { text-align: left; padding: 8px; border-bottom: 1px solid #d8e7dc; vertical-align: top; }
+.sandbox-policy-matrix-scroll td { white-space: normal; min-width: 94px; }
