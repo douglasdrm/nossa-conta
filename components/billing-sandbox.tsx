@@ -27,6 +27,7 @@ export default function BillingSandbox({
     productionReconciliation?: {
       enabled:boolean;linkedSubscriptions:number;recordedPayments:number;
       auditEvents:number;hasPublicWriteEndpoint:false;
+      inboxEnabled?:boolean;inboxPending?:number;inboxProcessed?:number;inboxManualReview?:number;
     };
     productionFoundation?: {
       isolatedLedgerSchema:boolean;readOnlyHouseholdPreview:boolean;
@@ -261,6 +262,16 @@ export default function BillingSandbox({
               <p><strong>Assinaturas reais vinculadas:</strong> {state.productionReconciliation.linkedSubscriptions}.
                 {" "}Pagamentos de produção registrados: {state.productionReconciliation.recordedPayments}.
                 {" "}Eventos auditados: {state.productionReconciliation.auditEvents}.</p>
+              <div className="sandbox-simulator-result">
+                <h4>Caixa de entrada dos eventos reais · desativada</h4>
+                <p><strong>Recepção de produção:</strong> {state.productionReconciliation.inboxEnabled
+                  ? "ATENÇÃO: verifique a configuração" : "Bloqueada por padrão"}.</p>
+                <p><strong>Pendentes ou em processamento:</strong> {state.productionReconciliation.inboxPending ?? "—"}.
+                  {" "}Processados: {state.productionReconciliation.inboxProcessed ?? "—"}.
+                  {" "}Revisão manual: {state.productionReconciliation.inboxManualReview ?? "—"}.</p>
+                <p>Histórico privado por identificador de evento, sem armazenar conteúdo completo do webhook.
+                  Nenhum evento real pode ser recebido pela aplicação nesta fase.</p>
+              </div>
               <p>Sem endpoint público de escrita, sem credenciais reais e sem autorização Premium. Esta tela apenas consulta o diagnóstico.</p>
             </div>
           )}
