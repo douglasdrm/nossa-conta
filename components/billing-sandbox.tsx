@@ -23,6 +23,10 @@ export default function BillingSandbox({
       checks:{key:string;label:string;passed:boolean;required:true}[];
     };
     productionDiagnostics?: {activeCourtesies:number;sandboxRenewalsRecorded:number};
+    productionReconciliation?: {
+      enabled:boolean;linkedSubscriptions:number;recordedPayments:number;
+      auditEvents:number;hasPublicWriteEndpoint:false;
+    };
     productionFoundation?: {
       isolatedLedgerSchema:boolean;readOnlyHouseholdPreview:boolean;
       productionPaymentIngestion:boolean;accessEnforcement:boolean;
@@ -247,6 +251,18 @@ export default function BillingSandbox({
             {" "}Mesmo após todos os requisitos, a liberação exige uma implementação específica e aprovação explícita.</p>
           <p><strong>Cortesias ativas:</strong> {state.productionDiagnostics?.activeCourtesies ?? "—"}.
             {" "}Renovações registradas somente no Sandbox: {state.productionDiagnostics?.sandboxRenewalsRecorded ?? "—"}.</p>
+          {state.productionReconciliation && (
+            <div className="sandbox-simulator-result" role="status">
+              <h4>Reconciliação de produção · trava do banco</h4>
+              <p><strong>Processamento:</strong> {state.productionReconciliation.enabled
+                ? "ATENÇÃO: trava habilitada; revisar imediatamente"
+                : "Bloqueado por padrão e sem acesso via aplicativo"}.</p>
+              <p><strong>Assinaturas reais vinculadas:</strong> {state.productionReconciliation.linkedSubscriptions}.
+                {" "}Pagamentos de produção registrados: {state.productionReconciliation.recordedPayments}.
+                {" "}Eventos auditados: {state.productionReconciliation.auditEvents}.</p>
+              <p>Sem endpoint público de escrita, sem credenciais reais e sem autorização Premium. Esta tela apenas consulta o diagnóstico.</p>
+            </div>
+          )}
           {state.productionFoundation && state.productionShadow && (
             <div className="sandbox-simulator-result">
               <h4>Base isolada de produção · prévia por espaço familiar</h4>
