@@ -6,6 +6,7 @@ import { test } from "node:test";
 
 const require = createRequire(import.meta.url);
 const { Client } = require("pg");
+const { committedProductionInboxExecutor } = require("../../lib/production-inbox-connection.ts");
 const { restrictedProductionInboxAdapter } = require("../../lib/production-inbox-adapter.ts");
 const { prepareDurableProductionDelivery } = require("../../lib/production-durable-delivery.ts");
 const database = {
@@ -76,7 +77,9 @@ test("webhook adapter uses a restricted network login and acknowledges committed
   };
   const owner = new Client(connection);
   const password = randomBytes(24).toString("hex");
-  const writer = new Client({ ...connection, user: "nc_ci_webhook", password });
+  const newWriter = () => new Client({ ...connection, user: "nc_ci_webhook", password });
+  let writer = newWriter();
+  let discardedWriter;
   await owner.connect();
   try {
     // Only the disposable CI container or a newly provisioned Neon database is targeted.
@@ -133,18 +136,13 @@ test("webhook adapter uses a restricted network login and acknowledges committed
       [id],
     )).rows[0].total;
 
-    const persist = restrictedProductionInboxAdapter(async (sql, params) => {
-      await writer.query("begin");
-      try {
-        await writer.query("set local role nc_production_inbox_executor");
-        const result = await writer.query(sql, [...params]);
-        await writer.query("commit");
-        return result.rows;
-      } catch (error) {
-        await writer.query("rollback");
-        throw error;
-      }
-    });
+    const persist = restrictedProductionInboxAdapter(committedProductionInboxExecutor(async () => ({
+      query: (sql, parameters) => writer.query(sql, parameters),
+      release(destroy) {
+        // This harness owns its client. A discarded connection is replaced before a retry.
+        if (destroy) discardedWriter = writer;
+      },
+    })));
 
     const table = "nossa_conta_private.nc_production_event_inbox";
     await writer.query("set role nc_production_inbox_executor");
@@ -188,6 +186,10 @@ test("webhook adapter uses a restricted network login and acknowledges committed
     assert.equal(failed.status, 503);
     assert.equal(failed.acknowledged, false);
     assert.equal(await count(retryEvent.id), 0);
+    assert.equal(discardedWriter, writer);
+    await writer.end();
+    writer = newWriter();
+    await writer.connect();
     await owner.query("drop trigger nc_ci_fail_commit on " + table);
     assert.equal((await deliver(retryEvent, persist)).status, 200);
     assert.equal(await count(retryEvent.id), 1);
