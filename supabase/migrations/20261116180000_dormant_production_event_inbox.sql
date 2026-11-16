@@ -82,6 +82,11 @@ begin
   if not coalesce((select enabled from nossa_conta_private.nc_production_inbox_control
       where singleton),false) then
     return jsonb_build_object('result','production_inbox_disabled'); end if;
+  -- Expired last-attempt leases go to review instead of remaining stuck.
+  update nossa_conta_private.nc_production_event_inbox
+  set state='manual_review',leased_until=null,processed_at=now(),
+    last_result='max_attempts_exhausted'
+  where state='processing' and leased_until<now() and attempts>=5;
   select event_id,event_type,payment_id,attempts into item
   from nossa_conta_private.nc_production_event_inbox
   where (
@@ -110,14 +115,15 @@ revoke all on function nossa_conta_private.claim_production_event_internal()
 -- A failed verification stays available for a bounded retry, while a
 -- provider reversal requires a separate manual review.
 create function nossa_conta_private.complete_production_event_internal(
-  p_event_id text,p_outcome text,p_reason text default null
+  p_event_id text,p_attempt integer,p_outcome text,p_reason text default null
 ) returns text language plpgsql security invoker set search_path=''
 as $$
 declare item record;
 begin
   if not coalesce((select enabled from nossa_conta_private.nc_production_inbox_control
       where singleton),false) then return 'production_inbox_disabled'; end if;
-  if p_event_id is null or p_outcome not in ('processed','retry','manual_review')
+  if p_event_id is null or p_attempt is null or p_attempt<1 or
+    p_outcome not in ('processed','retry','manual_review')
     or p_outcome is null or p_reason is not null and length(p_reason)>100
   then return 'invalid'; end if;
   select state,leased_until,attempts into item
@@ -125,6 +131,7 @@ begin
   where event_id=p_event_id for update;
   if not found then return 'not_found'; end if;
   if item.state<>'processing' or item.leased_until<=now()
+    or item.attempts<>p_attempt
     then return 'not_leased'; end if;
   if p_outcome='retry' and item.attempts>=5 then
     p_outcome:='manual_review'; end if;
@@ -137,7 +144,7 @@ begin
   where event_id=p_event_id;
   return p_outcome;
 end $$;
-revoke all on function nossa_conta_private.complete_production_event_internal(text,text,text)
+revoke all on function nossa_conta_private.complete_production_event_internal(text,integer,text,text)
   from public,anon,authenticated;
 
 -- Existing admin-only diagnostics enriched with aggregate inbox counters.
