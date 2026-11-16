@@ -5,13 +5,16 @@ import { brl, plans } from "@/lib/plans";
 import MarketingFrame from "@/components/marketing/frame";
 import BillingSandbox from "@/components/billing-sandbox";
 import SubscriptionInterest from "@/components/subscription-interest";
+import ProductionCheckout from "@/components/production-checkout";
+import { productionCheckoutEnabled } from "@/lib/production-checkout";
 export const dynamic = "force-dynamic";
 export default async function Subscription({
   searchParams,
 }: {
-  searchParams: Promise<{ periodo?: string }>;
+  searchParams: Promise<{ periodo?: string; retorno?: string }>;
 }) {
-  const { periodo } = await searchParams;
+  const { periodo, retorno } = await searchParams;
+  const paymentsAvailable = productionCheckoutEnabled();
   const plan = plans.find((p) => p.id === periodo) || plans[2];
   if (!isConfigured()) redirect("/planos");
   const db = await createClient();
@@ -75,17 +78,31 @@ export default async function Subscription({
         </section>
       )}
       <section className="seo-copy">
-        <h2>Contratação em preparação</h2>
-        <p>
-          Seu espaço continua com os recursos atuais gratuitos. Registre seu
-          interesse neste período sem informar cartão e sem assumir compromisso
-          de pagamento.
-        </p>
-        <p>
-          O interesse será vinculado à sua conta para organizar o atendimento.
-          Isso não ativa uma assinatura paga.
-        </p>
-        <SubscriptionInterest cycle={plan.id} />
+        {paymentsAvailable ? (
+          <>
+            <h2>Contratar Premium</h2>
+            {retorno === "success" && (
+              <p role="status">Checkout concluído. A confirmação do pagamento depende do Asaas.</p>
+            )}
+            {retorno === "cancel" && <p role="status">Checkout cancelado.</p>}
+            {retorno === "expired" && <p role="status">O link do checkout expirou.</p>}
+            <ProductionCheckout key={plan.id} cycle={plan.id} />
+          </>
+        ) : (
+          <>
+            <h2>Contratação em preparação</h2>
+            <p>
+              Seu espaço continua com os recursos atuais gratuitos. Registre seu
+              interesse neste período sem informar cartão e sem assumir compromisso
+              de pagamento.
+            </p>
+            <p>
+              O interesse será vinculado à sua conta para organizar o atendimento.
+              Isso não ativa uma assinatura paga.
+            </p>
+            <SubscriptionInterest cycle={plan.id} />
+          </>
+        )}
         <div className="seo-links">
           {plans.map((p) => (
             <a key={p.id} href={"/assinatura?periodo=" + p.id}>
