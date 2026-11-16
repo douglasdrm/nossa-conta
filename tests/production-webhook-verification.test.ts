@@ -1,9 +1,9 @@
 import {test} from "node:test";
 import assert from "node:assert/strict";
 import {
-  matchesProductionWebhookToken as token,
   inspectProductionWebhookAgainstProvider as inspect,
 } from "../lib/production-webhook-verification";
+import {matchesProductionWebhookToken as token} from "../lib/production-webhook-auth";
 
 const expected={householdId:"family_abc123",subscriptionId:"sub_verified_123456",
   amountCents:1490,dueDate:"2027-01-13",cycle:"monthly" as const};
