@@ -19,17 +19,22 @@ test("production checkout is gated, owner-bound and idempotent for an active ord
       create table auth.users(id uuid primary key, email_confirmed_at timestamptz, is_anonymous boolean);
       create table public.nc_households(id uuid primary key, owner_id uuid);
       create table public.nc_household_members(household_id uuid, user_id uuid);
-      create table nossa_conta_private.nc_production_subscription_links(household_id uuid, status text);
-      create table nossa_conta_private.nc_production_charges(household_id uuid, status text, paid_until timestamptz);
+      create table public.nc_subscriptions(household_id uuid, valid_until timestamptz, kind text);
+      create function nossa_conta_private.is_system_admin() returns boolean language sql as $$select false$$;
       create table nossa_conta_private.nc_production_inbox_control(singleton boolean, enabled boolean);
-      create table nossa_conta_private.nc_production_reconciliation_control(singleton boolean, enabled boolean);
       insert into nossa_conta_private.nc_production_inbox_control values (true,false);
-      insert into nossa_conta_private.nc_production_reconciliation_control values (true,false);
       insert into auth.users values ('${owner}',now(),false), ('${member}',now(),false);
       insert into public.nc_households values ('${household}','${owner}');
       insert into public.nc_household_members values ('${household}','${owner}'), ('${household}','${member}');
     `);
-    await db.exec(await readFile("supabase/migrations/20261116190044_production_checkout_orders.sql", "utf8"));
+    for (const migration of [
+      "20261116095000_production_premium_shadow_foundation.sql",
+      "20261116150000_dormant_production_reconciliation.sql",
+      "20261116190044_production_checkout_orders.sql",
+      "20261116194246_confirm_production_checkout_payment.sql",
+    ]) {
+      await db.exec(await readFile("supabase/migrations/" + migration, "utf8"));
+    }
     const as = async (id: string) => {
       await db.exec("set role authenticated");
       await db.query("select set_config('request.jwt.claim.sub',$1,false)", [id]);
@@ -68,6 +73,45 @@ test("production checkout is gated, owner-bound and idempotent for an active ord
     await as(owner);
     assert.equal(await attach(), true);
     assert.equal((await reserve()).checkout_id, "checkout_fixture");
+    const confirm = async (id = order.id, checkout = "checkout_fixture", amount = 1490,
+      subscription: string | null = null, payment = "pay_fixture") => (await db.query<{ result: { status: string; valid_until?: string } }>(
+      `select public.nc_confirm_production_checkout_payment(
+         $1,$2,$3,$4,$5,$6,(now() at time zone 'America/Sao_Paulo')::date,'RECEIVED'
+       ) as result`, [token,id,checkout,payment,subscription,amount],
+    )).rows[0].result;
+    await as(member);
+    assert.equal((await confirm()).status, "unavailable");
+    await as(owner);
+    assert.equal((await confirm(order.id, "checkout_wrong")).status, "manual_review");
+    assert.equal((await confirm(order.id, "checkout_fixture", 1)).status, "manual_review");
+    const pix = await confirm();
+    assert.equal(pix.status, "confirmed");
+    assert.ok(pix.valid_until);
+    assert.deepEqual(await confirm(), pix);
+    assert.equal((await reserve()).status, "already_subscribed");
+    await as(member);
+    const memberAccess = await db.query<{ valid_until: string | null }>("select public.nc_production_paid_premium_until() as valid_until");
+    assert.ok(memberAccess.rows[0].valid_until);
+    await as("10000000-0000-4000-8000-000000000003");
+    const outsiderAccess = await db.query<{ valid_until: string | null }>("select public.nc_production_paid_premium_until() as valid_until");
+    assert.equal(outsiderAccess.rows[0].valid_until, null);
+    await db.exec("reset role");
+    assert.equal((await db.query("select 1 from nossa_conta_private.nc_production_charges")).rows.length, 1);
+    await db.exec(`
+      update nossa_conta_private.nc_production_charges set paid_until=now()-interval '1 day';
+      update nossa_conta_private.nc_production_checkout_orders set expires_at=now()-interval '1 minute';
+    `);
+    await as(owner);
+    const card = await reserve(token, "card");
+    assert.equal(card.status, "ready");
+    await db.query("select public.nc_attach_production_checkout($1,$2,'checkout_card01')", [token,card.id]);
+    const settledCard = await confirm(card.id, "checkout_card01", 1490, "sub_fixture01", "pay_card01");
+    assert.equal(settledCard.status, "confirmed");
+    assert.deepEqual(await confirm(card.id, "checkout_card01", 1490, "sub_fixture01", "pay_card01"), settledCard);
+    await db.exec("reset role");
+    assert.equal((await db.query("select 1 from nossa_conta_private.nc_production_subscription_links where status='active'")).rows.length, 1);
+    assert.equal((await db.query("select 1 from nossa_conta_private.nc_production_charges")).rows.length, 2);
+    await as(owner);
     await assert.rejects(db.query("select * from nossa_conta_private.nc_production_checkout_orders"), /permission denied/);
   } finally {
     await db.close();

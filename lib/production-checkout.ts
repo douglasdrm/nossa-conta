@@ -20,6 +20,10 @@ export function productionCheckoutPayload(
   const payload = checkoutPayload(id, cycle, method, image);
   return {
     ...payload,
+    callback: {
+      ...payload.callback,
+      successUrl: payload.callback.successUrl + "&pedido=" + encodeURIComponent(id),
+    },
     items: payload.items.map((item) => ({
       ...item, description: "Premium Nossa Conta",
     })),
