@@ -37,7 +37,7 @@ $$;
 revoke all on function nossa_conta_private.production_checkout_authorized(text)
   from public, anon, authenticated, service_role;
 
-create function public.nc_reserve_production_checkout(p_token text, p_cycle text, p_method text)
+create function nossa_conta_private.reserve_production_checkout(p_token text, p_cycle text, p_method text)
 returns jsonb
 language plpgsql security definer set search_path = ''
 as $$
@@ -87,7 +87,7 @@ begin
     'amount_cents', order_row.amount_cents, 'reused', reused);
 end $$;
 
-create function public.nc_attach_production_checkout(p_token text, p_order uuid, p_checkout text)
+create function nossa_conta_private.attach_production_checkout(p_token text, p_order uuid, p_checkout text)
 returns boolean
 language plpgsql security definer set search_path = ''
 as $$
@@ -104,7 +104,19 @@ begin
   return found;
 end $$;
 
-revoke all on function public.nc_reserve_production_checkout(text,text,text),
+create function public.nc_reserve_production_checkout(p_token text, p_cycle text, p_method text)
+returns jsonb language sql security invoker set search_path = ''
+as $$ select nossa_conta_private.reserve_production_checkout(p_token,p_cycle,p_method) $$;
+
+create function public.nc_attach_production_checkout(p_token text, p_order uuid, p_checkout text)
+returns boolean language sql security invoker set search_path = ''
+as $$ select nossa_conta_private.attach_production_checkout(p_token,p_order,p_checkout) $$;
+
+revoke all on function nossa_conta_private.reserve_production_checkout(text,text,text),
+  nossa_conta_private.attach_production_checkout(text,uuid,text),
+  public.nc_reserve_production_checkout(text,text,text),
   public.nc_attach_production_checkout(text,uuid,text) from public, anon, authenticated, service_role;
-grant execute on function public.nc_reserve_production_checkout(text,text,text),
+grant execute on function nossa_conta_private.reserve_production_checkout(text,text,text),
+  nossa_conta_private.attach_production_checkout(text,uuid,text),
+  public.nc_reserve_production_checkout(text,text,text),
   public.nc_attach_production_checkout(text,uuid,text) to authenticated;

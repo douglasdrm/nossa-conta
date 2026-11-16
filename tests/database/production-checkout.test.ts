@@ -13,6 +13,7 @@ test("production checkout is gated, owner-bound and idempotent for an active ord
     await db.exec(`
       create role anon; create role authenticated; create role service_role;
       create schema auth; create schema nossa_conta_private;
+      grant usage on schema nossa_conta_private to authenticated;
       create function auth.uid() returns uuid language sql stable as
         $$select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid$$;
       create table auth.users(id uuid primary key, email_confirmed_at timestamptz, is_anonymous boolean);
