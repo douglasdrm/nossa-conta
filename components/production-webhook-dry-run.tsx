@@ -32,7 +32,7 @@ export default function ProductionWebhookDryRun(){
       {label:"Contestação confirmada no provedor",status:"reversal",
         event:webhook,payment:{...provider,status:"CHARGEBACK_REQUESTED"},auth:true},
     ] as const;
-    const results=scenarios.map(s=>{
+    const results:Check[]=scenarios.map(s=>{
       const r=inspectProductionWebhookAgainstProvider(s.event,s.payment,expected,s.auth);
       return {label:s.label,passed:r.category===s.status&&!r.writesPerformed&&!r.premiumGranted,
         result:r.reason};
