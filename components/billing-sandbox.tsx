@@ -22,6 +22,15 @@ export default function BillingSandbox({
       checks:{key:string;label:string;passed:boolean;required:true}[];
     };
     productionDiagnostics?: {activeCourtesies:number;sandboxRenewalsRecorded:number};
+    productionFoundation?: {
+      isolatedLedgerSchema:boolean;readOnlyHouseholdPreview:boolean;
+      productionPaymentIngestion:boolean;accessEnforcement:boolean;
+    };
+    productionShadow?: {
+      mode:"shadow";enforced:false;billingEnabled:false;
+      member:boolean;courtesyActive:boolean;hypotheticalPaid:boolean;
+    };
+
     appliedRenewals?: {payment_id:string;order_id:string;due_date:string;previous_valid_until:string;new_valid_until:string;applied_at:string}[];
     lifecycleSummary?: Record<string, {
       state: string; successfulCharges: number; pendingCharges: number;
@@ -237,6 +246,20 @@ export default function BillingSandbox({
             {" "}Mesmo após todos os requisitos, a liberação exige uma implementação específica e aprovação explícita.</p>
           <p><strong>Cortesias ativas:</strong> {state.productionDiagnostics?.activeCourtesies ?? "—"}.
             {" "}Renovações registradas somente no Sandbox: {state.productionDiagnostics?.sandboxRenewalsRecorded ?? "—"}.</p>
+          {state.productionFoundation && state.productionShadow && (
+            <div className="sandbox-simulator-result">
+              <h4>Base isolada de produção · prévia por espaço familiar</h4>
+              <p><strong>Estrutura de pagamentos:</strong> {state.productionFoundation.isolatedLedgerSchema ? "Tabela privada criada" : "Pendente"}.
+                {" "}Nenhum pagamento real pode ser registrado pelo aplicativo nesta etapa.</p>
+              <p><strong>Consulta de prévia:</strong> {state.productionFoundation.readOnlyHouseholdPreview ? "Disponível somente para a família autenticada" : "Pendente"}.
+                {" "}Não é utilizada para bloquear ou liberar recursos.</p>
+              <p><strong>Seu espaço:</strong> {state.productionShadow.member ? "Vinculado" : "Não identificado"}.
+                {" "}Cortesia ativa: {state.productionShadow.courtesyActive ? "Sim" : "Não"}.
+                {" "}Período pago de produção hipotético: {state.productionShadow.hypotheticalPaid ? "Sim" : "Não"}.</p>
+              <p><strong>Ingestão de pagamentos reais:</strong> Desativada.
+                {" "}Aplicação de regras Premium: desativada.</p>
+            </div>
+          )}
           <div className="sandbox-simulator-result">
             {state.productionReadiness.checks.map(check => (
               <p key={check.key}>

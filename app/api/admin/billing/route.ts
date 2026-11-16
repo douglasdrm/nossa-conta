@@ -43,6 +43,11 @@ export async function GET() {
       .eq("kind","courtesy").gt("valid_until",new Date().toISOString());
     if (courtesyError || activeCourtesyCount === null)
       throw new Error("Não foi possível conferir as cortesias.");
+    const { data: productionShadow, error: productionShadowError } = await db
+      .rpc("nc_production_premium_shadow_status");
+    if (productionShadowError || !productionShadow || productionShadow.mode !== "shadow" ||
+        productionShadow.enforced !== false || productionShadow.billing_enabled !== false)
+      throw new Error("Não foi possível consultar a prévia segura de produção.");
     const productionReadiness = evaluatePremiumProductionReadiness({
       sandboxRenewalVerified:(appliedRenewals ?? []).length > 0,
       courtesyIsolationPreserved:true,
@@ -64,6 +69,16 @@ export async function GET() {
       environment: "sandbox",
       connected: true,
       productionReadiness,
+      productionShadow: {
+        mode:"shadow",enforced:false,billingEnabled:false,
+        member:productionShadow.member === true,
+        courtesyActive:productionShadow.courtesy_active === true,
+        hypotheticalPaid:productionShadow.hypothetical_paid === true,
+      },
+      productionFoundation: {
+        isolatedLedgerSchema:true,readOnlyHouseholdPreview:true,
+        productionPaymentIngestion:false,accessEnforcement:false,
+      },
       productionDiagnostics: {
         activeCourtesies:activeCourtesyCount,
         sandboxRenewalsRecorded:(appliedRenewals ?? []).length,
