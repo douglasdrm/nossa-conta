@@ -48,6 +48,11 @@ export async function GET() {
     if (productionShadowError || !productionShadow || productionShadow.mode !== "shadow" ||
         productionShadow.enforced !== false || productionShadow.billing_enabled !== false)
       throw new Error("Não foi possível consultar a prévia segura de produção.");
+    const { data: productionReconciliation, error: reconciliationError } =
+      await db.rpc("nc_production_reconciliation_diagnostics");
+    if (reconciliationError || !productionReconciliation ||
+        typeof productionReconciliation.enabled !== "boolean")
+      throw new Error("Não foi possível verificar a trava de produção.");
     const productionReadiness = evaluatePremiumProductionReadiness({
       sandboxRenewalVerified:(appliedRenewals ?? []).length > 0,
       courtesyIsolationPreserved:true,
@@ -69,6 +74,13 @@ export async function GET() {
       environment: "sandbox",
       connected: true,
       productionReadiness,
+      productionReconciliation: {
+        enabled:productionReconciliation.enabled === true,
+        linkedSubscriptions:Number(productionReconciliation.linked_subscriptions)||0,
+        recordedPayments:Number(productionReconciliation.recorded_payments)||0,
+        auditEvents:Number(productionReconciliation.audit_events)||0,
+        hasPublicWriteEndpoint:false,
+      },
       productionShadow: {
         mode:"shadow",enforced:false,billingEnabled:false,
         member:productionShadow.member === true,
