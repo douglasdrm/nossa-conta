@@ -90,7 +90,7 @@ test("production checkout is gated, owner-bound and idempotent for an active ord
     assert.deepEqual(await confirm(), pix);
     assert.equal((await reserve()).status, "already_subscribed");
     await as(member);
-    const memberAccess = await db.query("select public.nc_production_paid_premium_until() as valid_until");
+    const memberAccess = await db.query<{ valid_until: string | null }>("select public.nc_production_paid_premium_until() as valid_until");
     assert.ok(memberAccess.rows[0].valid_until);
     await as("10000000-0000-4000-8000-000000000003");
     const outsiderAccess = await db.query<{ valid_until: string | null }>("select public.nc_production_paid_premium_until() as valid_until");
