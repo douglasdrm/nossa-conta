@@ -79,6 +79,10 @@ export async function GET() {
         linkedSubscriptions:Number(productionReconciliation.linked_subscriptions)||0,
         recordedPayments:Number(productionReconciliation.recorded_payments)||0,
         auditEvents:Number(productionReconciliation.audit_events)||0,
+        inboxEnabled:productionReconciliation.inbox_enabled === true,
+        inboxPending:Number(productionReconciliation.inbox_pending)||0,
+        inboxProcessed:Number(productionReconciliation.inbox_processed)||0,
+        inboxManualReview:Number(productionReconciliation.inbox_manual_review)||0,
         hasPublicWriteEndpoint:false,
       },
       productionShadow: {
