@@ -21,8 +21,6 @@ test("production checkout is gated, owner-bound and idempotent for an active ord
       create table public.nc_household_members(household_id uuid, user_id uuid);
       create table public.nc_subscriptions(household_id uuid, valid_until timestamptz, kind text);
       create function nossa_conta_private.is_system_admin() returns boolean language sql as $$select false$$;
-      create table nossa_conta_private.nc_production_inbox_control(singleton boolean, enabled boolean);
-      insert into nossa_conta_private.nc_production_inbox_control values (true,false);
       insert into auth.users values ('${owner}',now(),false), ('${member}',now(),false);
       insert into public.nc_households values ('${household}','${owner}');
       insert into public.nc_household_members values ('${household}','${owner}'), ('${household}','${member}');
@@ -30,8 +28,10 @@ test("production checkout is gated, owner-bound and idempotent for an active ord
     for (const migration of [
       "20261116095000_production_premium_shadow_foundation.sql",
       "20261116150000_dormant_production_reconciliation.sql",
+      "20261116180000_dormant_production_event_inbox.sql",
       "20261116190044_production_checkout_orders.sql",
       "20261116194246_confirm_production_checkout_payment.sql",
+      "20261116200408_production_payment_worker.sql",
     ]) {
       await db.exec(await readFile("supabase/migrations/" + migration, "utf8"));
     }
@@ -90,7 +90,7 @@ test("production checkout is gated, owner-bound and idempotent for an active ord
     assert.deepEqual(await confirm(), pix);
     assert.equal((await reserve()).status, "already_subscribed");
     await as(member);
-    const memberAccess = await db.query<{ valid_until: string | null }>("select public.nc_production_paid_premium_until() as valid_until");
+    const memberAccess = await db.query("select public.nc_production_paid_premium_until() as valid_until");
     assert.ok(memberAccess.rows[0].valid_until);
     await as("10000000-0000-4000-8000-000000000003");
     const outsiderAccess = await db.query<{ valid_until: string | null }>("select public.nc_production_paid_premium_until() as valid_until");
@@ -113,6 +113,31 @@ test("production checkout is gated, owner-bound and idempotent for an active ord
     assert.equal((await db.query("select 1 from nossa_conta_private.nc_production_charges")).rows.length, 2);
     await as(owner);
     await assert.rejects(db.query("select * from nossa_conta_private.nc_production_checkout_orders"), /permission denied/);
+    await db.exec("reset role");
+    await db.exec("select nossa_conta_private.enqueue_production_event_internal('evt_refund_fixture','PAYMENT_REFUNDED','pay_card01')");
+    await db.exec("set role nc_production_payment_worker");
+    const claim = await db.query<{ result: { payment_id: string; attempts: number } }>(
+      "select nossa_conta_private.payment_worker_claim() as result");
+    assert.equal(claim.rows[0].result.payment_id, "pay_card01");
+
+    await assert.rejects(db.query("select * from nossa_conta_private.nc_production_charges"), /permission denied/);
+    const evidence = {
+      kind: "reversal", paymentId: "pay_card01", subscriptionId: "sub_fixture01",
+      amountCents: 1490, status: "REFUNDED",
+    };
+    const finish = async (attempt: number) => (await db.query<{ result: string }>(
+      `select nossa_conta_private.payment_worker_finish('evt_refund_fixture',$1,'apply',
+        $2::jsonb || jsonb_build_object('dueDate',(now() at time zone 'America/Sao_Paulo')::date)) as result`,
+      [attempt, JSON.stringify(evidence)],
+    )).rows[0].result;
+    assert.equal(await finish(2), "not_leased");
+    assert.equal(await finish(1), "processed");
+    assert.equal(await finish(1), "not_leased");
+
+    await as(owner);
+    assert.equal((await db.query<{ valid_until: string | null }>(
+      "select public.nc_production_paid_premium_until() as valid_until",
+    )).rows[0].valid_until, null);
   } finally {
     await db.close();
   }
