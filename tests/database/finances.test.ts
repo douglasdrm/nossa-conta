@@ -1881,5 +1881,59 @@ test("migration, household isolation, invitations and recurring month edits", as
       await db.query("delete from nc_system_admins where user_id=$1", [alice]);
     },
   );
+  await t.test(
+    "production shadow payments stay private, per-household and never change access",
+    async () => {
+      await as(alice);
+      const h = await rpc<string>("ensure_household");
+      const initial = await rpc<any>("production_premium_shadow_status");
+      assert.equal(initial.mode,"shadow");
+      assert.equal(initial.member,true);
+      assert.equal(initial.hypothetical_paid,false);
+      assert.equal(initial.enforced,false);
+      assert.equal(initial.billing_enabled,false);
+      await assert.rejects(
+        () => db.query("select * from nossa_conta_private.nc_production_charges"),
+        /permission denied/,
+      );
+      await assert.rejects(
+        () => db.query(
+          "insert into nossa_conta_private.nc_production_charges(household_id,provider_payment_id,cycle,status,amount_cents,due_date) values($1,'pay_unauthorized123','monthly','PENDING',1490,'2027-01-13')",
+          [h],
+        ),
+        /permission denied/,
+      );
+      await as("", "anon");
+      await assert.rejects(() => rpc("production_premium_shadow_status"), /permission denied/);
+      await db.exec("reset role");
+      await db.query(
+        `insert into nossa_conta_private.nc_production_charges
+         (household_id,provider_payment_id,cycle,status,amount_cents,due_date,paid_until,provider_verified_at)
+         values($1,'pay_verified_fixture123','monthly','CONFIRMED',1490,'2027-01-13',now()+interval '1 month',now())`,
+        [h],
+      );
+      await as(outsider);
+      const foreign = await rpc<any>("production_premium_shadow_status");
+      assert.equal(foreign.hypothetical_paid,false);
+      assert.equal(foreign.enforced,false);
+      await as(alice);
+      const paid = await rpc<any>("production_premium_shadow_status");
+      assert.equal(paid.hypothetical_paid,true);
+      assert.equal(paid.enforced,false);
+      assert.equal(paid.billing_enabled,false);
+      await db.exec("reset role");
+      await db.exec(
+        "update nossa_conta_private.nc_production_charges set status='REFUNDED' where provider_payment_id='pay_verified_fixture123'"
+      );
+      await as(alice);
+      const refunded = await rpc<any>("production_premium_shadow_status");
+      assert.equal(refunded.hypothetical_paid,false);
+      assert.equal(refunded.enforced,false);
+      await db.exec("reset role");
+      await db.exec(
+        "delete from nossa_conta_private.nc_production_charges where provider_payment_id='pay_verified_fixture123'"
+      );
+    },
+  );
   await db.close();
 });
