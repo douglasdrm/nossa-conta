@@ -4,6 +4,7 @@ import { brl, plans, type BillingCycle } from "@/lib/plans";
 import SandboxRenewalSimulator from "./sandbox-renewal-simulator";
 import SandboxBillingPolicy from "./sandbox-billing-policy";
 import ProductionReconciliationDryRun from "./production-reconciliation-dry-run";
+import ProductionWebhookDryRun from "./production-webhook-dry-run";
 export default function BillingSandbox({
   cycle = "yearly",
   panel = false,
@@ -289,6 +290,7 @@ export default function BillingSandbox({
         </section>
       )}
       {panel && state?.productionFoundation?.isolatedLedgerSchema && <ProductionReconciliationDryRun />}
+      {panel && state?.productionFoundation?.isolatedLedgerSchema && <ProductionWebhookDryRun />}
       {!!state?.orders.length && (
         <>
           <h3>Últimos testes</h3>
