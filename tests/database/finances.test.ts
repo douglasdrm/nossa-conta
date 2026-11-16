@@ -11,7 +11,7 @@ const charlie = "00000000-0000-4000-8000-000000000004";
 
 test("migration, household isolation, invitations and recurring month edits", async (t) => {
   const db = new PGlite();
-  await db.exec(`create role anon nologin;create role authenticated nologin;
+  await db.exec(`create role anon nologin;create role authenticated nologin;create role service_role nologin;
  create schema auth;
  create table auth.users(id uuid primary key,email text,email_confirmed_at timestamptz,is_anonymous boolean default false,raw_user_meta_data jsonb,created_at timestamptz default now());
  create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
