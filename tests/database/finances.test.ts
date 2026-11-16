@@ -1940,6 +1940,7 @@ test("migration, household isolation, invitations and recurring month edits", as
     async () => {
       await as(alice);
       const hAlice = await rpc<string>("ensure_household");
+      await assert.rejects(() => rpc("production_reconciliation_diagnostics"),/admin_required/);
       await assert.rejects(
         () => db.query("select nossa_conta_private.reconcile_production_payment_internal('evt_01','pay_test_payment01','sub_test_subscription01',1490,'2027-01-13','CONFIRMED')"),
         /permission denied/,
@@ -1949,6 +1950,12 @@ test("migration, household isolation, invitations and recurring month edits", as
         () => db.query("select * from nossa_conta_private.nc_production_reconciliation_events"),
         /permission denied/,
       );
+      await db.exec("reset role");
+      await db.query("insert into public.nc_system_admins(user_id) values($1)",[alice]);
+      await as(alice);
+      const diagnostic = await rpc<any>("production_reconciliation_diagnostics");
+      assert.equal(diagnostic.enabled,false);
+      assert.equal(diagnostic.recorded_payments,0);
       await db.exec("reset role");
       await db.query(`insert into nossa_conta_private.nc_production_subscription_links
         (provider_subscription_id,household_id,cycle,amount_cents,next_due_date,status)
@@ -1997,6 +2004,7 @@ test("migration, household isolation, invitations and recurring month edits", as
       await db.exec("delete from nossa_conta_private.nc_production_reconciliation_events");
       await db.exec("delete from nossa_conta_private.nc_production_charges");
       await db.exec("delete from nossa_conta_private.nc_production_subscription_links");
+      await db.query("delete from public.nc_system_admins where user_id=$1",[alice]);
     },
   );
   await db.close();
