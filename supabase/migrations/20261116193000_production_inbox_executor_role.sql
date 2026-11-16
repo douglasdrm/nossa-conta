@@ -28,7 +28,7 @@ grant execute on function nossa_conta_private.enqueue_production_event_gateway(
   text,text,text) to nc_production_inbox_executor;
 
 -- The role is deliberately NOT granted SELECT or DML on private tables.
--- Crucially, do not GRANT nc_production_inbox_executor to any other role.
+-- Do not grant this role to any application or API role. PostgreSQL may\n-- automatically register the creating owner (postgres) as a member.
 -- Creating an application login/connection requires a separate review and
 -- explicit launch authorization. Never use the owner or service role
 -- in an internet-facing webhook route.
