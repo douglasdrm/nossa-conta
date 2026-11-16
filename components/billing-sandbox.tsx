@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { brl, plans, type BillingCycle } from "@/lib/plans";
 import SandboxRenewalSimulator from "./sandbox-renewal-simulator";
 import SandboxBillingPolicy from "./sandbox-billing-policy";
+import ProductionReconciliationDryRun from "./production-reconciliation-dry-run";
 export default function BillingSandbox({
   cycle = "yearly",
   panel = false,
@@ -271,6 +272,7 @@ export default function BillingSandbox({
           <small>Somente leitura. Não há opção de ativar cobranças reais nesta tela; nenhum direito de acesso é alterado.</small>
         </section>
       )}
+      {panel && state?.productionFoundation?.isolatedLedgerSchema && <ProductionReconciliationDryRun />}
       {!!state?.orders.length && (
         <>
           <h3>Últimos testes</h3>
