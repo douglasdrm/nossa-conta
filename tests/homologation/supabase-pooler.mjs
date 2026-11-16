@@ -6,7 +6,10 @@ assert.equal(process.env.VERCEL_ENV, "preview");
 assert.equal(process.env.VERCEL_GIT_COMMIT_REF, "test/asaas-supabase-pooler");
 const password = process.env.NC_PREVIEW_INBOX_PASSWORD;
 const host = "aws-1-us-east-1.pooler.supabase.com";
-const ca = process.env.NC_PREVIEW_POOLER_CA;
+const caResponse = await fetch("https://supabase.com/prod-ca-2021.crt", { signal: AbortSignal.timeout(10_000) });
+assert.ok(caResponse.ok, "Unable to load the Supabase root certificate");
+const ca = await caResponse.text();
+assert.match(ca, /-----BEGIN CERTIFICATE-----/);
 
 {
   assert.ok(password, "Missing branch-scoped Preview credential");
