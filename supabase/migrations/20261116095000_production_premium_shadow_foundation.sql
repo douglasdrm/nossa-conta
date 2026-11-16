@@ -39,7 +39,7 @@ create index nc_production_charges_household_idx
 alter table nossa_conta_private.nc_production_charges enable row level security;
 -- No policies, no client grants, and no write function.
 revoke all on nossa_conta_private.nc_production_charges
-  from public,anon,authenticated,service_role;
+  from public,anon,authenticated;
 
 -- Safe read-only hypothetical entitlement status for the CURRENT signed-in
 -- household member. It does not authorize anything and does not change
