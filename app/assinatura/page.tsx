@@ -11,9 +11,9 @@ export const dynamic = "force-dynamic";
 export default async function Subscription({
   searchParams,
 }: {
-  searchParams: Promise<{ periodo?: string; retorno?: string }>;
+  searchParams: Promise<{ periodo?: string; retorno?: string; pedido?: string }>;
 }) {
-  const { periodo, retorno } = await searchParams;
+  const { periodo, retorno, pedido } = await searchParams;
   const paymentsAvailable = productionCheckoutEnabled();
   const plan = plans.find((p) => p.id === periodo) || plans[2];
   if (!isConfigured()) redirect("/planos");
@@ -40,6 +40,9 @@ export default async function Subscription({
     .gt("valid_until", new Date().toISOString())
     .maybeSingle();
   if (error) throw new Error("Não foi possível consultar sua assinatura.");
+  const paidUntil = paymentsAvailable ? await db.rpc("nc_production_paid_premium_until") : null;
+  if (paidUntil?.error) throw new Error("Não foi possível consultar o Premium pago.");
+  const paidDate = typeof paidUntil?.data === "string" ? paidUntil.data : null;
   const { data: isAdmin } = await db.rpc("nc_is_system_admin");
   const { data: sandboxStatus, error: sandboxError } = await db.rpc("nc_sandbox_premium_status");
   if (sandboxError) throw new Error("Não foi possível consultar a simulação de assinatura.");
@@ -62,6 +65,12 @@ export default async function Subscription({
             {" "}Somente teste do Asaas: não libera recursos pagos nem gera cobrança real.
           </p>
         )}
+        {paidDate && (
+          <p className="notice">
+            <strong>Premium pago ativo para este espaço compartilhado</strong> até{" "}
+            {new Date(paidDate).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}.
+          </p>
+        )}
         {courtesy && (
           <p className="notice">
             Você tem uma cortesia Premium válida até{" "}
@@ -80,13 +89,15 @@ export default async function Subscription({
       <section className="seo-copy">
         {paymentsAvailable ? (
           <>
-            <h2>Contratar Premium</h2>
+            <h2>{paidDate ? "Pagamento do Premium" : "Contratar Premium"}</h2>
             {retorno === "success" && (
               <p role="status">Checkout concluído. A confirmação do pagamento depende do Asaas.</p>
             )}
             {retorno === "cancel" && <p role="status">Checkout cancelado.</p>}
             {retorno === "expired" && <p role="status">O link do checkout expirou.</p>}
-            <ProductionCheckout key={plan.id} cycle={plan.id} />
+            {(!paidDate || (retorno === "success" && pedido)) && (
+              <ProductionCheckout key={pedido ?? plan.id} cycle={plan.id} order={retorno === "success" ? pedido : undefined} />
+            )}
           </>
         ) : (
           <>
