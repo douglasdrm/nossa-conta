@@ -17,8 +17,8 @@ as $$
     and nossa_conta_private.production_checkout_authorized(p_token);
 $$;
 
-create function nossa_conta_private.confirm_production_checkout_payment(
-  p_token text, p_order uuid, p_checkout text, p_payment text, p_subscription text,
+create function nossa_conta_private.apply_initial_production_checkout_payment(
+  p_order uuid, p_checkout text, p_payment text, p_subscription text,
   p_amount integer, p_due_date date, p_status text
 ) returns jsonb language plpgsql security definer set search_path = ''
 as $$
@@ -29,13 +29,10 @@ declare
   outcome text;
   local_today date := (now() at time zone 'America/Sao_Paulo')::date;
 begin
-  if nossa_conta_private.production_checkout_confirmation_order(p_token,p_order) is null then
-    return jsonb_build_object('status','unavailable');
-  end if;
   perform 1 from public.nc_households h
     where h.id = (select household_id from nossa_conta_private.nc_production_checkout_orders where id=p_order)
-      and h.owner_id = auth.uid() for update;
-  if not found or nossa_conta_private.production_checkout_confirmation_order(p_token,p_order) is null then
+      for update;
+  if not found then
     return jsonb_build_object('status','unavailable');
   end if;
   select * into strict o from nossa_conta_private.nc_production_checkout_orders where id=p_order for update;
@@ -91,6 +88,25 @@ begin
   end if;
   update nossa_conta_private.nc_production_checkout_orders set provider_payment_id=p_payment where id=p_order;
   return jsonb_build_object('status','confirmed','valid_until',paid_through);
+end $$;
+
+revoke all on function nossa_conta_private.apply_initial_production_checkout_payment(uuid,text,text,text,integer,date,text)
+  from public,anon,authenticated,service_role;
+
+create function nossa_conta_private.confirm_production_checkout_payment(
+  p_token text,p_order uuid,p_checkout text,p_payment text,p_subscription text,p_amount integer,p_due_date date,p_status text
+) returns jsonb language plpgsql security definer set search_path = ''
+as $$
+begin
+  perform 1 from public.nc_households h
+    where h.id = (select household_id from nossa_conta_private.nc_production_checkout_orders where id=p_order)
+      and h.owner_id = auth.uid() for update;
+  if not found or nossa_conta_private.production_checkout_confirmation_order(p_token,p_order) is null then
+    return jsonb_build_object('status','unavailable');
+  end if;
+  return nossa_conta_private.apply_initial_production_checkout_payment(
+    p_order,p_checkout,p_payment,p_subscription,p_amount,p_due_date,p_status
+  );
 end $$;
 
 create function public.nc_production_checkout_confirmation_order(p_token text,p_order uuid)
