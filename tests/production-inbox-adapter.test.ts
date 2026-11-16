@@ -1,6 +1,6 @@
 import {test} from "node:test";
 import assert from "node:assert/strict";
-import {productionInboxAdapter} from "../lib/production-inbox-adapter";
+import {productionInboxAdapter,restrictedProductionInboxAdapter} from "../lib/production-inbox-adapter";
 
 const fixture={id:"evt_adapter_012345",type:"PAYMENT_RECEIVED" as const,paymentId:"pay_adapter_012345"};
 test("adapter uses parameterized owner-only function and retains only event identifiers",async()=>{
@@ -30,4 +30,18 @@ test("adapter accepts each known result but fails closed for unexpected DB outpu
   }
   const broken=productionInboxAdapter(async()=>{throw new Error("database unavailable");});
   await assert.rejects(()=>broken(fixture),/database unavailable/);
+});
+
+test("restricted adapter invokes gateway rather than owner-only function",async()=>{
+  let called="";
+  const persist=restrictedProductionInboxAdapter(async(sql,params)=>{
+    called=sql;
+    assert.deepEqual(params,[
+      "evt_adapter_012345","PAYMENT_RECEIVED","pay_adapter_012345",
+    ]);
+    return [{outcome:"production_inbox_disabled"}];
+  });
+  assert.equal(await persist(fixture),"production_inbox_disabled");
+  assert.match(called,/enqueue_production_event_gateway/);
+  assert.ok(!called.includes("enqueue_production_event_internal"));
 });

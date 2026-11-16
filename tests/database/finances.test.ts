@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
 import { PGlite } from "@electric-sql/pglite";
-import { productionInboxAdapter } from "../../lib/production-inbox-adapter";
+import { productionInboxAdapter,restrictedProductionInboxAdapter } from "../../lib/production-inbox-adapter";
 import { prepareDurableProductionDelivery } from "../../lib/production-durable-delivery";
 const alice = "00000000-0000-4000-8000-000000000001";
 const bob = "00000000-0000-4000-8000-000000000002";
@@ -11,7 +11,7 @@ const charlie = "00000000-0000-4000-8000-000000000004";
 
 test("migration, household isolation, invitations and recurring month edits", async (t) => {
   const db = new PGlite();
-  await db.exec(`create role anon nologin;create role authenticated nologin;
+  await db.exec(`create role anon nologin;create role authenticated nologin;create role service_role nologin;
  create schema auth;
  create table auth.users(id uuid primary key,email text,email_confirmed_at timestamptz,is_anonymous boolean default false,raw_user_meta_data jsonb,created_at timestamptz default now());
  create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
@@ -2154,6 +2154,68 @@ test("migration, household isolation, invitations and recurring month edits", as
         "update nossa_conta_private.nc_production_inbox_control set enabled=false where singleton"
       );
       await db.exec("delete from nossa_conta_private.nc_production_event_inbox");
+    },
+  );
+  await t.test(
+    "least-privilege NOLOGIN inbox gateway denies users and only enqueues in disposable test",
+    async () => {
+      const role=(await db.query<{rolcanlogin:boolean;rolsuper:boolean;rolbypassrls:boolean}>(
+        "select rolcanlogin,rolsuper,rolbypassrls from pg_roles where rolname='nc_production_inbox_executor'"
+      )).rows[0];
+      assert.ok(role);
+      assert.equal(role.rolcanlogin,false);
+      assert.equal(role.rolsuper,false);
+      assert.equal(role.rolbypassrls,false);
+      const gate="nossa_conta_private.enqueue_production_event_gateway(text,text,text)";
+      for(const name of ["anon","authenticated"]){
+        const rights=(await db.query<{allowed:boolean}>(
+          "select has_function_privilege($1,$2,'EXECUTE') as allowed",[name,gate]
+        )).rows[0];
+        assert.equal(rights.allowed,false);
+      }
+      const adapter=restrictedProductionInboxAdapter(async(sql,values)=>
+        (await db.query<{outcome:string}>(sql,[...values])).rows,
+      );
+      const event={id:"evt_gateway_fixture01",type:"PAYMENT_CONFIRMED" as const,
+        paymentId:"pay_gateway_fixture01"};
+      await as(alice);
+      await assert.rejects(()=>adapter(event),/permission denied/);
+      await db.exec("reset role");
+      await db.exec("set role nc_production_inbox_executor");
+      const stillDisabled=await adapter(event);
+      assert.equal(stillDisabled,"production_inbox_disabled");
+      await assert.rejects(
+        ()=>db.query("select * from nossa_conta_private.nc_production_event_inbox"),
+        /permission denied/,
+      );
+      await assert.rejects(
+        ()=>db.query("select nossa_conta_private.claim_production_event_internal()"),
+        /permission denied/,
+      );
+      await assert.rejects(
+        ()=>db.query("select nossa_conta_private.enqueue_production_event_internal('evt_ex01','PAYMENT_CREATED','pay_ex01')"),
+        /permission denied/,
+      );
+      await assert.rejects(
+        ()=>db.query("update nossa_conta_private.nc_production_inbox_control set enabled=true"),
+        /permission denied/,
+      );
+      await db.exec("reset role");
+      // Enable ONLY in isolated PGlite to test the grant, never in Supabase.
+      await db.exec("update nossa_conta_private.nc_production_inbox_control set enabled=true where singleton");
+      await db.exec("set role nc_production_inbox_executor");
+      assert.equal(await adapter(event),"queued");
+      assert.equal(await adapter(event),"duplicate");
+      assert.equal(await adapter({...event,type:"PAYMENT_REFUNDED"}),"event_id_conflict");
+      await db.exec("reset role");
+      assert.equal((await db.query<{n:number}>(
+        "select count(*)::integer as n from nossa_conta_private.nc_production_event_inbox"
+      )).rows[0].n,1);
+      assert.equal((await db.query<{n:number}>(
+        "select count(*)::integer as n from nossa_conta_private.nc_production_charges"
+      )).rows[0].n,0);
+      await db.exec("delete from nossa_conta_private.nc_production_event_inbox");
+      await db.exec("update nossa_conta_private.nc_production_inbox_control set enabled=false where singleton");
     },
   );
   await db.close();
