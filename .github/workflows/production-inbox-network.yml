@@ -1,0 +1,44 @@
+name: Homologar caixa de entrada Asaas
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/production-inbox-network.yml'
+      - 'tests/homologation/production-inbox-network.mjs'
+      - 'lib/production-*.ts'
+      - 'supabase/migrations/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: nc_inbox_ci
+          POSTGRES_PASSWORD: nc_disposable_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d nc_inbox_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Instalar driver isolado de homologação
+        run: npm install --prefix "$RUNNER_TEMP/nc-test-driver" --no-audit --no-fund --ignore-scripts pg@8.16.3
+      - name: Testar gravação, repetição e falha de commit
+        env:
+          NC_CI_POSTGRES_PASSWORD: nc_disposable_ci
+        run: NODE_PATH="$RUNNER_TEMP/nc-test-driver/node_modules" node --import tsx --test tests/homologation/production-inbox-network.mjs
