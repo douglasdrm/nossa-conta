@@ -138,3 +138,34 @@ revoke all on function nossa_conta_private.reconcile_production_payment_internal
   text,text,text,integer,date,text) from public,anon,authenticated;
 -- Deliberately no grant to service_role: commercial reconciliation requires
 -- a separate security-reviewed migration and production provider verification.
+
+-- Admin-only diagnostics. This never executes a reconciliation or exposes IDs.
+create function nossa_conta_private.production_reconciliation_diagnostics()
+returns jsonb language plpgsql stable security definer set search_path=''
+as $$
+begin
+  if auth.uid() is null or not nossa_conta_private.is_system_admin()
+    then raise exception 'admin_required'; end if;
+  return jsonb_build_object(
+    'enabled',coalesce((select enabled from
+      nossa_conta_private.nc_production_reconciliation_control
+      where singleton=true),false),
+    'linked_subscriptions',(select count(*) from
+      nossa_conta_private.nc_production_subscription_links),
+    'recorded_payments',(select count(*) from
+      nossa_conta_private.nc_production_charges),
+    'audit_events',(select count(*) from
+      nossa_conta_private.nc_production_reconciliation_events)
+  );
+end $$;
+create function public.nc_production_reconciliation_diagnostics()
+returns jsonb language sql stable security invoker set search_path=''
+as $$ select nossa_conta_private.production_reconciliation_diagnostics() $$;
+revoke all on function
+  nossa_conta_private.production_reconciliation_diagnostics(),
+  public.nc_production_reconciliation_diagnostics()
+  from public,anon,authenticated;
+grant execute on function
+  nossa_conta_private.production_reconciliation_diagnostics(),
+  public.nc_production_reconciliation_diagnostics()
+  to authenticated;
