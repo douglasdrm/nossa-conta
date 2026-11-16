@@ -5,13 +5,11 @@ import { createRequire } from "node:module";
 assert.equal(process.env.VERCEL_ENV, "preview");
 assert.equal(process.env.VERCEL_GIT_COMMIT_REF, "test/asaas-supabase-pooler");
 const password = process.env.NC_PREVIEW_INBOX_PASSWORD;
-const host = process.env.NC_PREVIEW_POOLER_HOST;
+const host = "aws-1-us-east-1.pooler.supabase.com";
 const ca = process.env.NC_PREVIEW_POOLER_CA;
 
-if (!password) {
-  console.log("NC_POOLER_CHECK: setup pending (no preview credential)");
-} else {
-  assert.ok(host, "Missing session pooler hostname");
+{
+  assert.ok(password, "Missing branch-scoped Preview credential");
   const require = createRequire(import.meta.url);
   const { createProductionInboxConnection } = require("../../lib/production-inbox-connection.ts");
   const connection = createProductionInboxConnection({
