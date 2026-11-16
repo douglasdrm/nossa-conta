@@ -1946,7 +1946,7 @@ test("migration, household isolation, invitations and recurring month edits", as
       );
       await as("", "anon");
       await assert.rejects(
-        () => db.query("select nossa_conta_private.nc_production_reconciliation_events"),
+        () => db.query("select * from nossa_conta_private.nc_production_reconciliation_events"),
         /permission denied/,
       );
       await db.exec("reset role");
