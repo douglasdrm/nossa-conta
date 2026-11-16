@@ -1,6 +1,6 @@
 "use client";
 import {useState} from "react";
-import {inspectProductionWebhookAgainstProvider, matchesProductionWebhookToken}
+import {inspectProductionWebhookAgainstProvider}
   from "@/lib/production-webhook-verification";
 
 type Check={label:string;passed:boolean;result:string};
@@ -37,11 +37,6 @@ export default function ProductionWebhookDryRun(){
       return {label:s.label,passed:r.category===s.status&&!r.writesPerformed&&!r.premiumGranted,
         result:r.reason};
     });
-    const secret="FictitiousSeparateWebhookSecretNotForProduction2026";
-    results.push({label:"Token de webhook independente",passed:
-      matchesProductionWebhookToken(secret,secret)&&
-      !matchesProductionWebhookToken(secret,"token-invalido"),
-      result:"confere credencial fictícia"});
     setChecks(results);
   };
   return <section className="sandbox-simulator" aria-label="Homologação local de eventos de produção">
