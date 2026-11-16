@@ -16,15 +16,70 @@ const database = {
   query_timeout: 10_000,
 };
 
+async function provisionNeon() {
+  assert.equal(process.env.VERCEL_ENV, "preview");
+  assert.equal(process.env.VERCEL_GIT_COMMIT_REF, "test/asaas-vercel-neon");
+  const origin = "https://claimable.neon.tech";
+  async function request(path, options) {
+    const response = await fetch(origin + path, { ...options, signal: AbortSignal.timeout(45_000) });
+    if (!response.ok) throw new Error("Neon provisioning " + path.split("/").at(-1) + ": HTTP " + response.status);
+    return response.json();
+  }
+  const registration = await request("/v1/agent/identity", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      type: "anonymous",
+      capabilities: ["postgres"],
+      source: "Codex",
+      project_name: "nossa-conta-webhook-test",
+    }),
+  });
+  assert.ok(typeof registration.identity_assertion === "string", "Neon identity is missing");
+  assert.ok(typeof registration.project?.id === "string", "Neon project ID is missing");
+  const token = await request("/v1/oauth2/token", {
+    method: "POST",
+    body: new URLSearchParams({
+      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+      assertion: registration.identity_assertion,
+      resource: origin + "/",
+    }),
+  });
+  assert.ok(typeof token.access_token === "string", "Neon access token is missing");
+  const credentials = await request("/v1/projects/" + encodeURIComponent(registration.project.id) + "/credentials", {
+    headers: { Authorization: "Bearer " + token.access_token },
+  });
+  if (typeof credentials.database_url !== "string" ||
+      !/^postgres(?:ql)?:\/\//.test(credentials.database_url)) {
+    throw new Error("Neon returned no PostgreSQL connection");
+  }
+  const url = new URL(credentials.database_url);
+  if (!url.hostname.endsWith(".neon.tech")) throw new Error("Unexpected Neon host");
+  return {
+    ...database,
+    host: url.hostname.replace(/-pooler\./, "."),
+    port: Number(url.port || 5432),
+    database: decodeURIComponent(url.pathname.slice(1)),
+    user: decodeURIComponent(url.username),
+    password: decodeURIComponent(url.password),
+    ssl: { rejectUnauthorized: true },
+    connectionTimeoutMillis: 20_000,
+  };
+}
+
 test("webhook adapter uses a restricted network login and acknowledges committed events", {
-  timeout: 90_000,
+  timeout: 240_000,
 }, async () => {
-  const owner = new Client({ ...database, user: "postgres", password: process.env.NC_CI_POSTGRES_PASSWORD });
+  const onNeon = process.env.NC_TEST_NEON === "1";
+  const connection = onNeon ? await provisionNeon() : {
+    ...database, user: "postgres", password: process.env.NC_CI_POSTGRES_PASSWORD,
+  };
+  const owner = new Client(connection);
   const password = randomBytes(24).toString("hex");
-  const writer = new Client({ ...database, user: "nc_ci_webhook", password });
+  const writer = new Client({ ...connection, user: "nc_ci_webhook", password });
   await owner.connect();
   try {
-    // This test targets the disposable PostgreSQL service on the Actions runner.
+    // Only the disposable CI container or a newly provisioned Neon database is targeted.
     await owner.query(`
       create role anon nologin;
       create role authenticated nologin;
