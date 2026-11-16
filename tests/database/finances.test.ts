@@ -2007,5 +2007,92 @@ test("migration, household isolation, invitations and recurring month edits", as
       await db.query("delete from public.nc_system_admins where user_id=$1",[alice]);
     },
   );
+  await t.test(
+    "private production event inbox is disabled, deduplicated, recoverable and owner-only",
+    async () => {
+      const enqueue=(id:string,type:string,payment:string)=>
+        db.query<{outcome:string}>(
+          "select nossa_conta_private.enqueue_production_event_internal($1,$2,$3) as outcome",
+          [id,type,payment],
+        ).then(x=>x.rows[0].outcome);
+      const claim=()=>db.query<{value:any}>(
+        "select nossa_conta_private.claim_production_event_internal() as value"
+      ).then(x=>x.rows[0].value);
+      const finish=(id:string,attempt:number,outcome:string,reason:string|null=null)=>
+        db.query<{value:string}>(
+          "select nossa_conta_private.complete_production_event_internal($1,$2,$3,$4) as value",
+          [id,attempt,outcome,reason],
+        ).then(x=>x.rows[0].value);
+      await as(alice);
+      await assert.rejects(
+        () => db.query("select * from nossa_conta_private.nc_production_event_inbox"),
+        /permission denied/,
+      );
+      await assert.rejects(
+        () => enqueue("evt_test001","PAYMENT_CONFIRMED","pay_payment001"),
+        /permission denied/,
+      );
+      await assert.rejects(() => claim(),/permission denied/);
+      await as("", "anon");
+      await assert.rejects(() => claim(),/permission denied/);
+      await db.exec("reset role");
+      assert.equal(await enqueue("evt_test001","PAYMENT_CONFIRMED","pay_payment001"),
+        "production_inbox_disabled");
+      assert.equal((await claim()).result,"production_inbox_disabled");
+      assert.equal(await finish("evt_test001",1,"processed"),"production_inbox_disabled");
+      assert.equal((await db.query<{count:number}>(
+        "select count(*)::integer as count from nossa_conta_private.nc_production_event_inbox"
+      )).rows[0].count,0);
+      // Toggle ONLY in the disposable PGlite test database.
+      await db.exec(
+        "update nossa_conta_private.nc_production_inbox_control set enabled=true where singleton"
+      );
+      assert.equal(await enqueue("evt_test001","PAYMENT_CONFIRMED","pay_payment001"),"queued");
+      assert.equal(await enqueue("evt_test001","PAYMENT_CONFIRMED","pay_payment001"),"duplicate");
+      assert.equal(await enqueue("evt_test001","PAYMENT_RECEIVED","pay_payment001"),"event_id_conflict");
+      assert.equal(await enqueue("evt_test001","PAYMENT_CONFIRMED","pay_different001"),"event_id_conflict");
+      assert.equal(await enqueue("evt_test002","INVALID","pay_payment002"),"invalid");
+      assert.equal(await enqueue("evt_test002","PAYMENT_CREATED","not_a_payment"),"invalid");
+      const first=await claim();
+      assert.equal(first.result,"claimed");
+      assert.equal(first.event_id,"evt_test001");
+      assert.equal(first.attempts,1);
+      assert.equal((await claim()).result,"empty");
+      assert.equal(await finish("evt_test001",99,"processed"),"not_leased");
+      assert.equal(await finish("evt_test001",1,"retry","provider_timeout"),"retry");
+      assert.equal((await claim()).result,"empty");
+      await db.exec(
+        "update nossa_conta_private.nc_production_event_inbox set available_at=now()-interval '1 second' where event_id='evt_test001'"
+      );
+      const second=await claim();
+      assert.equal(second.result,"claimed");
+      assert.equal(second.attempts,2);
+      assert.equal(await finish("evt_test001",1,"processed"),"not_leased");
+      assert.equal(await finish("evt_test001",2,"processed","provider_verified"),"processed");
+      assert.equal(await enqueue("evt_test001","PAYMENT_CONFIRMED","pay_payment001"),"duplicate");
+      assert.equal((await claim()).result,"empty");
+      assert.equal(await enqueue("evt_test003","PAYMENT_REFUNDED","pay_payment003"),"queued");
+      const reversal=await claim();
+      assert.equal(reversal.event_id,"evt_test003");
+      assert.equal(await finish("evt_test003",1,"manual_review","refund"),"manual_review");
+      assert.equal(await enqueue("evt_test004","PAYMENT_OVERDUE","pay_payment004"),"queued");
+      await db.exec(
+        "update nossa_conta_private.nc_production_event_inbox set state='processing',attempts=5,leased_until=now()-interval '1 second' where event_id='evt_test004'"
+      );
+      assert.equal((await claim()).result,"empty");
+      const terminal=(await db.query<{state:string;reason:string}>(
+        "select state,last_result as reason from nossa_conta_private.nc_production_event_inbox where event_id='evt_test004'"
+      )).rows[0];
+      assert.equal(terminal.state,"manual_review");
+      assert.equal(terminal.reason,"max_attempts_exhausted");
+      await db.exec("update nossa_conta_private.nc_production_inbox_control set enabled=false where singleton");
+      assert.equal(await enqueue("evt_test005","PAYMENT_CREATED","pay_payment005"),"production_inbox_disabled");
+      assert.equal((await claim()).result,"production_inbox_disabled");
+      assert.equal((await db.query<{count:number}>(
+        "select count(*)::integer as count from nossa_conta_private.nc_production_event_inbox"
+      )).rows[0].count,3);
+      await db.exec("delete from nossa_conta_private.nc_production_event_inbox");
+    },
+  );
   await db.close();
 });
