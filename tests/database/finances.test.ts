@@ -1935,5 +1935,69 @@ test("migration, household isolation, invitations and recurring month edits", as
       );
     },
   );
+  await t.test(
+    "production reconciliation is owner-only, disabled by default, atomic and idempotent",
+    async () => {
+      await as(alice);
+      const hAlice = await rpc<string>("ensure_household");
+      await assert.rejects(
+        () => db.query("select nossa_conta_private.reconcile_production_payment_internal('evt_01','pay_test_payment01','sub_test_subscription01',1490,'2027-01-13','CONFIRMED')"),
+        /permission denied/,
+      );
+      await as("", "anon");
+      await assert.rejects(
+        () => db.query("select nossa_conta_private.nc_production_reconciliation_events"),
+        /permission denied/,
+      );
+      await db.exec("reset role");
+      await db.query(`insert into nossa_conta_private.nc_production_subscription_links
+        (provider_subscription_id,household_id,cycle,amount_cents,next_due_date,status)
+        values ('sub_test_subscription01',$1,'monthly',1490,'2027-01-13','active')`,[hAlice]);
+      const reconcile=(event:string,payment:string,sub:string,amount:number,due:string,status:string)=>
+        db.query<{result:string}>(
+          "select nossa_conta_private.reconcile_production_payment_internal($1,$2,$3,$4,$5::date,$6) as result",
+          [event,payment,sub,amount,due,status],
+        ).then(x=>x.rows[0].result);
+      assert.equal(await reconcile("evt_test01","pay_test_payment01","sub_test_subscription01",1490,"2027-01-13","CONFIRMED"),"production_disabled");
+      assert.equal((await db.query<{n:number}>(
+        "select count(*)::integer as n from nossa_conta_private.nc_production_charges"
+      )).rows[0].n,0);
+      // Local PGlite fixture ONLY; hosted control stays false.
+      await db.exec("update nossa_conta_private.nc_production_reconciliation_control set enabled=true where singleton");
+      assert.equal(await reconcile("evt_test01","pay_test_payment01","sub_test_subscription01",1490,"2027-01-13","PENDING"),"invalid");
+      assert.equal(await reconcile("evt_test01","pay_test_payment01","sub_test_subscription01",1490,"2027-02-13","CONFIRMED"),"not_next_cycle");
+      assert.equal(await reconcile("evt_test01","pay_test_payment01","sub_test_subscription01",3900,"2027-01-13","CONFIRMED"),"unmatched");
+      assert.equal(await reconcile("evt_test01","pay_test_payment01","sub_test_subscription01",1490,"2027-01-13","CONFIRMED"),"applied");
+      assert.equal(await reconcile("evt_test01","pay_test_payment01","sub_test_subscription01",1490,"2027-01-13","CONFIRMED"),"duplicate_event");
+      assert.equal(await reconcile("evt_test02","pay_test_payment01","sub_test_subscription01",1490,"2027-01-13","RECEIVED"),"duplicate_payment");
+      assert.equal(await reconcile("evt_test03","pay_other_payment01","sub_test_subscription01",1490,"2027-01-13","CONFIRMED"),"not_next_cycle");
+      const after = (await db.query<{n:number;next:string}>(
+        `select (select count(*)::integer from nossa_conta_private.nc_production_charges) as n,
+        (select next_due_date::text from nossa_conta_private.nc_production_subscription_links
+         where provider_subscription_id='sub_test_subscription01') as next`
+      )).rows[0];
+      assert.equal(after.n,1);
+      assert.equal(after.next,"2027-02-13");
+      await as(alice);
+      assert.equal((await rpc<any>("production_premium_shadow_status")).hypothetical_paid,true);
+      await db.exec("reset role");
+      assert.equal(await reconcile("evt_test04","pay_test_payment01","sub_test_subscription01",1490,"2027-01-13","REFUNDED"),"manual_review");
+      assert.equal(await reconcile("evt_test05","pay_test_payment01","sub_test_subscription01",1490,"2027-01-13","CONFIRMED"),"manual_review");
+      await as(alice);
+      assert.equal((await rpc<any>("production_premium_shadow_status")).hypothetical_paid,false);
+      await db.exec("reset role");
+      assert.equal((await db.query<{n:number}>(
+        "select count(*)::integer as n from nossa_conta_private.nc_production_charges"
+      )).rows[0].n,1);
+      assert.equal((await db.query<{n:number}>(
+        "select count(*)::integer as n from nossa_conta_private.nc_production_reconciliation_events"
+      )).rows[0].n,4);
+      await db.exec("update nossa_conta_private.nc_production_reconciliation_control set enabled=false where singleton");
+      assert.equal(await reconcile("evt_test06","pay_other_payment01","sub_test_subscription01",1490,"2027-02-13","CONFIRMED"),"production_disabled");
+      await db.exec("delete from nossa_conta_private.nc_production_reconciliation_events");
+      await db.exec("delete from nossa_conta_private.nc_production_charges");
+      await db.exec("delete from nossa_conta_private.nc_production_subscription_links");
+    },
+  );
   await db.close();
 });
