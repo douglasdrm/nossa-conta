@@ -1,16 +1,33 @@
-import { disabledProductionIngressResponse } from "@/lib/production-webhook-ingress";
+import { createProductionInboxConnection } from "@/lib/production-inbox-connection";
+import { createProductionWebhookHandler } from "@/lib/production-webhook-handler";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/**
- * Reserved URL for a future Asaas production webhook.
- * It is deliberately NOT a functioning webhook listener.
- * No credentials, request payload, provider GET or DB insert are performed.
- *
- * A future launch needs authenticated ingress + durable enqueue BEFORE a
- * successful acknowledgement, followed by independent Asaas verification.
- */
-export async function POST(_request:Request):Promise<Response> {
-  return disabledProductionIngressResponse();
+// Change this only in a separately reviewed launch.
+const productionWebhookEnabled = false;
+let inbox: ReturnType<typeof createProductionInboxConnection> | undefined;
+
+const handle = createProductionWebhookHandler({
+  enabled: productionWebhookEnabled,
+  webhookSecret: () => process.env.ASAAS_PRODUCTION_WEBHOOK_TOKEN,
+  persist: (event) => {
+    if (!inbox) {
+      const {
+        NC_PRODUCTION_INBOX_POOLER_HOST: host,
+        NC_PRODUCTION_INBOX_PROJECT_REF: projectRef,
+        NC_PRODUCTION_INBOX_PASSWORD: password,
+        NC_PRODUCTION_INBOX_CA: ca,
+      } = process.env;
+      if (!host || !projectRef || !password || !ca?.trim()) {
+        throw new Error("Production inbox connection is not configured");
+      }
+      inbox = createProductionInboxConnection({ host, projectRef, password, ca });
+    }
+    return inbox.persist(event);
+  },
+});
+
+export async function POST(request: Request): Promise<Response> {
+  return handle(request);
 }
