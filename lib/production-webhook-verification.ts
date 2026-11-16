@@ -1,4 +1,3 @@
-import { timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import type { ExpectedProductionCharge } from "./production-reconciliation-preview";
 
@@ -51,22 +50,6 @@ const reversed = new Set(["REFUNDED","PARTIALLY_REFUNDED","CHARGEBACK_REQUESTED"
 function isRealDate(date: string): boolean {
   const d = new Date(date+"T00:00:00.000Z");
   return Number.isFinite(d.getTime()) && d.toISOString().slice(0,10) === date;
-}
-
-/**
- * Compare configured, secret webhook authToken to request header.
- * Never use an Asaas API key as a webhook authToken.
- */
-export function matchesProductionWebhookToken(
-  configuredToken: string | undefined,
-  receivedHeader: string | null,
-): boolean {
-  if (!configuredToken || !receivedHeader ||
-      configuredToken.length < 32 || configuredToken.length > 255 ||
-      /\s/.test(configuredToken)) return false;
-  const a=Buffer.from(configuredToken,"utf8");
-  const b=Buffer.from(receivedHeader,"utf8");
-  return a.length===b.length && timingSafeEqual(a,b);
 }
 
 /**
