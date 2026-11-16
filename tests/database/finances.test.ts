@@ -2,6 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
 import { PGlite } from "@electric-sql/pglite";
+import { productionInboxAdapter } from "../../lib/production-inbox-adapter";
+import { prepareDurableProductionDelivery } from "../../lib/production-durable-delivery";
 const alice = "00000000-0000-4000-8000-000000000001";
 const bob = "00000000-0000-4000-8000-000000000002";
 const outsider = "00000000-0000-4000-8000-000000000003";
@@ -2091,6 +2093,66 @@ test("migration, household isolation, invitations and recurring month edits", as
       assert.equal((await db.query<{count:number}>(
         "select count(*)::integer as count from nossa_conta_private.nc_production_event_inbox"
       )).rows[0].count,3);
+      await db.exec("delete from nossa_conta_private.nc_production_event_inbox");
+    },
+  );
+  await t.test(
+    "owner-only SQL adapter acknowledges only a committed inbox event, never a blocked write",
+    async () => {
+      const token="FixtureWebhookCredential_2026_OnlyForLocalDatabaseTesting";
+      const event={id:"evt_sql_adapter_001",event:"PAYMENT_CONFIRMED",payment:{id:"pay_sql_adapter_001",customer:{secret:"not-persisted"}}};
+      const makeArgs=(payload:unknown)=>({
+        explicitlyEnabled:true,webhookSecret:token,receivedToken:token,
+        rawBody:JSON.stringify(payload),
+      });
+      const adapter=productionInboxAdapter(async(sql,values)=>{
+        const result=await db.query<{outcome:string}>(sql,[...values]);
+        return result.rows;
+      });
+      // Hosted and local databases both start with the inbox disabled.
+      await db.exec("reset role");
+      let output=await prepareDurableProductionDelivery(makeArgs(event),adapter);
+      assert.equal(output.status,503);
+      assert.equal(output.reason,"production_inbox_disabled");
+      assert.equal((await db.query<{n:number}>(
+        "select count(*)::int as n from nossa_conta_private.nc_production_event_inbox"
+      )).rows[0].n,0);
+      // Disposable PGlite fixture ONLY. Never enable the hosted inbox.
+      await db.exec(
+        "update nossa_conta_private.nc_production_inbox_control set enabled=true where singleton"
+      );
+      output=await prepareDurableProductionDelivery(makeArgs(event),adapter);
+      assert.equal(output.status,200);
+      assert.equal(output.reason,"persisted");
+      assert.equal(output.durable,true);
+      output=await prepareDurableProductionDelivery(makeArgs(event),adapter);
+      assert.equal(output.status,200);
+      assert.equal(output.reason,"matching_event_already_persisted");
+      const forged={...event,event:"PAYMENT_REFUNDED"};
+      output=await prepareDurableProductionDelivery(makeArgs(forged),adapter);
+      assert.equal(output.status,409);
+      assert.equal(output.durable,false);
+      const row=(await db.query<{id:string;payment:string;type:string;status:string}>(
+        "select event_id as id,payment_id as payment,event_type as type,state as status from nossa_conta_private.nc_production_event_inbox"
+      )).rows;
+      assert.deepEqual(row,[{
+        id:"evt_sql_adapter_001",payment:"pay_sql_adapter_001",
+        type:"PAYMENT_CONFIRMED",status:"pending",
+      }]);
+      assert.equal((await db.query<{n:number}>(
+        "select count(*)::int as n from nossa_conta_private.nc_production_charges"
+      )).rows[0].n,0);
+      // Verify normal signed-in user cannot invoke this SQL adapter.
+      await as(alice);
+      const denied=await prepareDurableProductionDelivery(
+        makeArgs({...event,id:"evt_sql_adapter_002"}),adapter,
+      );
+      assert.equal(denied.status,503);
+      assert.equal(denied.reason,"persistence_failed");
+      await db.exec("reset role");
+      await db.exec(
+        "update nossa_conta_private.nc_production_inbox_control set enabled=false where singleton"
+      );
       await db.exec("delete from nossa_conta_private.nc_production_event_inbox");
     },
   );
