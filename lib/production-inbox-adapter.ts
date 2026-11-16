@@ -42,3 +42,24 @@ export function productionInboxAdapter(executeCommitted: CommittedSqlExecutor): 
     return rows[0].outcome as InboxPersistResult;
   };
 }
+
+/**
+ * Future no-login role executor. This function is deliberately NOT wired to
+ * the deployed HTTP endpoint, and does not create a connection.
+ * The role can call ONLY the gateway, not the underlying private function.
+ */
+export function restrictedProductionInboxAdapter(
+  executeCommitted: CommittedSqlExecutor,
+): InboxCommit {
+  return async (event: DurableEvent): Promise<InboxPersistResult> => {
+    const rows = await executeCommitted(
+      `select nossa_conta_private.enqueue_production_event_gateway(
+        $1::text,$2::text,$3::text
+      ) as outcome`,
+      [event.id,event.type,event.paymentId],
+    );
+    if(rows.length !== 1 || !outcomes.includes(rows[0]?.outcome as InboxPersistResult))
+      throw new Error("Unexpected production gateway result");
+    return rows[0].outcome as InboxPersistResult;
+  };
+}
