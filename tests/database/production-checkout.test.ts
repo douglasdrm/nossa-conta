@@ -319,6 +319,22 @@ test("checkout and webhook reconcile payment, retry, renewal and refund without 
           payment.value !== 14.9) {
         throw new Error("First Sandbox payment does not match the Premium Mensal fixture");
       }
+      // Inspect only correlation signals, without logging identifiers or provider payloads.
+      const fullPayment = await sandboxFetch("https://api.asaas.com/v3/payments/" + payment.id, { headers });
+      if (!fullPayment.ok) throw new Error("Sandbox payment detail lookup failed");
+      const detail = await fullPayment.json() as { checkoutSession?: string; externalReference?: string; subscription?: string };
+      let subscriptionReference = false;
+      if (detail.subscription && /^sub_[A-Za-z0-9_-]{6,100}$/.test(detail.subscription)) {
+        const response = await sandboxFetch("https://api.asaas.com/v3/subscriptions/" + detail.subscription, { headers });
+        if (!response.ok) throw new Error("Sandbox subscription detail lookup failed");
+        const subscription = await response.json() as { externalReference?: string };
+        subscriptionReference = Boolean(subscription.externalReference);
+      }
+      console.log("NC_ASAAS_CORRELATION " + JSON.stringify({
+        exactCheckoutOnPayment: detail.checkoutSession === checkout,
+        referenceOnPayment: Boolean(detail.externalReference),
+        referenceOnSubscription: subscriptionReference,
+      }));
       selectedPaymentId = payment.id;
       const sandboxOwner = "10000000-0000-4000-8000-000000000003";
       const sandboxHousehold = "20000000-0000-4000-8000-000000000002";
