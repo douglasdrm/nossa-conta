@@ -6,7 +6,7 @@ import MarketingFrame from "@/components/marketing/frame";
 import BillingSandbox from "@/components/billing-sandbox";
 import SubscriptionInterest from "@/components/subscription-interest";
 import ProductionCheckout from "@/components/production-checkout";
-import { productionCheckoutEnabled } from "@/lib/production-checkout";
+import { productionCheckoutEnabled, productionCheckoutPilotAllows } from "@/lib/production-checkout";
 export const dynamic = "force-dynamic";
 export default async function Subscription({
   searchParams,
@@ -87,7 +87,7 @@ export default async function Subscription({
         </section>
       )}
       <section className="seo-copy">
-        {paymentsAvailable ? (
+        {paymentsAvailable && productionCheckoutPilotAllows(user.id) ? (
           <>
             <h2>{paidDate ? "Pagamento do Premium" : "Contratar Premium"}</h2>
             {retorno === "success" && (

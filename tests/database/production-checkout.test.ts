@@ -2,8 +2,11 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { PGlite } from "@electric-sql/pglite";
+import { restrictedProductionInboxAdapter } from "../../lib/production-inbox-adapter";
+import { createProductionWebhookHandler } from "../../lib/production-webhook-handler";
+import { processProductionPayment } from "../../lib/production-payment-worker";
 
-test("production checkout is gated, owner-bound and idempotent for an active order", async () => {
+test("checkout and webhook reconcile payment, retry, renewal and refund without bypassing household permissions", async () => {
   const db = new PGlite();
   const owner = "10000000-0000-4000-8000-000000000001";
   const member = "10000000-0000-4000-8000-000000000002";
@@ -30,6 +33,7 @@ test("production checkout is gated, owner-bound and idempotent for an active ord
       "20261116150000_dormant_production_reconciliation.sql",
       "20261116180000_dormant_production_event_inbox.sql",
       "20261116190044_production_checkout_orders.sql",
+      "20261116193000_production_inbox_executor_role.sql",
       "20261116194246_confirm_production_checkout_payment.sql",
       "20261116200408_production_payment_worker.sql",
     ]) {
@@ -105,34 +109,112 @@ test("production checkout is gated, owner-bound and idempotent for an active ord
     const card = await reserve(token, "card");
     assert.equal(card.status, "ready");
     await db.query("select public.nc_attach_production_checkout($1,$2,'checkout_card01')", [token,card.id]);
-    const settledCard = await confirm(card.id, "checkout_card01", 1490, "sub_fixture01", "pay_card01");
-    assert.equal(settledCard.status, "confirmed");
-    assert.deepEqual(await confirm(card.id, "checkout_card01", 1490, "sub_fixture01", "pay_card01"), settledCard);
-    await db.exec("reset role");
-    assert.equal((await db.query("select 1 from nossa_conta_private.nc_production_subscription_links where status='active'")).rows.length, 1);
-    assert.equal((await db.query("select 1 from nossa_conta_private.nc_production_charges")).rows.length, 2);
-    await as(owner);
     await assert.rejects(db.query("select * from nossa_conta_private.nc_production_checkout_orders"), /permission denied/);
     await db.exec("reset role");
-    await db.exec("select nossa_conta_private.enqueue_production_event_internal('evt_refund_fixture','PAYMENT_REFUNDED','pay_card01')");
-    await db.exec("set role nc_production_payment_worker");
-    const claim = await db.query<{ result: { payment_id: string; attempts: number } }>(
-      "select nossa_conta_private.payment_worker_claim() as result");
-    assert.equal(claim.rows[0].result.payment_id, "pay_card01");
-
-    await assert.rejects(db.query("select * from nossa_conta_private.nc_production_charges"), /permission denied/);
-    const evidence = {
-      kind: "reversal", paymentId: "pay_card01", subscriptionId: "sub_fixture01",
-      amountCents: 1490, status: "REFUNDED",
+    const firstDue = (await db.query<{ today: string }>(
+      "select (now() at time zone 'America/Sao_Paulo')::date::text as today",
+    )).rows[0].today;
+    const providerCard = {
+      id: "pay_card01", dueDate: firstDue, status: "CONFIRMED", value: 14.9,
+      checkoutSession: "checkout_card01", subscription: "sub_fixture01", billingType: "CREDIT_CARD",
     };
-    const finish = async (attempt: number) => (await db.query<{ result: string }>(
-      `select nossa_conta_private.payment_worker_finish('evt_refund_fixture',$1,'apply',
-        $2::jsonb || jsonb_build_object('dueDate',(now() at time zone 'America/Sao_Paulo')::date)) as result`,
-      [attempt, JSON.stringify(evidence)],
-    )).rows[0].result;
-    assert.equal(await finish(2), "not_leased");
-    assert.equal(await finish(1), "processed");
-    assert.equal(await finish(1), "not_leased");
+    type Payment = Omit<typeof providerCard, "checkoutSession"> & { checkoutSession: string | null };
+    const provider = new Map<string, Payment>([[providerCard.id, providerCard]]);
+    let outage = false;
+    const send: typeof fetch = async (input) => {
+      const url = new URL(String(input));
+      assert.equal(url.origin, "https://api.asaas.com");
+      if (outage) return new Response(null, { status: 503 });
+      if (url.pathname === "/v3/payments") return Response.json({
+        data: [], // Asaas can omit the charge from the checkout listing even when its detail matches.
+        hasMore: false,
+      });
+      if (url.pathname === "/v3/subscriptions/sub_fixture01") return Response.json({
+        id: providerCard.subscription, cycle: "MONTHLY", status: "ACTIVE",
+        value: 14.9, billingType: "CREDIT_CARD",
+      });
+      const row = provider.get(url.pathname.replace("/v3/payments/", ""));
+      return row ? Response.json(row) : new Response(null, { status: 404 });
+    };
+    const store = {
+      async claim() {
+        return (await db.query<{ result: unknown }>(
+          "select nossa_conta_private.payment_worker_claim() as result",
+        )).rows[0].result;
+      },
+      async context(event: string, attempt: number, checkout: string | null, reference: string | null, subscription: string | null) {
+        return (await db.query<{ result: unknown }>(
+          "select nossa_conta_private.payment_worker_context($1,$2,$3,$4,$5) as result",
+          [event, attempt, checkout, reference, subscription],
+        )).rows[0].result;
+      },
+      async finish(event: string, attempt: number, decision: string, evidence: object | null) {
+        return (await db.query<{ result: string }>(
+          "select nossa_conta_private.payment_worker_finish($1,$2,$3,$4::jsonb) as result",
+          [event, attempt, decision, evidence ? JSON.stringify(evidence) : null],
+        )).rows[0].result;
+      },
+    };
+    const runWorker = async () => {
+      await db.exec("set role nc_production_payment_worker");
+      try {
+        return await processProductionPayment(store, "test-only-asaas-key", send);
+      } finally {
+        await db.exec("reset role");
+      }
+    };
+    let wakes = 0;
+    const hook = createProductionWebhookHandler({
+      enabled: true,
+      webhookSecret: () => token,
+      persist: restrictedProductionInboxAdapter(async (sql, values) => {
+        await db.exec("set role nc_production_inbox_executor");
+        try {
+          return (await db.query<{ outcome: unknown }>(sql, [...values])).rows;
+        } finally {
+          await db.exec("reset role");
+        }
+      }),
+      onAcknowledged: () => { wakes++; },
+    });
+    const deliver = (id: string, event: string, paymentId: string, secret = token) => hook(new Request("https://example.test/asaas", {
+      method: "POST",
+      headers: { "asaas-access-token": secret },
+      body: JSON.stringify({ id, event, payment: { id: paymentId } }),
+    }));
+    assert.equal((await deliver("evt_card01", "PAYMENT_CONFIRMED", providerCard.id, "wrong")).status, 401);
+    assert.equal(wakes, 0);
+    assert.equal((await deliver("evt_card01", "PAYMENT_CONFIRMED", providerCard.id)).status, 200);
+    assert.equal(wakes, 1);
+    assert.equal(await runWorker(), "processed");
+    assert.equal((await deliver("evt_card01", "PAYMENT_CONFIRMED", providerCard.id)).status, 200);
+    assert.equal(await runWorker(), "empty");
+    const binding = (await db.query<{ next_due_date: string }>(
+      "select next_due_date::text from nossa_conta_private.nc_production_subscription_links where status='active'",
+    )).rows[0];
+    assert.ok(binding.next_due_date);
+    const renewal = {
+      ...providerCard, id: "pay_renewal01", checkoutSession: null, dueDate: binding.next_due_date, status: "RECEIVED",
+    };
+    provider.set(renewal.id, renewal);
+    assert.equal((await deliver("evt_renewal01", "PAYMENT_RECEIVED", renewal.id)).status, 200);
+    outage = true;
+    assert.equal(await runWorker(), "retry");
+    outage = false;
+    assert.equal(await runWorker(), "empty");
+    await db.exec("update nossa_conta_private.nc_production_event_inbox set available_at=now() where event_id='evt_renewal01'");
+    assert.equal(await runWorker(), "processed");
+    assert.equal((await db.query("select 1 from nossa_conta_private.nc_production_charges")).rows.length, 3);
+
+    await db.exec("set role nc_production_payment_worker");
+    await assert.rejects(db.query("select * from nossa_conta_private.nc_production_charges"), /permission denied/);
+    await db.exec("reset role");
+    for (const row of [providerCard, renewal]) {
+      provider.set(row.id, { ...row, status: "REFUNDED" });
+      assert.equal((await deliver("evt_refund_" + row.id, "PAYMENT_REFUNDED", row.id)).status, 200);
+      assert.equal(await runWorker(), "processed");
+    }
+    assert.equal((await db.query("select 1 from nossa_conta_private.nc_production_charges where status='REFUNDED'")).rows.length, 2);
 
     await as(owner);
     assert.equal((await db.query<{ valid_until: string | null }>(
