@@ -5,7 +5,7 @@ import { z } from "zod";
 import { ApiError, authenticated, checkOrigin, failure } from "@/lib/api";
 import { checkoutSchema } from "@/lib/asaas";
 import {
-  productionCheckoutEnabled, productionCheckoutPayload, productionCheckoutUrl,
+  productionCheckoutEnabled, productionCheckoutPilotAllows, productionCheckoutPayload, productionCheckoutUrl,
   requestProductionCheckout,
 } from "@/lib/production-checkout";
 
@@ -30,6 +30,9 @@ export async function POST(request: Request) {
     const { db, user } = await authenticated();
     if (user.is_anonymous || !user.email_confirmed_at) {
       throw new ApiError("Confirme seu e-mail para contratar o Premium.", 403);
+    }
+    if (!productionCheckoutPilotAllows(user.id)) {
+      throw new ApiError("A contratação ainda está indisponível para esta conta.", 403);
     }
     const input = checkoutSchema.safeParse(await request.json().catch(() => null));
     if (!input.success) throw new ApiError("Escolha um plano e uma forma de pagamento.", 400);
