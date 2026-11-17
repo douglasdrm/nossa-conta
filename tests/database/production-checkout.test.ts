@@ -229,6 +229,7 @@ test("checkout and webhook reconcile payment, retry, renewal and refund without 
         throw new Error("Configure the Sandbox key and a valid checkout ID together");
       }
 
+      let selectedPaymentId: string | undefined;
       const sandboxFetch: typeof fetch = async (input, options) => {
         const route = new URL(String(input));
         if (route.origin !== "https://api.asaas.com" || !route.pathname.startsWith("/v3/") ||
@@ -236,29 +237,43 @@ test("checkout and webhook reconcile payment, retry, renewal and refund without 
           throw new Error("Sandbox fixture permits only Asaas v3 lookup requests");
         }
         const target = "https://api-sandbox.asaas.com" + route.pathname + route.search;
-        return fetch(target, { ...options, method: "GET", redirect: "error",
+        const response = await fetch(target, { ...options, method: "GET", redirect: "error",
           signal: AbortSignal.timeout(12000) });
+        if (!response.ok || !selectedPaymentId || route.pathname !== "/v3/payments") return response;
+        const page = await response.json() as { data?: Array<{ id?: string }>; hasMore?: boolean };
+        if (!Array.isArray(page.data) || page.hasMore) return Response.json({ data: [], hasMore: true });
+        return Response.json({ data: page.data.filter((row) => row.id === selectedPaymentId), hasMore: false });
       };
 
       const listing = await sandboxFetch("https://api.asaas.com/v3/payments?limit=20&checkoutSession=" +
         encodeURIComponent(checkout), { headers: { access_token: key, "User-Agent": "NossaConta/SandboxPreview" } });
       if (!listing.ok) throw new Error("Asaas Sandbox payment lookup failed (HTTP " + listing.status + ")");
       const records = await listing.json() as { data?: Array<{
-        id?: string; dueDate?: string; status?: string; billingType?: string; value?: number;
+        id?: string; dueDate?: string; dateCreated?: string; status?: string; billingType?: string; value?: number;
       }>; hasMore?: boolean };
-      const matches = records.data?.filter((item) =>
-        (item.billingType === "PIX" && item.status === "RECEIVED") ||
-        (item.billingType === "CREDIT_CARD" && ["CONFIRMED", "RECEIVED"].includes(item.status ?? ""))
-      ) ?? [];
-      if (records.hasMore || matches.length !== 1) {
-        throw new Error("Use a Sandbox checkout with exactly one settled first payment");
+      if (!Array.isArray(records.data)) throw new Error("Asaas Sandbox returned an invalid payment listing");
+      if (records.hasMore) throw new Error("Asaas Sandbox returned more than 20 payments for this checkout");
+      const charges = records.data.filter((row) => row.billingType === "PIX" || row.billingType === "CREDIT_CARD");
+      if (!charges.length) {
+        throw new Error("Asaas Sandbox found " + records.data.length + " payment(s), none with Pix or credit card");
       }
-      const payment = matches[0];
+      const paymentDate = (row: typeof charges[number]) => (row.dueDate ?? "") + "|" + (row.dateCreated ?? "");
+      charges.sort((left, right) => paymentDate(left).localeCompare(paymentDate(right)));
+      const payment = charges[0];
+      if (charges.length > 1 && paymentDate(payment) === paymentDate(charges[1])) {
+        throw new Error("Asaas Sandbox returned " + charges.length + " payments with an ambiguous first charge");
+      }
+      const allowed = payment.billingType === "PIX" ? ["RECEIVED"] : ["CONFIRMED", "RECEIVED"];
+      if (!allowed.includes(payment.status ?? "")) {
+        const status = /^[A-Z_]{1,40}$/.test(payment.status ?? "") ? payment.status : "unknown";
+        throw new Error("First Sandbox payment is not settled (status " + status + ", total " + charges.length + ")");
+      }
       if (typeof payment.id !== "string" || !/^pay_[A-Za-z0-9_-]{3,120}$/.test(payment.id) ||
           typeof payment.dueDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(payment.dueDate) ||
           payment.value !== 14.9) {
-        throw new Error("Use a settled Sandbox checkout for Premium Mensal (R$ 14,90)");
+        throw new Error("First Sandbox payment does not match the Premium Mensal fixture");
       }
+      selectedPaymentId = payment.id;
       const sandboxOwner = "10000000-0000-4000-8000-000000000003";
       const sandboxHousehold = "20000000-0000-4000-8000-000000000002";
       await db.exec("reset role");
