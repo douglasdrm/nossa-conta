@@ -3,7 +3,6 @@ import { createClient } from "@/lib/supabase/server";
 import { isConfigured } from "@/lib/supabase/config";
 import { brl, plans } from "@/lib/plans";
 import MarketingFrame from "@/components/marketing/frame";
-import BillingSandbox from "@/components/billing-sandbox";
 import SubscriptionInterest from "@/components/subscription-interest";
 import ProductionCheckout from "@/components/production-checkout";
 import { productionCheckoutEnabled, productionCheckoutPilotAllows } from "@/lib/production-checkout";
@@ -43,10 +42,6 @@ export default async function Subscription({
   const paidUntil = paymentsAvailable ? await db.rpc("nc_production_paid_premium_until") : null;
   if (paidUntil?.error) throw new Error("Não foi possível consultar o Premium pago.");
   const paidDate = typeof paidUntil?.data === "string" ? paidUntil.data : null;
-  const { data: isAdmin } = await db.rpc("nc_is_system_admin");
-  const { data: sandboxStatus, error: sandboxError } = await db.rpc("nc_sandbox_premium_status");
-  if (sandboxError) throw new Error("Não foi possível consultar a simulação de assinatura.");
-  const sandbox = sandboxStatus as { state?: string; cycle?: string; valid_until?: string } | null;
   return (
     <MarketingFrame>
       <section className="seo-intro">
@@ -58,13 +53,6 @@ export default async function Subscription({
           </strong>{" "}
           · equivalente a {brl(plan.monthly)}/mês.
         </p>
-        {sandbox?.state === "active" && sandbox.valid_until && (
-          <p className="notice">
-            <strong>Premium simulado ativo para este espaço compartilhado</strong> até{" "}
-            {new Date(sandbox.valid_until).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}.
-            {" "}Somente teste do Asaas: não libera recursos pagos nem gera cobrança real.
-          </p>
-        )}
         {paidDate && (
           <p className="notice">
             <strong>Premium pago ativo para este espaço compartilhado</strong> até{" "}
@@ -81,11 +69,6 @@ export default async function Subscription({
           </p>
         )}
       </section>
-      {isAdmin === true && (
-        <section className="seo-copy">
-          <BillingSandbox cycle={plan.id} />
-        </section>
-      )}
       <section className="seo-copy">
         {paymentsAvailable && productionCheckoutPilotAllows(user.id) ? (
           <>
