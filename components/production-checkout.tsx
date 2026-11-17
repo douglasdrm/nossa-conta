@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import type { BillingCycle } from "@/lib/plans";
+import { brl, plans, type BillingCycle } from "@/lib/plans";
 
 export default function ProductionCheckout({ cycle, order }: { cycle: BillingCycle; order?: string }) {
+  const plan = plans.find((option) => option.id === cycle)!;
   const [method, setMethod] = useState<"pix" | "card">("pix");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -62,9 +63,9 @@ export default function ProductionCheckout({ cycle, order }: { cycle: BillingCyc
   }
 
   if (order) return (
-    <div>
+    <div className="subscription-checkout">
       {paymentStatus ? <p role="status">{paymentStatus}</p> : (
-        <button className="marketing-cta" type="button" disabled={busy} onClick={confirmPayment}>
+        <button className="subscription-submit" type="button" disabled={busy} onClick={confirmPayment}>
           {busy ? "Consultando…" : "Consultar pagamento"}
         </button>
       )}
@@ -73,22 +74,32 @@ export default function ProductionCheckout({ cycle, order }: { cycle: BillingCyc
   );
 
   return (
-    <form onSubmit={submit}>
+    <form className="subscription-checkout" onSubmit={submit} aria-busy={busy}>
       <fieldset disabled={busy}>
-        <legend>Forma de pagamento</legend>
-        <label>
-          <input type="radio" name="checkout-method" checked={method === "pix"} onChange={() => setMethod("pix")} />
-          Pix, pagamento por período
-        </label>
-        <label>
-          <input type="radio" name="checkout-method" checked={method === "card"} onChange={() => setMethod("card")} />
-          Cartão, renovação automática
-        </label>
+        <legend>Como você quer pagar?</legend>
+        <div className="subscription-methods">
+          <label className={"subscription-method" + (method === "pix" ? " is-selected" : "")}>
+            <input type="radio" name="checkout-method" value="pix" checked={method === "pix"} onChange={() => setMethod("pix")} />
+            <span><strong>Pix</strong><small>Pagamento único pelo período escolhido</small></span>
+          </label>
+          <label className={"subscription-method" + (method === "card" ? " is-selected" : "")}>
+            <input type="radio" name="checkout-method" value="card" checked={method === "card"} onChange={() => setMethod("card")} />
+            <span><strong>Cartão de crédito</strong><small>Renovação automática a cada {plan.months === 1 ? "mês" : plan.months + " meses"}</small></span>
+          </label>
+        </div>
       </fieldset>
-      <button className="marketing-cta" type="submit" disabled={busy}>
-        {busy ? "Abrindo checkout…" : "Continuar para o Asaas"}
+      <div className="subscription-total" aria-live="polite">
+        <div><span>Total do plano {plan.name.toLowerCase()}</span><strong>{brl(plan.total)}</strong></div>
+        <p>{method === "pix"
+          ? "Pagamento único para " + plan.months + (plan.months === 1 ? " mês de acesso." : " meses de acesso.")
+          : brl(plan.total) + " " + plan.period + ", com renovação automática."}</p>
+        {plan.months > 1 && <p>O valor total é cobrado de uma vez. Equivalente a {brl(plan.monthly)}/mês.</p>}
+      </div>
+      <button className="subscription-submit" type="submit" disabled={busy}>
+        {busy ? "Abrindo checkout…" : "Continuar para o pagamento"} <span aria-hidden="true">→</span>
       </button>
-      {error && <p role="alert">{error}</p>}
+      <p className="subscription-payment-note">Você concluirá o pagamento no ambiente seguro do Asaas.</p>
+      {error && <p className="subscription-error" role="alert">{error}</p>}
     </form>
   );
 }
