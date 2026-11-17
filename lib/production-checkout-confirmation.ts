@@ -23,7 +23,9 @@ function matchesAmount(value: number, cents: number) {
   return Math.abs(value * 100 - cents) < 0.000001;
 }
 
-export async function verifyInitialCheckoutPayment(key: string, order: Order, send: typeof fetch = fetch) {
+export async function verifyInitialCheckoutPayment(
+  key: string, order: Order, send: typeof fetch = fetch, paymentDetails?: unknown,
+) {
   async function get(path: string) {
     const response = await send("https://api.asaas.com/v3" + path, {
       headers: { access_token: key, "User-Agent": "NossaConta/1.0" },
@@ -36,7 +38,15 @@ export async function verifyInitialCheckoutPayment(key: string, order: Order, se
   const query = new URLSearchParams({ checkoutSession: order.checkout_id, limit: "20" });
   const records = z.object({ data: z.array(payment), hasMore: z.boolean() }).parse(await get("/payments?" + query));
   if (records.hasMore) return { status: "manual_review" } as const;
-  const candidates = records.data.filter((row) => order.payment_id
+  // The worker already fetched this payment by ID from the authenticated Asaas API.
+  // Some recurring checkouts return an empty list despite the exact ID on the payment.
+  const direct = order.method === "card" && records.data.length === 0
+    ? payment.safeParse(paymentDetails)
+    : undefined;
+  const payments = direct?.success && direct.data.checkoutSession === order.checkout_id
+    ? [direct.data]
+    : records.data;
+  const candidates = payments.filter((row) => order.payment_id
     ? row.id === order.payment_id
     : row.status === "RECEIVED" || (order.method === "card" && row.status === "CONFIRMED"));
   if (candidates.length === 0) return { status: "pending" } as const;
