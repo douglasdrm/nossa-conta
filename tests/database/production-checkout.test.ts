@@ -252,33 +252,50 @@ test("checkout and webhook reconcile payment, retry, renewal and refund without 
       const headers = { access_token: key, "User-Agent": "NossaConta/SandboxPreview" };
       const fingerprint = (value: string) => createHash("sha256").update(value).digest("hex");
       let subscriptionFixture: string | undefined;
-      let listing = await sandboxFetch("https://api.asaas.com/v3/payments?limit=20&checkoutSession=" +
+      const listing = await sandboxFetch("https://api.asaas.com/v3/payments?limit=20&checkoutSession=" +
         encodeURIComponent(checkout), { headers });
       if (!listing.ok) throw new Error("Asaas Sandbox payment lookup failed (HTTP " + listing.status + ")");
       type PaymentPage = { data?: Array<{
         id?: string; dueDate?: string; dateCreated?: string; status?: string; billingType?: string; value?: number;
+        invoiceUrl?: string; checkoutSession?: string; subscription?: string;
       }>; hasMore?: boolean };
       let records = await listing.json() as PaymentPage;
-      if (Array.isArray(records.data) && records.data.length === 0 &&
-          fingerprint(checkout) === "85e82178c3b5ef581dc915e9eb3616e63812132be59a3eebea00f9ee018617e1") {
-        // The Sandbox ledger recorded a verified checkout-to-subscription link for this fixture.
-        // Match its fingerprint without publishing the account's subscription ID.
+      if (Array.isArray(records.data) && records.data.length === 0) {
+        let invoice: NonNullable<PaymentPage["data"]>[number] | undefined;
+        const dateFilter = new URLSearchParams({ "dateCreated[ge]": "2026-11-17", "dateCreated[le]": "2026-11-17", limit: "50" });
         for (let offset = 0; offset < 250; offset += 50) {
-          const pageResponse = await sandboxFetch(
-            "https://api.asaas.com/v3/subscriptions?limit=50&offset=" + offset, { headers });
-          if (!pageResponse.ok) throw new Error("Asaas Sandbox subscription lookup failed (HTTP " + pageResponse.status + ")");
-          const page = await pageResponse.json() as { data?: { id?: string }[]; hasMore?: boolean };
-          if (!Array.isArray(page.data)) throw new Error("Asaas Sandbox returned an invalid subscription listing");
-          subscriptionFixture = page.data.find((row) => typeof row.id === "string" &&
-            /^sub_[A-Za-z0-9_-]{6,100}$/.test(row.id) &&
-            fingerprint(row.id) === "3650eb84bc79159ac384f3bb769d54f39606e4a2c30c9ea5eaf1671f21f3ab69")?.id;
-          if (subscriptionFixture || !page.hasMore) break;
+          dateFilter.set("offset", String(offset));
+          const pageResponse = await sandboxFetch("https://api.asaas.com/v3/payments?" + dateFilter, { headers });
+          if (!pageResponse.ok) throw new Error("Sandbox invoice lookup failed (HTTP " + pageResponse.status + ")");
+          const page = await pageResponse.json() as PaymentPage;
+          if (!Array.isArray(page.data)) throw new Error("Sandbox invoice lookup returned an invalid page");
+          invoice = page.data.find((row) => {
+            if (typeof row.invoiceUrl !== "string") return false;
+            try {
+              const url = new URL(row.invoiceUrl);
+              return url.protocol === "https:" && ["sandbox.asaas.com", "www.asaas.com", "asaas.com"].includes(url.hostname) &&
+                fingerprint("https://sandbox.asaas.com" + url.pathname) === "b1941f110fd4fd8802796ab8efa9f1b3b09111256387cfd8e3b2d798c395cd60";
+            } catch {
+              return false;
+            }
+          });
+          if (invoice || !page.hasMore) break;
         }
-        if (!subscriptionFixture) throw new Error("Asaas Sandbox key cannot see the subscription linked to this checkout");
-        listing = await sandboxFetch("https://api.asaas.com/v3/subscriptions/" +
-          subscriptionFixture + "/payments?limit=20", { headers });
-        if (!listing.ok) throw new Error("Asaas Sandbox subscription payments lookup failed (HTTP " + listing.status + ")");
-        records = await listing.json() as PaymentPage;
+        if (!invoice) throw new Error("The Sandbox API key cannot see the supplied invoice");
+        if (invoice.billingType !== "CREDIT_CARD" || invoice.value !== 14.9 ||
+            !["CONFIRMED", "RECEIVED"].includes(invoice.status ?? "")) {
+          throw new Error("The supplied Sandbox invoice is not a confirmed R$ 14.90 card payment");
+        }
+        if (invoice.checkoutSession && invoice.checkoutSession !== checkout) {
+          throw new Error("The supplied Sandbox invoice points to a different checkout");
+        }
+        if (!invoice.subscription || !/^sub_[A-Za-z0-9_-]{6,100}$/.test(invoice.subscription)) {
+          throw new Error("The confirmed Sandbox invoice has no subscription reference");
+        }
+        // Validate the provider's invoice and subscription independently.
+        // With an empty checkout filter the first-checkout association remains unverified.
+        subscriptionFixture = invoice.subscription;
+        records = { data: [invoice], hasMore: false };
       }
       if (!Array.isArray(records.data)) throw new Error("Asaas Sandbox returned an invalid payment listing");
       if (records.hasMore) throw new Error("Asaas Sandbox returned more than 20 payments for this checkout");
