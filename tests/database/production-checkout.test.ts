@@ -126,7 +126,7 @@ test("checkout and webhook reconcile payment, retry, renewal and refund without 
       assert.equal(url.origin, "https://api.asaas.com");
       if (outage) return new Response(null, { status: 503 });
       if (url.pathname === "/v3/payments") return Response.json({
-        data: [...provider.values()].filter((row) => row.checkoutSession === url.searchParams.get("checkoutSession")),
+        data: [], // Asaas can omit the charge from the checkout listing even when its detail matches.
         hasMore: false,
       });
       if (url.pathname === "/v3/subscriptions/sub_fixture01") return Response.json({
