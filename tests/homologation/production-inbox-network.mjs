@@ -7,7 +7,7 @@ import { test } from "node:test";
 const require = createRequire(import.meta.url);
 const { Client } = require("pg");
 const { restrictedProductionInboxAdapter } = require("../../lib/production-inbox-adapter.ts");
-const { prepareDurableProductionDelivery } = require("../../lib/production-durable-delivery.ts");
+const { createProductionWebhookHandler } = require("../../lib/production-webhook-handler.ts");
 const database = {
   host: "127.0.0.1",
   port: 5432,
@@ -67,12 +67,21 @@ test("webhook adapter uses a restricted network login and acknowledges committed
       event: "PAYMENT_CONFIRMED",
       payment: { id: "pay_ci_fixture" },
     };
-    const deliver = (payload, persist) => prepareDurableProductionDelivery({
-      explicitlyEnabled: true,
-      webhookSecret: secret,
-      receivedToken: secret,
-      rawBody: JSON.stringify(payload),
-    }, persist);
+    let dispatches = 0;
+    const deliver = async (payload, persist) => {
+      const handle = createProductionWebhookHandler({
+        enabled: true,
+        webhookSecret: () => secret,
+        persist,
+        onAcknowledged: () => { dispatches++; },
+      });
+      const response = await handle(new Request("https://example.test/webhook", {
+        method: "POST",
+        headers: { "asaas-access-token": secret },
+        body: JSON.stringify(payload),
+      }));
+      return { ...await response.json(), status: response.status };
+    };
     const count = async (id) => (await owner.query(
       "select count(*)::int as total from nossa_conta_private.nc_production_event_inbox where event_id = $1",
       [id],
@@ -109,7 +118,8 @@ test("webhook adapter uses a restricted network login and acknowledges committed
 
     const first = await deliver(event, persist);
     assert.equal(first.status, 200);
-    assert.equal(first.acknowledged, true);
+    assert.equal(first.accepted, true);
+    assert.equal(dispatches, 1);
     assert.equal(await count(event.id), 1);
     const replay = await deliver(event, persist);
     assert.equal(replay.status, 200);
@@ -131,10 +141,12 @@ test("webhook adapter uses a restricted network login and acknowledges committed
     const retryEvent = { ...event, id: "evt_ci_commit_failure" };
     const failed = await deliver(retryEvent, persist);
     assert.equal(failed.status, 503);
-    assert.equal(failed.acknowledged, false);
+    assert.equal(failed.accepted, false);
+    assert.equal(dispatches, 2);
     assert.equal(await count(retryEvent.id), 0);
     await owner.query("drop trigger nc_ci_fail_commit on " + table);
     assert.equal((await deliver(retryEvent, persist)).status, 200);
+    assert.equal(dispatches, 3);
     assert.equal(await count(retryEvent.id), 1);
     assert.equal((await owner.query(
       "select count(*)::int as total from nossa_conta_private.nc_production_charges",
