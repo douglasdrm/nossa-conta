@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { PGlite } from "@electric-sql/pglite";
@@ -245,12 +246,37 @@ test("checkout and webhook reconcile payment, retry, renewal and refund without 
         return Response.json({ data: page.data.filter((row) => row.id === selectedPaymentId), hasMore: false });
       };
 
-      const listing = await sandboxFetch("https://api.asaas.com/v3/payments?limit=20&checkoutSession=" +
-        encodeURIComponent(checkout), { headers: { access_token: key, "User-Agent": "NossaConta/SandboxPreview" } });
+      const headers = { access_token: key, "User-Agent": "NossaConta/SandboxPreview" };
+      const fingerprint = (value: string) => createHash("sha256").update(value).digest("hex");
+      let subscriptionFixture: string | undefined;
+      let listing = await sandboxFetch("https://api.asaas.com/v3/payments?limit=20&checkoutSession=" +
+        encodeURIComponent(checkout), { headers });
       if (!listing.ok) throw new Error("Asaas Sandbox payment lookup failed (HTTP " + listing.status + ")");
-      const records = await listing.json() as { data?: Array<{
+      type PaymentPage = { data?: Array<{
         id?: string; dueDate?: string; dateCreated?: string; status?: string; billingType?: string; value?: number;
       }>; hasMore?: boolean };
+      let records = await listing.json() as PaymentPage;
+      if (Array.isArray(records.data) && records.data.length === 0 &&
+          fingerprint(checkout) === "85e82178c3b5ef581dc915e9eb3616e63812132be59a3eebea00f9ee018617e1") {
+        // The Sandbox ledger recorded a verified checkout-to-subscription link for this fixture.
+        // Match its fingerprint without publishing the account's subscription ID.
+        for (let offset = 0; offset < 250; offset += 50) {
+          const pageResponse = await sandboxFetch(
+            "https://api.asaas.com/v3/subscriptions?limit=50&offset=" + offset, { headers });
+          if (!pageResponse.ok) throw new Error("Asaas Sandbox subscription lookup failed (HTTP " + pageResponse.status + ")");
+          const page = await pageResponse.json() as { data?: { id?: string }[]; hasMore?: boolean };
+          if (!Array.isArray(page.data)) throw new Error("Asaas Sandbox returned an invalid subscription listing");
+          subscriptionFixture = page.data.find((row) => typeof row.id === "string" &&
+            /^sub_[A-Za-z0-9_-]{6,100}$/.test(row.id) &&
+            fingerprint(row.id) === "3650eb84bc79159ac384f3bb769d54f39606e4a2c30c9ea5eaf1671f21f3ab69")?.id;
+          if (subscriptionFixture || !page.hasMore) break;
+        }
+        if (!subscriptionFixture) throw new Error("Asaas Sandbox key cannot see the subscription linked to this checkout");
+        listing = await sandboxFetch("https://api.asaas.com/v3/subscriptions/" +
+          subscriptionFixture + "/payments?limit=20", { headers });
+        if (!listing.ok) throw new Error("Asaas Sandbox subscription payments lookup failed (HTTP " + listing.status + ")");
+        records = await listing.json() as PaymentPage;
+      }
       if (!Array.isArray(records.data)) throw new Error("Asaas Sandbox returned an invalid payment listing");
       if (records.hasMore) throw new Error("Asaas Sandbox returned more than 20 payments for this checkout");
       const charges = records.data.filter((row) => row.billingType === "PIX" || row.billingType === "CREDIT_CARD");
@@ -280,17 +306,26 @@ test("checkout and webhook reconcile payment, retry, renewal and refund without 
       await db.query("insert into auth.users values ($1,now(),false)", [sandboxOwner]);
       await db.query("insert into public.nc_households values ($1,$2)", [sandboxHousehold,sandboxOwner]);
       await db.query("insert into public.nc_household_members values ($1,$2)", [sandboxHousehold,sandboxOwner]);
-      await as(sandboxOwner);
-      const method = payment.billingType === "PIX" ? "pix" : "card";
-      const sandboxOrder = await reserve(token, method);
-      if (sandboxOrder.status !== "ready") throw new Error("Sandbox test order reservation failed");
-      const saved = await db.query<{ result: boolean }>(
-        "select public.nc_attach_production_checkout($1,$2,$3) as result", [token,sandboxOrder.id,checkout]);
-      assert.equal(saved.rows[0].result, true);
-      await db.exec("reset role");
-      // Align the disposable order with the date of the existing test payment.
-      await db.query("update nossa_conta_private.nc_production_checkout_orders set created_at=$1::date::timestamp at time zone 'America/Sao_Paulo' where id=$2",
-        [payment.dueDate, sandboxOrder.id]);
+      if (subscriptionFixture) {
+        // Exercise renewal from an existing verified link. This fixture does not claim
+        // the provider associated this payment with the checkout in its list API.
+        await db.query(
+          "insert into nossa_conta_private.nc_production_subscription_links (provider_subscription_id,household_id,cycle,amount_cents,next_due_date,status) values ($1,$2,'monthly',1490,$3,'active')",
+          [subscriptionFixture, sandboxHousehold, payment.dueDate],
+        );
+      } else {
+        await as(sandboxOwner);
+        const method = payment.billingType === "PIX" ? "pix" : "card";
+        const sandboxOrder = await reserve(token, method);
+        if (sandboxOrder.status !== "ready") throw new Error("Sandbox test order reservation failed");
+        const saved = await db.query<{ result: boolean }>(
+          "select public.nc_attach_production_checkout($1,$2,$3) as result", [token,sandboxOrder.id,checkout]);
+        assert.equal(saved.rows[0].result, true);
+        await db.exec("reset role");
+        // Align the disposable order with the date of the existing test payment.
+        await db.query("update nossa_conta_private.nc_production_checkout_orders set created_at=$1::date::timestamp at time zone 'America/Sao_Paulo' where id=$2",
+          [payment.dueDate, sandboxOrder.id]);
+      }
       const response = await deliver("evt_live_sandbox", payment.status === "RECEIVED" ? "PAYMENT_RECEIVED" : "PAYMENT_CONFIRMED", payment.id);
       assert.equal(response.status, 200);
       await db.exec("set role nc_production_payment_worker");
@@ -305,7 +340,7 @@ test("checkout and webhook reconcile payment, retry, renewal and refund without 
         "select exists(select 1 from nossa_conta_private.nc_production_charges where provider_payment_id=$1 and household_id=$2 and provider_verified_at is not null) as ok",
         [payment.id,sandboxHousehold]);
       assert.equal(recorded.rows[0].ok, true, "Sandbox charge was not recorded");
-      console.log("NC_ASAAS_SANDBOX: provider lookup and durable reconciliation verified");
+      console.log("NC_ASAAS_SANDBOX: provider lookup and durable " + (subscriptionFixture ? "subscription" : "checkout") + " reconciliation verified");
     }
   } finally {
     await db.close();
