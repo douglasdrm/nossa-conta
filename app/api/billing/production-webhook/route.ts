@@ -7,8 +7,9 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-// Change this only in a separately reviewed launch.
-const productionWebhookEnabled = false;
+// Production delivery requires explicit deployment configuration and database controls.
+const productionWebhookEnabled = process.env.VERCEL_ENV === "production" &&
+  process.env.NC_PRODUCTION_WEBHOOK_ENABLED === "true";
 let inbox: ReturnType<typeof createProductionInboxConnection> | undefined;
 
 const handle = createProductionWebhookHandler({
