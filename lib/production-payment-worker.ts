@@ -85,7 +85,7 @@ export async function processProductionPayment(store: WorkerStore, key: string, 
     } else if (match.kind === "known") {
       decision = "processed";
     } else if (match.kind === "initial") {
-      const checked = await verifyInitialCheckoutPayment(key, match, send);
+      const checked = await verifyInitialCheckoutPayment(key, match, send, row);
       if (checked.status === "verified" && checked.paymentId === row.id) {
         decision = "apply";
         evidence = {
