@@ -2,5 +2,5 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "installCommand": "npm ci",
-  "buildCommand": "npm run build && node tests/homologation/create-asaas-sandbox-checkout.mjs"
+  "buildCommand": "npm run build && node --import tsx tests/homologation/create-asaas-sandbox-checkout.mjs"
 }
