@@ -225,10 +225,6 @@ test("checkout and webhook reconcile payment, retry, renewal and refund without 
       const checkout = process.env.NC_ASAAS_SANDBOX_CHECKOUT_ID;
       assert.equal(process.env.VERCEL_ENV, "preview");
       assert.equal(process.env.VERCEL_GIT_COMMIT_REF, "test/asaas-sandbox-live");
-      if (!key && !checkout) {
-        console.log("NC_ASAAS_SANDBOX: awaiting sandbox key and checkout ID");
-        return;
-      }
       if (!key || !checkout || !/^[A-Za-z0-9_-]{10,100}$/.test(checkout)) {
         throw new Error("Configure the Sandbox key and a valid checkout ID together");
       }
