@@ -1,3 +1,4 @@
+.subscription-heading { display: block; height: auto; min-height: 0; border: 0; padding: 0; }
 .subscription-layout { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); gap: 64px; padding: 56px 0 72px; align-items: start; }
 .subscription-heading h1 { font-size: clamp(32px, 3.7vw, 46px); line-height: 1.13; letter-spacing: -1.7px; margin: 16px 0; color: #163e31; }
 .subscription-heading p { font-size: 17px; line-height: 1.65; color: #62756c; margin: 0; max-width: 500px; }
