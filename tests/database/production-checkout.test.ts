@@ -222,6 +222,10 @@ test("checkout and webhook reconcile payment, retry, renewal and refund without 
       "select public.nc_production_paid_premium_until() as valid_until",
     )).rows[0].valid_until, null);
     if (process.env.NC_RUN_ASAAS_SANDBOX === "1") {
+      const webhookToken = process.env.NC_ASAAS_SANDBOX_WEBHOOK_TOKEN;
+      if (!webhookToken || !/^\S{32,255}$/.test(webhookToken)) {
+        throw new Error("Configure a valid Sandbox webhook token for this Preview branch");
+      }
       const key = process.env.NC_ASAAS_SANDBOX_API_KEY;
       const checkout = process.env.NC_ASAAS_SANDBOX_CHECKOUT_ID;
       assert.equal(process.env.VERCEL_ENV, "preview");
