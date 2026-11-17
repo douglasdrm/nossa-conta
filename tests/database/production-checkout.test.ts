@@ -230,6 +230,9 @@ test("checkout and webhook reconcile payment, retry, renewal and refund without 
         throw new Error("Configure the Sandbox key and a valid checkout ID together");
       }
 
+      if (createHash("sha256").update(checkout).digest("hex") !== "3552cc62ad2e889bc823d552ab0a893cbdbdd23fdd396290c4719bda6d1c5516") {
+        throw new Error("The Preview does not have the new Sandbox checkout ID");
+      }
       let selectedPaymentId: string | undefined;
       const sandboxFetch: typeof fetch = async (input, options) => {
         const route = new URL(String(input));
