@@ -23,6 +23,9 @@ export const entrySchema = z.object({
   confirmed: z.boolean().optional().default(false),
   payer: label(60).optional(),
   paymentMethod: z.enum(paymentMethods).nullish(),
+  cardId: z.string().uuid().optional(),
+  purchaseDate: dateSchema.optional(),
+  invoiceMonth: monthSchema.optional(),
 });
 export const editSchema = z.object({
   id: z.string().min(1).max(100),
@@ -35,6 +38,9 @@ export const editSchema = z.object({
   confirmed: z.boolean().optional(),
   payer: label(60).optional(),
   paymentMethod: z.enum(paymentMethods).nullish(),
+  cardId: z.string().uuid().optional(),
+  purchaseDate: dateSchema.optional(),
+  invoiceMonth: monthSchema.optional(),
 });
 export const inviteSchema = z.object({
   email: z
@@ -80,3 +86,4 @@ export const installmentSchema = entrySchema
         message: "A última parcela precisa vencer antes de 2100",
       });
   });
+

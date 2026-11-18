@@ -17,6 +17,7 @@ export default function robots(): MetadataRoute.Robots {
         "/lancamentos",
         "/caixinhas",
         "/categorias",
+        "/cartoes",
         "/plano-do-mes",
         "/relatorio-anual",
       ],
@@ -25,3 +26,4 @@ export default function robots(): MetadataRoute.Robots {
     host: siteUrl,
   };
 }
+

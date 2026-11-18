@@ -7,6 +7,7 @@ export type DueEntry = {
   amount: number;
   date: string;
   person: string;
+  card_invoice_id?: string | null;
   installment_number?: number | null;
   installment_count?: number | null;
 };
@@ -66,7 +67,18 @@ export default function DuePanel({
       );
     }
   }, [enabled, entries, today]);
-  const overdue = entries.filter((e) => e.date < today).length;
+  const invoiceGroups = new Map<string, DueEntry>();
+  const grouped: DueEntry[] = [];
+  for (const entry of entries) {
+    if (!entry.card_invoice_id) { grouped.push(entry); continue; }
+    const current = invoiceGroups.get(entry.card_invoice_id);
+    if (current) current.amount += entry.amount;
+    else {
+      const invoice = { ...entry, description: "Fatura do cartão", person: "Detalhes em Cartões", installment_count: null };
+      grouped.push(invoice); invoiceGroups.set(entry.card_invoice_id, invoice);
+    }
+  }
+  const overdue = grouped.filter((e) => e.date < today).length;
   return (
     <>
       <div className="reminder-settings">
@@ -115,29 +127,29 @@ export default function DuePanel({
           {note}
         </p>
       )}
-      {entries.length > 0 && (
+      {grouped.length > 0 && (
         <section className="due-panel" aria-label="Contas a confirmar">
           <div className="due-heading">
             <div>
               <span className="tag">LEMBRETE DA CASA</span>
               <h2>
-                <Bell size={19} /> {entries.length} conta
-                {entries.length !== 1 ? "s" : ""} para conferir
+                <Bell size={19} /> {grouped.length} conta
+                {grouped.length !== 1 ? "s" : ""} para conferir
               </h2>
               <p>
                 {overdue > 0
                   ? `${overdue} vencida${overdue !== 1 ? "s" : ""} · `
                   : ""}
-                {entries.length - overdue} vencendo hoje. O pagamento só entra
+                {grouped.length - overdue} vencendo hoje. O pagamento só entra
                 no saldo depois da sua confirmação.
               </p>
             </div>
             <span className="due-total">
-              {money(entries.reduce((s, e) => s + e.amount, 0))}
+              {money(grouped.reduce((s, e) => s + e.amount, 0))}
             </span>
           </div>
           <div>
-            {(all ? entries : entries.slice(0, 3)).map((e) => (
+            {(all ? grouped : grouped.slice(0, 3)).map((e) => (
               <div className="due-item" key={e.id}>
                 <span className="due-symbol">
                   {e.date < today ? (
@@ -176,15 +188,15 @@ export default function DuePanel({
                     onClick={() => onConfirm(e.id)}
                   >
                     <Check size={15} />
-                    {busyId === e.id ? "Confirmando..." : "Confirmar pagamento"}
+                    {busyId === e.id ? "Confirmando..." : e.card_invoice_id ? "Ver fatura" : "Confirmar pagamento"}
                   </button>
                 </div>
               </div>
             ))}
           </div>
-          {entries.length > 3 && (
+          {grouped.length > 3 && (
             <button className="text-button" onClick={() => setAll(!all)}>
-              {all ? "Mostrar menos" : `Ver todas as ${entries.length} contas`}
+              {all ? "Mostrar menos" : `Ver todas as ${grouped.length} contas`}
             </button>
           )}
         </section>
@@ -192,3 +204,4 @@ export default function DuePanel({
     </>
   );
 }
+

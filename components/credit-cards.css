@@ -1,0 +1,38 @@
+.card-editor {border:1px solid #d5dfd5;border-radius:18px;padding:28px;width:min(480px,calc(100vw - 30px));max-height:90vh;color:#263d34;box-shadow:0 20px 80px #12342240;}
+.card-editor::backdrop {background:#102b2566;}
+.card-editor h2 {margin-top:0;font-size:23px;line-height:1.25;}
+.card-editor p {font-size:14px;line-height:1.7;}
+.card-editor label {display:grid;gap:8px;font-size:14px;margin:16px 0;}
+.card-editor input:not([type=checkbox]),.card-invoice-controls input {border:1px solid #cddbcf;border-radius:8px;padding:12px;font:inherit;min-width:0;width:100%;}
+.card-editor label.check {display:flex;align-items:flex-start;}
+.card-form-actions {display:flex;gap:12px;flex-wrap:wrap;margin-top:22px;}
+.card-form-actions button,.cards-panel button.primary,.card-invoice-controls button {border-radius:8px;padding:11px 16px;min-height:42px;font-size:14px;}
+.card-form-actions .secondary {background:#eef3ec;color:#185540;}
+.card-purchase-fields {grid-column:1/-1;background:#f3f7f0;border:1px solid #cfded0;padding:17px;border-radius:12px;margin:12px 0;}
+.card-purchase-fields label {display:grid;gap:7px;margin-bottom:12px;}
+.card-purchase-fields .formgrid {margin-top:12px;}
+.card-purchase-notice {font-size:14px;line-height:1.8;margin:12px 0;}
+.cards-panel {padding-bottom:45px;}
+.cards-panel .cards-intro {font-size:15px;line-height:1.8;max-width:800px;color:#5a7064;}
+.cards-grid {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:18px;margin:25px 0;}
+.card-summary {background:#f0f6ed;border:1px solid #d0ddcd;border-radius:14px;padding:22px;}
+.card-summary h2 {margin:0 0 12px;font-size:20px;overflow-wrap:anywhere;}
+.card-summary p {font-size:14px;line-height:1.7;margin:6px 0;}
+.card-summary small {display:block;color:#667c6d;line-height:1.6;}
+.cards-filter {display:flex;gap:16px;flex-wrap:wrap;align-items:end;margin:25px 0;}
+.cards-filter label {display:grid;gap:7px;min-width:min(230px,100%);}
+.cards-filter select {padding:11px;border-radius:8px;border:1px solid #cddbcf;font:inherit;background:white;}
+.card-invoice {border:1px solid #d6e1d4;border-radius:14px;padding:23px;margin:18px 0;background:white;}
+.card-invoice-title {display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:start;}
+.card-invoice-title h3 {margin:0;font-size:19px;}
+.card-invoice-title > strong {font-size:24px;}
+.card-invoice-title p {font-size:14px;line-height:1.7;}
+.card-invoice-controls {display:flex;align-items:end;flex-wrap:wrap;gap:12px;margin:18px 0;}
+.card-invoice-controls label {display:grid;gap:7px;font-size:13px;}
+.card-invoice-controls button {background:#eef3eb;color:#185540;}
+.card-invoice details summary {cursor:pointer;padding:12px 0;font-size:14px;font-weight:600;}
+.card-purchase-row {display:flex;gap:15px;justify-content:space-between;padding:13px 0;border-bottom:1px solid #ecf0e8;font-size:14px;}
+.card-purchase-row small {display:block;margin-top:6px;color:#66776c;font-size:12px;line-height:1.7;}
+.card-purchase-row > strong {white-space:nowrap;}
+.cards-panel .notice {font-size:14px;line-height:1.8;}
+@media(max-width:600px){.card-editor{padding:22px}.card-editor .formgrid,.card-purchase-fields .formgrid{display:grid;grid-template-columns:1fr}.card-invoice{padding:18px}.card-invoice-controls{align-items:stretch;flex-direction:column}}
