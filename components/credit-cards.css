@@ -36,3 +36,6 @@
 .card-purchase-row > strong {white-space:nowrap;}
 .cards-panel .notice {font-size:14px;line-height:1.8;}
 @media(max-width:600px){.card-editor{padding:22px}.card-editor .formgrid,.card-purchase-fields .formgrid{display:grid;grid-template-columns:1fr}.card-invoice{padding:18px}.card-invoice-controls{align-items:stretch;flex-direction:column}}
+/* Keep every navigation item reachable on shorter desktop windows. */
+.shell > aside { overflow-y:auto; }
+.shell > aside > .nav,.shell > aside > .profile { flex-shrink:0; }
