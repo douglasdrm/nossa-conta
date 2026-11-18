@@ -164,12 +164,13 @@ function DashboardContent({
     [day, setDay] = useState(today());
   const [chosenMethod, setChosenMethod] = useState("");
   const [cardReady, setCardReady] = useState(true);
+  const [linkLegacyCard, setLinkLegacyCard] = useState(false);
   const [cardsVersion, setCardsVersion] = useState(0);
   const [categoryPending, setCategoryPending] = useState(false);
   const requestId = useRef(0);
   const installmentGroup = useRef("");
   const [entryMode, setEntryMode] = useState("single");
-  const cardPurchase = modal === "expense" && chosenMethod === "credit_card" && entryMode !== "recurring" && !editing?.id.includes(":");
+  const cardPurchase = modal === "expense" && chosenMethod === "credit_card" && entryMode !== "recurring" && !editing?.id.includes(":") && (!editing || Boolean(editing.credit_card_id) || editing.payment_method !== "credit_card" || linkLegacyCard);
 
   const [installmentMode, setInstallmentMode] =
     useState<InstallmentMode>("total");
@@ -178,6 +179,7 @@ function DashboardContent({
   useEffect(() => {
     setChosenMethod(editing?.payment_method ?? "");
     setCardReady(true);
+    setLinkLegacyCard(false);
     setEntryMode("single");
     setInstallmentMode("total");
     setInstallmentCount(3);
@@ -941,7 +943,7 @@ function DashboardContent({
         {view === "cards" ? (
           <><section className="heading"><div><h1>Cartões e faturas</h1></div></section>
           {error && <p className="error" role="alert">{error}</p>}
-          <CreditCardsPanel key={cardsVersion} name={name} onEdit={async (id, targetMonth) => {
+          <CreditCardsPanel key={cardsVersion} name={name} onEdit={async (id) => {
             try {
               const r = await fetch("/api/entries?id=" + encodeURIComponent(id));
               if (!r.ok) throw Error();
@@ -1554,9 +1556,10 @@ function DashboardContent({
                       )}
                     </label>
                   )}
+                  {modal === "expense" && chosenMethod === "credit_card" && editing?.payment_method === "credit_card" && !editing.credit_card_id && !editing.id.includes(":") && <button type="button" className="text-button" onClick={() => { setLinkLegacyCard(!linkLegacyCard); setPaymentConfirmed(linkLegacyCard ? Boolean(editing.confirmed) : false); }}>{linkLegacyCard ? "Manter compra antiga sem vínculo" : "Vincular esta compra antiga a um cartão"}</button>}
                   {editing?.credit_card_id && <input type="hidden" name="paymentMethod" value="credit_card" />}
                   {cardPurchase && <CardPurchaseFields key={editing?.id || modal} initial={editing ?? undefined} onReadyChange={setCardReady} />}
-                  {modal === "expense" && chosenMethod === "credit_card" && !cardPurchase && <p className="field-hint">Recorrências não têm vínculo automático com cartão. Para acompanhar faturas, registre uma compra única ou parcelada.</p>}
+                  {modal === "expense" && chosenMethod === "credit_card" && !cardPurchase && (entryMode === "recurring" || editing?.id.includes(":")) && <p className="field-hint">Recorrências não têm vínculo automático com cartão. Para acompanhar faturas, registre uma compra única ou parcelada.</p>}
                   {!cardPurchase && <label className="check">
                     <input
                       type="checkbox"

@@ -76,7 +76,12 @@ test("card invoices isolate households, preserve history, round installments and
   assert.equal(legacy.credit_card_id,null);assert.equal(legacy.confirmed,true);
   await db.exec("reset role");await db.query("update nossa_conta_private.nc_account_trials set started_at=now()-interval '8 days',expires_at=now()-interval '1 day' where user_id=$1",[owner]);await as(owner);
   await assert.rejects(db.query("select nc_save_card_purchase($1)",[{...installment,installmentGroup:"83000000-0000-4000-8000-000000000002",invoiceMonth:"2027-05"}]),/premium_required/);
-  await rpc("select nc_save_card_purchase($1) as data",[{...base,cardId:otherCard.id,invoiceMonth:"2027-05"}]);
+  const freePurchase = await rpc("select nc_save_card_purchase($1) as data",[{...base,cardId:otherCard.id,invoiceMonth:"2027-05"}]);
+  await db.query("select nc_save_credit_card($1)",[{id:otherCard.id,name:"Outro cartão",dueDay:31,closingDay:20,archived:true}]);
+  await assert.rejects(db.query("select nc_save_card_purchase($1)",[{...base,cardId:otherCard.id,invoiceMonth:"2027-06"}]),/card_not_found/);
+  await assert.rejects(db.query("select nc_save_card_purchase($1,$2)",[{...base,cardId:otherCard.id,invoiceMonth:"2027-06"},purchase.id]),/invoice_paid/);
+  const archivedEdit = await rpc("select nc_save_card_purchase($1,$2) as data",[{...base,cardId:otherCard.id,invoiceMonth:"2027-06"},freePurchase.id]);
+  assert.equal(archivedEdit.date,"2027-06-30");
   await as(member);assert.equal((await db.query("select * from nc_credit_cards")).rows.length,0);
   await db.exec("reset role;set role anon");
   await assert.rejects(db.query("select nc_save_credit_card($1)",[{name:"Intruso",dueDay:5,closingDay:25}]),/permission denied/);
