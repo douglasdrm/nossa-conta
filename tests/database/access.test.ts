@@ -6,6 +6,7 @@ import { PGlite } from "@electric-sql/pglite";
 test("trial expiry preserves records, pauses shared access and paid Premium restores three members", async () => {
   const db = new PGlite();
   const owner = "71000000-0000-4000-8000-000000000001";
+  const administrator = "71000000-0000-4000-8000-000000000004";
   const members = ["71000000-0000-4000-8000-000000000002", "71000000-0000-4000-8000-000000000003"];
   try {
     await db.exec(`
@@ -25,9 +26,10 @@ test("trial expiry preserves records, pauses shared access and paid Premium rest
     for (const file of (await readdir("supabase/migrations")).filter((name) => name.endsWith(".sql")).sort()) {
       await db.exec(await readFile("supabase/migrations/" + file, "utf8"));
     }
-    for (const [index, id] of [owner, ...members].entries()) {
+    for (const [index, id] of [owner, ...members, administrator].entries()) {
       await db.query("insert into auth.users(id,email,email_confirmed_at) values($1,$2,now())", [id, `person${index}@example.test`]);
     }
+    await db.query("insert into nc_system_admins(user_id) values($1)", [administrator]);
     async function as(id: string) {
       await db.exec("reset role");
       await db.query("select set_config('request.jwt.claim.sub',$1,false)", [id]);
@@ -37,9 +39,16 @@ test("trial expiry preserves records, pauses shared access and paid Premium rest
     async function access() {
       return (await db.query<{ value: { kind: string; premium: boolean; can_access: boolean } }>("select nc_access_status() as value")).rows[0].value;
     }
+    async function adminStatus(household: string) {
+      await as(administrator);
+      const value = (await db.query<{ value: { households: { id: string; status: string }[] } }>("select nc_admin_data() as value")).rows[0].value;
+      return value.households.find((space) => space.id === household)?.status;
+    }
     await as(owner);
     const household = (await db.query<{ value: string }>("select nc_ensure_household() as value")).rows[0].value;
     assert.equal((await access()).kind, "trial");
+    assert.equal(await adminStatus(household), "trial");
+    await as(owner);
     assert.equal((await db.query<{ value: unknown }>("select nc_paid_subscription_summary() as value")).rows[0].value, null);
     const entry = { kind: "expense", description: "Conta preservada", amount: 1000, category: "Contas e serviços", person: "Responsável", date: "2026-11-18", repeats: false };
     await db.query("select nc_add_entry($1)", [entry]);
@@ -69,6 +78,8 @@ test("trial expiry preserves records, pauses shared access and paid Premium rest
     await db.query("update nossa_conta_private.nc_account_trials set started_at=now()-interval '8 days',expires_at=now()-interval '1 day' where user_id=$1", [owner]);
     await as(owner);
     assert.equal((await access()).kind, "free");
+    assert.equal(await adminStatus(household), "free");
+    await as(owner);
     await db.query("select nc_add_entry($1)", [{ ...entry, description: "Gasto básico" }]);
     await assert.rejects(db.query("select nc_add_entry($1)", [{ ...entry, repeats: true }]), /premium_required/);
     await assert.rejects(db.query("select nc_add_installments($1)", [{ ...entry, installmentCount: 2, installmentMode: "total", installmentGroup: "72000000-0000-4000-8000-000000000001" }]), /premium_required/);
@@ -97,6 +108,7 @@ test("trial expiry preserves records, pauses shared access and paid Premium rest
       assert.equal((await access()).can_access, true);
       assert.equal((await db.query("select * from nc_household_members")).rows.length, 3);
     }
+    assert.equal(await adminStatus(household), "paid");
     await db.exec("reset role");
     await db.query("update nossa_conta_private.nc_production_charges set status='REFUNDED' where provider_payment_id='pay_access_paid'");
     await as(members[0]);
@@ -109,7 +121,13 @@ test("trial expiry preserves records, pauses shared access and paid Premium rest
     await as(members[0]);
     assert.equal((await access()).kind, "courtesy");
     assert.equal((await access()).can_access, true);
+    assert.equal(await adminStatus(household), "courtesy");
     await assert.rejects(db.query("update nossa_conta_private.nc_account_trials set expires_at=now()+interval '1 year'"), /permission denied/);
+    await db.exec("reset role");
+    await db.query("insert into nc_system_admins(user_id) values($1)", [owner]);
+    assert.equal(await adminStatus(household), "admin");
+    await as(members[0]);
+    await assert.rejects(db.query("select nc_admin_data()"), /admin_required/);
   } finally {
     await db.close();
   }

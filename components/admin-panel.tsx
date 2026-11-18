@@ -334,9 +334,8 @@ export default function AdminPanel({
         {current === "subscriptions" && (
           <section className="admin-card">
             <p>
-              As cortesias têm prazo e ficam registradas no histórico. Os
-              recursos atuais estão liberados gratuitamente para todos enquanto
-              a cobrança é preparada.
+              Acompanhe o acesso administrativo, os pagamentos, os sete dias grátis
+              e as cortesias de cada espaço. As cortesias têm prazo e ficam registradas no histórico.
             </p>
             <div className="admin-table-wrap">
               <table>
@@ -361,13 +360,16 @@ export default function AdminPanel({
                       <td>
                         <span className="admin-badge">
                           {{
-                            free: "Gratuito",
+                            free: "Gratuito individual",
+                            admin: "Premium administrativo",
+                            paid: "Premium pago",
+                            trial: "Premium grátis · 7 dias",
                             courtesy: "Cortesia Premium",
                             expired: "Cortesia expirada",
                           }[h.status] || h.status}
                         </span>
                       </td>
-                      <td>{h.valid_until ? date(h.valid_until) : "—"}</td>
+                      <td>{h.status === "admin" ? "Vinculada à administração" : h.valid_until ? date(h.valid_until) : "—"}</td>
                       <td>
                         <button
                           type="button"
@@ -424,9 +426,8 @@ export default function AdminPanel({
               </table>
             </div>
             <p>
-              Catálogo de lançamento. Contratação, renovação automática,
-              alteração de preços e cupons serão conectados ao processador de
-              pagamentos. Nenhuma cobrança está habilitada.
+              Catálogo de contratação. O checkout está em piloto e usa os valores
+              reservados pelo servidor. As cortesias são gerenciadas na aba Espaços e assinaturas.
             </p>
           </section>
         )}
@@ -626,3 +627,4 @@ export default function AdminPanel({
     </div>
   );
 }
+

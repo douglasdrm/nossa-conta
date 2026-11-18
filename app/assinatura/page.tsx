@@ -83,6 +83,34 @@ export default async function Subscription({
       </MarketingFrame>
     );
   }
+  if (access.kind === "admin" || access.kind === "courtesy") {
+    const administrative = access.kind === "admin";
+    const validity = administrative ? "Vinculada à administração do espaço" : new Date(access.valid_until!).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+    return (
+      <MarketingFrame signedIn>
+        <div className="subscription-layout">
+          <div className="subscription-content">
+            <header className="subscription-heading">
+              <span className="marketing-eyebrow">MINHA ASSINATURA</span>
+              <h1>{administrative ? <>Premium da<br />administração.</> : <>Premium de<br />cortesia.</>}</h1>
+              <p>{administrative ? "Seu espaço possui acesso completo vinculado à administração do Nossa Conta." : "Seu espaço recebeu acesso completo ao Premium pelo período de cortesia."}</p>
+            </header>
+            <section className="subscription-summary" aria-labelledby="subscription-summary-title">
+              <h2 id="subscription-summary-title">Premium completo ativo</h2>
+              <dl>
+                <div><dt>Tipo de acesso</dt><dd>{administrative ? "Administração" : "Cortesia"}</dd></div>
+                <div><dt>Compartilhamento</dt><dd>Incluído para os participantes do espaço</dd></div>
+                <div><dt>{administrative ? "Validade" : "Acesso Premium até"}</dt><dd>{validity}</dd></div>
+              </dl>
+              <a className="subscription-submit" href="/">Ir para meu espaço <span aria-hidden="true">→</span></a>
+              {administrative && access.is_owner && <a className="subscription-back" href="/admin">Abrir administração</a>}
+            </section>
+          </div>
+          <SubscriptionBenefits />
+        </div>
+      </MarketingFrame>
+    );
+  }
   if (retorno === "success" && pedido && z.string().uuid().safeParse(pedido).success) {
     return (
       <MarketingFrame signedIn>
