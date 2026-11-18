@@ -1,4 +1,4 @@
-import { authenticated, checkOrigin, failure, ApiError } from "@/lib/api";
+import { authenticatedFinance as authenticated, checkOrigin, failure, ApiError } from "@/lib/api";
 import {
   entrySchema,
   editSchema,
@@ -10,7 +10,7 @@ import { dateInSaoPaulo } from "@/lib/finance";
 export const dynamic = "force-dynamic";
 export async function GET(r: Request) {
   try {
-    const { db } = await authenticated();
+    const { db, access } = await authenticated();
     if (new URL(r.url).searchParams.get("due") === "true") {
       const { data, error } = await db
         .from("nc_entries")
@@ -28,6 +28,7 @@ export async function GET(r: Request) {
       });
     }
     if (new URL(r.url).searchParams.get("upcoming") === "true") {
+      if (!access.premium) throw new ApiError("A previsão de próximos compromissos faz parte do Premium.", 403);
       const today = dateInSaoPaulo();
       const { data, error } = await db
         .from("nc_entries")
@@ -91,9 +92,10 @@ function nextMonth(month: string) {
 export async function POST(r: Request) {
   try {
     checkOrigin(r);
-    const { db } = await authenticated();
+    const { db, access } = await authenticated();
     const body = await r.json();
     if (body.action === "sync") {
+      if (!access.premium) return Response.json({ ok: true });
       const month = monthSchema.safeParse(body.month);
       if (!month.success) throw new ApiError("Mês inválido.", 400);
       const { error } = await db.rpc("nc_sync_month", {
@@ -101,6 +103,9 @@ export async function POST(r: Request) {
       });
       if (error) throw error;
       return Response.json({ ok: true });
+    }
+    if (!access.premium && (body.repeats || body.installmentCount !== undefined)) {
+      throw new ApiError("Parcelamentos e recorrências fazem parte do Premium.", 403);
     }
     if (
       body.installmentCount !== undefined ||
@@ -203,3 +208,4 @@ export async function DELETE(r: Request) {
     return failure(e);
   }
 }
+

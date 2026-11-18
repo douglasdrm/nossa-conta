@@ -31,6 +31,8 @@ import CategoryName from "@/components/category-name";
 import CategoryManager from "@/components/category-manager";
 import CategoryPicker from "@/components/category-picker";
 import SharePanel from "@/components/share-panel";
+import AccessNotice from "@/components/access-notice";
+import type { AccountAccess } from "@/lib/access";
 import MoneyInput from "@/components/money-input";
 import DuePanel from "@/components/due-panel";
 import {
@@ -109,6 +111,7 @@ export type FinanceView =
   | "categories";
 
 type DashboardProps = {
+  access: AccountAccess;
   name: string;
   photo?: string;
   view?: FinanceView;
@@ -122,6 +125,7 @@ export default function Dashboard(props: DashboardProps) {
   );
 }
 function DashboardContent({
+  access,
   name,
   photo,
   view = "overview",
@@ -202,12 +206,12 @@ function DashboardContent({
       const [r, alerts, soon, history, planResponse] = await Promise.all([
         fetch("/api/entries?month=" + encodeURIComponent(target)),
         overview ? fetch("/api/entries?due=true") : null,
-        overview ? fetch("/api/entries?upcoming=true").catch(() => null) : null,
-        overview && target === now.slice(0, 7)
+        overview && access.premium ? fetch("/api/entries?upcoming=true").catch(() => null) : null,
+        overview && access.premium && target === now.slice(0, 7)
           ? fetch("/api/reports/radar").catch(() => null)
           : null,
         (view === "plan" && plan === null) ||
-        (overview && target === now.slice(0, 7))
+        (overview && access.premium && target === now.slice(0, 7))
           ? fetch("/api/budget-plan").catch(() => null)
           : null,
       ]);
@@ -903,10 +907,11 @@ function DashboardContent({
           <a className="profile-header-link" href="/profile">
             <UserRound size={16} /> Meu perfil
           </a>
-          <button className="share" onClick={() => setModal("share")}>
-            <Users size={16} /> Espaço compartilhado
+          <button className="share" onClick={() => access.premium ? setModal("share") : location.assign("/assinatura?periodo=monthly")}>
+            <Users size={16} /> {access.premium ? "Espaço compartilhado" : "Compartilhar com Premium"}
           </button>
         </header>
+        <AccessNotice access={access} />
         {view === "categories" ? (
           <>
             <section className="heading">
@@ -926,7 +931,7 @@ function DashboardContent({
                 <h1>Relatórios</h1>
               </div>
             </section>
-            <AnnualSpending today={day} />
+            {access.premium ? <AnnualSpending today={day} /> : <div className="premium-feature-notice"><h2>Relatórios completos com Premium</h2><p>Seu histórico continua disponível em Lançamentos.</p><a href="/assinatura?periodo=monthly">Ver assinatura</a></div>}
           </>
         ) : view === "entries" ? (
           <>
@@ -964,13 +969,13 @@ function DashboardContent({
               </div>
             )}
             {plan ? (
-              <BudgetPlanPanel
+              <fieldset disabled={!access.premium} className="premium-readonly"><BudgetPlanPanel
                 plan={plan}
                 income={totals.totalIncome}
                 entries={rows}
                 balancesLoading={loading || Boolean(error)}
                 onSave={setPlan}
-              />
+              /></fieldset>
             ) : planError ? (
               <p role="alert">
                 Não foi possível carregar o plano.{" "}
@@ -998,13 +1003,13 @@ function DashboardContent({
                 {error}
               </div>
             )}
-            <SavingsPanel
+            <fieldset disabled={!access.premium} className="premium-readonly"><SavingsPanel
               month={month}
               today={day}
               income={income}
               expenses={totals.totalExpense}
               balancesLoading={loading || Boolean(error)}
-            />
+            /></fieldset>
           </>
         ) : (
           <>
@@ -1076,7 +1081,7 @@ function DashboardContent({
                 </small>
               </article>
             </section>
-            <section
+            {access.premium && <section
               className={`forecast ${!loading && totals.projected < 0 ? "forecast-negative" : ""}`}
               aria-label="Previsão do mês"
             >
@@ -1113,8 +1118,8 @@ function DashboardContent({
                     : "Adicione entradas e gastos para acompanhar a previsão."}
                 </p>
               ) : null}
-            </section>
-            {!loading &&
+            </section>}
+            {access.premium && !loading &&
               !error &&
               month === day.slice(0, 7) &&
               totals.totalIncome > 0 && (
@@ -1261,12 +1266,12 @@ function DashboardContent({
                 </div>
               </article>
             </section>
-            <UpcomingPanel
+            {access.premium && <UpcomingPanel
               entries={upcoming}
               today={day}
               loading={loading}
               error={upcomingError}
-            />
+            />}
             <a className="savings-shortcut" href="/relatorio-anual">
               <CalendarRange size={19} aria-hidden="true" /> Ver relatórios
             </a>
@@ -1337,9 +1342,9 @@ function DashboardContent({
                         <option value="single">
                           {modal === "income" ? "Entrada única" : "Gasto único"}
                         </option>
-                        <option value="recurring">Recorrente todo mês</option>
+                        <option value="recurring" disabled={!access.premium}>Recorrente todo mês{!access.premium ? " · Premium" : ""}</option>
                         {modal === "expense" && (
-                          <option value="installment">Gasto parcelado</option>
+                          <option value="installment" disabled={!access.premium}>Gasto parcelado{!access.premium ? " · Premium" : ""}</option>
                         )}
                       </select>
                     </label>
@@ -1622,3 +1627,4 @@ function DashboardContent({
     </div>
   );
 }
+

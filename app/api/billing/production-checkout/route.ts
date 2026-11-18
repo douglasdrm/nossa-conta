@@ -31,12 +31,17 @@ export async function POST(request: Request) {
     if (user.is_anonymous || !user.email_confirmed_at) {
       throw new ApiError("Confirme seu e-mail para contratar o Premium.", 403);
     }
-    if (!productionCheckoutPilotAllows(user.id)) {
+    const { data: offer, error: offerError } = await db.rpc("nc_pilot_offer_amount");
+    if (offerError) throw new ApiError("Não foi possível consultar as condições do piloto.", 503);
+    if (!productionCheckoutPilotAllows(user.id) && offer !== 500) {
       throw new ApiError("A contratação ainda está indisponível para esta conta.", 403);
     }
     const input = checkoutSchema.safeParse(await request.json().catch(() => null));
     if (!input.success) throw new ApiError("Escolha um plano e uma forma de pagamento.", 400);
     const { cycle, method } = input.data;
+    if (offer === 500 && (cycle !== "monthly" || method !== "pix")) {
+      throw new ApiError("O teste de R$ 5,00 está disponível no plano mensal com Pix.", 400);
+    }
     const { data, error } = await db.rpc("nc_reserve_production_checkout", {
       p_token: token, p_cycle: cycle, p_method: method,
     });
@@ -67,3 +72,4 @@ export async function POST(request: Request) {
     return failure(error);
   }
 }
+

@@ -47,6 +47,8 @@ export default function AcceptInvite({
                   setMessage(
                     "Você já participa de um espaço com lançamentos. Use uma conta que ainda não tenha um espaço com dados.",
                   );
+                else if (error.message.includes("premium_required"))
+                  setMessage("O compartilhamento está pausado. Peça ao responsável para ativar o Premium e tente novamente.");
                 else
                   setMessage(
                     "O convite pode estar expirado, revogado ou destinado a outro e-mail. Peça um novo convite.",
@@ -73,3 +75,4 @@ export default function AcceptInvite({
     </main>
   );
 }
+

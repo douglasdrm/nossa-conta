@@ -26,15 +26,16 @@ export default function SharePanel() {
   return (
     <>
       <span className="tag">FINANÇAS EM CONJUNTO</span>
-      <h2>Um espaço para vocês.</h2>
+      <h2>Um espaço para quem divide as contas.</h2>
       <p>
-        Convide pelo e-mail. A pessoa entrará com a própria conta e poderá
+        Convide duas, três ou mais pessoas pelo e-mail. Cada pessoa entrará com a própria conta e poderá
         consultar, adicionar, editar e excluir os lançamentos deste espaço.
       </p>
       <p>
         Somente o criador do espaço pode gerar convites. Nenhum e-mail é enviado
         automaticamente: copie o link e envie para a pessoa.
       </p>
+      <p>Uma assinatura Premium cobre todos os participantes deste espaço. O compartilhamento também está disponível durante os sete dias grátis.</p>
       <form
         onSubmit={async (e) => {
           e.preventDefault();
@@ -154,3 +155,4 @@ export default function SharePanel() {
     </>
   );
 }
+

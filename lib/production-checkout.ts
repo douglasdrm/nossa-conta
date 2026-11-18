@@ -20,7 +20,7 @@ export function productionCheckoutPayload(
   id: string, cycle: BillingCycle, method: "card" | "pix", amount: number, image: string,
 ) {
   const plan = plans.find((entry) => entry.id === cycle);
-  if (!plan || amount !== plan.total) throw new Error("Valor da reserva divergente do catálogo.");
+  if (!plan || (amount !== plan.total && !(cycle === "monthly" && method === "pix" && amount === 500))) throw new Error("Valor da reserva divergente do catálogo.");
   const payload = checkoutPayload(id, cycle, method, image);
   return {
     ...payload,
@@ -29,7 +29,7 @@ export function productionCheckoutPayload(
       successUrl: payload.callback.successUrl + "&pedido=" + encodeURIComponent(id),
     },
     items: payload.items.map((item) => ({
-      ...item, description: "Premium Nossa Conta",
+      ...item, value: amount / 100, description: "Premium Nossa Conta",
     })),
   };
 }
@@ -51,3 +51,4 @@ export async function requestProductionCheckout(
   if (!checkout.success) throw new Error("O Asaas retornou um checkout inválido.");
   return checkout.data.id;
 }
+

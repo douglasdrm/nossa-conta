@@ -34,8 +34,9 @@ export const brl = (cents: number) =>
     cents / 100,
   );
 export const premiumFeatures = [
-  "Uma assinatura para o espaço compartilhado",
+  "Compartilhamento com duas, três ou mais pessoas",
   "Receitas, despesas e identificação de quem pagou",
   "Compras parceladas e contas recorrentes",
   "Previsão mensal, relatórios e Caixinhas",
 ];
+

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ApiError, authenticated, checkOrigin, failure } from "@/lib/api";
+import { ApiError, authenticatedFinance as authenticated, checkOrigin, failure } from "@/lib/api";
 import { budgetKeys, defaultPlan, type BudgetPlan } from "@/lib/budget-plan";
 
 const percentage = z.number().int().min(0).max(100);
@@ -68,7 +68,7 @@ export async function GET() {
 export async function PUT(request: Request) {
   try {
     checkOrigin(request);
-    const { db } = await authenticated();
+    const { db } = await authenticated(true);
     const parsed = schema.safeParse(await request.json().catch(() => null));
     if (!parsed.success)
       throw new ApiError(
@@ -94,3 +94,4 @@ export async function PUT(request: Request) {
     return failure(error);
   }
 }
+

@@ -3,8 +3,9 @@
 import { useState, type FormEvent } from "react";
 import { brl, plans, type BillingCycle } from "@/lib/plans";
 
-export default function ProductionCheckout({ cycle, order }: { cycle: BillingCycle; order?: string }) {
+export default function ProductionCheckout({ cycle, order, offerAmount }: { cycle: BillingCycle; order?: string; offerAmount?: number }) {
   const plan = plans.find((option) => option.id === cycle)!;
+  const amount = offerAmount ?? plan.total;
   const [method, setMethod] = useState<"pix" | "card">("pix");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -83,16 +84,17 @@ export default function ProductionCheckout({ cycle, order }: { cycle: BillingCyc
             <span><strong>Pix</strong><small>Pagamento único pelo período escolhido</small></span>
           </label>
           <label className={"subscription-method" + (method === "card" ? " is-selected" : "")}>
-            <input type="radio" name="checkout-method" value="card" checked={method === "card"} onChange={() => setMethod("card")} />
+            <input type="radio" name="checkout-method" value="card" disabled={offerAmount !== undefined} checked={method === "card"} onChange={() => setMethod("card")} />
             <span><strong>Cartão de crédito</strong><small>Renovação automática a cada {plan.months === 1 ? "mês" : plan.months + " meses"}</small></span>
           </label>
         </div>
       </fieldset>
+      {offerAmount !== undefined && <p className="notice">Desconto do piloto aplicado. Pagamento único via Pix.</p>}
       <div className="subscription-total" aria-live="polite">
-        <div><span>Total do plano {plan.name.toLowerCase()}</span><strong>{brl(plan.total)}</strong></div>
+        <div><span>Total do plano {plan.name.toLowerCase()}</span><strong>{brl(amount)}</strong></div>
         <p>{method === "pix"
           ? "Pagamento único para " + plan.months + (plan.months === 1 ? " mês de acesso." : " meses de acesso.")
-          : brl(plan.total) + " " + plan.period + ", com renovação automática."}</p>
+          : brl(amount) + " " + plan.period + ", com renovação automática."}</p>
         {plan.months > 1 && <p>O valor total é cobrado de uma vez. Equivalente a {brl(plan.monthly)}/mês.</p>}
       </div>
       <button className="subscription-submit" type="submit" disabled={busy}>
@@ -103,3 +105,4 @@ export default function ProductionCheckout({ cycle, order }: { cycle: BillingCyc
     </form>
   );
 }
+

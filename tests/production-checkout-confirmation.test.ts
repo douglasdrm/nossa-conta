@@ -5,6 +5,14 @@ import { verifyInitialCheckoutPayment } from "../lib/production-checkout-confirm
 const order = { checkout_id: "checkout_fixture", payment_id: null, amount_cents: 1490, method: "pix", cycle: "monthly" } as const;
 const pix = { id: "pay_fixture", value: 14.9, dueDate: "2026-11-16", status: "RECEIVED", billingType: "PIX", checkoutSession: order.checkout_id };
 
+test("a worker-verified Pix detail must match the exact checkout when the listing is empty", async () => {
+  const send: typeof fetch = async () => Response.json({ data: [], hasMore: false });
+  assert.equal((await verifyInitialCheckoutPayment("fixture", order, send, pix)).status, "verified");
+  assert.equal((await verifyInitialCheckoutPayment("fixture", order, send, { ...pix, checkoutSession: "checkout_other" })).status, "pending");
+  assert.equal((await verifyInitialCheckoutPayment("fixture", order, send, { ...pix, value: 5 })).status, "manual_review");
+  assert.equal((await verifyInitialCheckoutPayment("fixture", order, send, { ...pix, status: "PENDING" })).status, "pending");
+});
+
 test("reconciles only a settled Pix charge from the provider's checkout filter", async () => {
   const result = await verifyInitialCheckoutPayment("fixture", order, async (input) => {
     const url = new URL(String(input));
@@ -40,3 +48,4 @@ test("card checkout validates the underlying subscription cycle", async () => {
     assert.equal(result.status, expected);
   }
 });
+

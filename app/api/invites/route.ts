@@ -1,9 +1,9 @@
-import { authenticated, checkOrigin, failure, ApiError } from "@/lib/api";
+import { authenticatedFinance as authenticated, checkOrigin, failure, ApiError } from "@/lib/api";
 import { inviteSchema } from "@/lib/validation";
 export async function POST(r: Request) {
   try {
     checkOrigin(r);
-    const { db } = await authenticated();
+    const { db } = await authenticated(true);
     const input = inviteSchema.safeParse(await r.json());
     if (!input.success) throw new ApiError("Informe um e-mail válido.", 400);
     const { data, error } = await db.rpc("nc_create_household_invite", {
@@ -49,3 +49,4 @@ export async function DELETE(r: Request) {
     return failure(e);
   }
 }
+

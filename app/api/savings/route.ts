@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ApiError, authenticated, checkOrigin, failure } from "@/lib/api";
+import { ApiError, authenticatedFinance as authenticated, checkOrigin, failure } from "@/lib/api";
 import { dateSchema, monthSchema } from "@/lib/validation";
 export const dynamic = "force-dynamic";
 
@@ -49,7 +49,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     checkOrigin(request);
-    const { db } = await authenticated();
+    const { db } = await authenticated(true);
     const parsed = actionSchema.safeParse(await request.json());
     if (!parsed.success)
       throw new ApiError("Confira os dados da caixinha.", 400);
@@ -69,3 +69,4 @@ export async function POST(request: Request) {
     return failure(error);
   }
 }
+
