@@ -30,6 +30,8 @@ import { paymentMethodIcons } from "@/components/payment-method-icons";
 import CategoryName from "@/components/category-name";
 import CategoryManager from "@/components/category-manager";
 import CategoryPicker from "@/components/category-picker";
+import CardPurchaseFields from "@/components/card-purchase-fields";
+import CreditCardsPanel from "@/components/credit-cards-panel";
 import SharePanel from "@/components/share-panel";
 import AccessNotice from "@/components/access-notice";
 import type { AccountAccess } from "@/lib/access";
@@ -76,6 +78,9 @@ type Entry = {
   date: string;
   confirmed: boolean;
   payer: string | null;
+  credit_card_id?: string | null;
+  card_invoice_id?: string | null;
+  purchase_date?: string | null;
   payment_method?: PaymentMethod | null;
   profile_colors?: {
     person: ProfileColor | null;
@@ -108,7 +113,8 @@ export type FinanceView =
   | "entries"
   | "annual"
   | "plan"
-  | "categories";
+  | "categories"
+  | "cards";
 
 type DashboardProps = {
   access: AccountAccess;
@@ -156,15 +162,24 @@ function DashboardContent({
     [query, setQuery] = useState("");
   const [due, setDue] = useState<Entry[]>([]),
     [day, setDay] = useState(today());
+  const [chosenMethod, setChosenMethod] = useState("");
+  const [cardReady, setCardReady] = useState(true);
+  const [linkLegacyCard, setLinkLegacyCard] = useState(false);
+  const [cardsVersion, setCardsVersion] = useState(0);
   const [categoryPending, setCategoryPending] = useState(false);
   const requestId = useRef(0);
   const installmentGroup = useRef("");
   const [entryMode, setEntryMode] = useState("single");
+  const cardPurchase = modal === "expense" && chosenMethod === "credit_card" && entryMode !== "recurring" && !editing?.id.includes(":") && (!editing || Boolean(editing.credit_card_id) || editing.payment_method !== "credit_card" || linkLegacyCard);
+
   const [installmentMode, setInstallmentMode] =
     useState<InstallmentMode>("total");
   const [installmentCount, setInstallmentCount] = useState(3);
   const [inputAmount, setInputAmount] = useState(0);
   useEffect(() => {
+    setChosenMethod(editing?.payment_method ?? "");
+    setCardReady(true);
+    setLinkLegacyCard(false);
     setEntryMode("single");
     setInstallmentMode("total");
     setInstallmentCount(3);
@@ -184,7 +199,7 @@ function DashboardContent({
     return () => clearInterval(timer);
   }, []);
   async function reload(target = month) {
-    if (view === "annual" || view === "categories") return;
+    if (view === "annual" || view === "categories" || view === "cards") return;
     const seq = ++requestId.current;
     setLoading(true);
     setError("");
@@ -328,7 +343,8 @@ function DashboardContent({
   }
   async function save(ev: React.FormEvent<HTMLFormElement>) {
     ev.preventDefault();
-    if (busy || categoryPending) return;
+    if (busy || categoryPending || (cardPurchase && !cardReady)) return;
+    if (cardPurchase && editing?.confirmed && !editing.card_invoice_id && !confirm("Esta compra antiga consta como paga. Vinculá-la ao cartão vai deixá-la a pagar na fatura escolhida. Continuar?")) return;
     setBusy(true);
     setError("");
     const f = new FormData(ev.currentTarget);
@@ -343,7 +359,7 @@ function DashboardContent({
           amount,
           paymentMethod:
             modal === "expense" ? f.get("paymentMethod") || null : undefined,
-          confirmed: f.get("paymentStatus") === "confirmed",
+          confirmed: !cardPurchase && f.get("paymentStatus") === "confirmed",
           payer:
             modal === "expense" && f.get("paymentStatus") === "confirmed"
               ? String(f.get("payer") || name).trim()
@@ -364,11 +380,14 @@ function DashboardContent({
         const b = await r.json();
         throw Error(b.error);
       }
-      setMonth(String(f.get("date")).slice(0, 7));
+      const result = await r.json();
+      const savedMonth = String(result?.date || f.get("date")).slice(0, 7);
+      setMonth(savedMonth);
       setModal("");
       setEditing(null);
       setPaymentMode(false);
-      await reload(String(f.get("date")).slice(0, 7));
+      setCardsVersion((value) => value + 1);
+      await reload(savedMonth);
     } catch (e) {
       setError(
         e instanceof Error
@@ -382,6 +401,7 @@ function DashboardContent({
   function confirmPayment(id: string) {
     const e = [...data, ...due].find((e) => e.id === id);
     if (!e || busy) return;
+    if (e.card_invoice_id) { location.assign("/cartoes"); return; }
     setEditing(e);
     setError("");
     setPaymentMode(true);
@@ -390,6 +410,7 @@ function DashboardContent({
   }
   function editDue(id: string) {
     const e = due.find((e) => e.id === id);
+    if (e?.card_invoice_id) { location.assign("/cartoes"); return; }
     if (!e) return;
     setEditing(e);
     setPaymentMode(false);
@@ -620,6 +641,7 @@ function DashboardContent({
                       >
                         {e.category}
                       </span>
+                      {e.card_invoice_id && <a className="visual-badge" href="/cartoes">Na fatura do cartão</a>}
                       {e.payment_method && MethodIcon && (
                         <small
                           className="entry-method"
@@ -704,7 +726,7 @@ function DashboardContent({
                         title={
                           e.kind === "income"
                             ? "Confirmar recebimento"
-                            : "Confirmar pagamento"
+                            : e.card_invoice_id ? "Pagar fatura em Cartões" : "Confirmar pagamento"
                         }
                         aria-label={`${e.kind === "income" ? "Confirmar recebimento" : "Confirmar pagamento"}: ${e.description}`}
                         onClick={() => confirmPayment(e.id)}
@@ -713,6 +735,8 @@ function DashboardContent({
                       </button>
                       <button
                         className="delete"
+                        disabled={Boolean(e.card_invoice_id && e.confirmed)}
+                        title={e.card_invoice_id && e.confirmed ? "Reabra a fatura em Cartões para editar" : "Editar lançamento"}
                         aria-label={`Editar ${e.description}`}
                         onClick={() => {
                           setEditing(e);
@@ -724,6 +748,8 @@ function DashboardContent({
                         <Pencil size={15} />
                       </button>
                       <button
+                        disabled={Boolean(e.card_invoice_id && e.confirmed)}
+                        title={e.card_invoice_id && e.confirmed ? "Reabra a fatura em Cartões para excluir" : "Excluir lançamento"}
                         aria-label={`Excluir ${e.description}`}
                         className="delete"
                         onClick={() => remove(e.id)}
@@ -819,6 +845,7 @@ function DashboardContent({
       >
         <Users size={19} /> Compartilhar
       </button>
+      <a className={view === "cards" ? "nav active" : "nav"} href="/cartoes" aria-current={view === "cards" ? "page" : undefined}><Wallet size={19} /> Cartões e faturas</a>
       <a className="nav" href="/assinatura">
         <Wallet size={19} /> Minha assinatura
       </a>
@@ -901,6 +928,7 @@ function DashboardContent({
                 annual: "Relatórios",
                 plan: "Plano do mês",
                 categories: "Categorias",
+                cards: "Cartões e faturas",
               }[view]
             }
           </div>
@@ -912,7 +940,20 @@ function DashboardContent({
           </button>
         </header>
         <AccessNotice access={access} />
-        {view === "categories" ? (
+        {view === "cards" ? (
+          <><section className="heading"><div><h1>Cartões e faturas</h1></div></section>
+          {error && <p className="error" role="alert">{error}</p>}
+          <CreditCardsPanel key={cardsVersion} name={name} onEdit={async (id) => {
+            try {
+              const r = await fetch("/api/entries?id=" + encodeURIComponent(id));
+              if (!r.ok) throw Error();
+              const entries: Entry[] = await r.json();
+              const entry = entries.find((item) => item.id === id);
+              if (!entry) throw Error();
+              setEditing(entry); setPaymentMode(false); setError(""); setModal("expense");
+            } catch { setError("Não foi possível abrir a compra. Tente novamente."); }
+          }} /></>
+        ) : view === "categories" ? (
           <>
             <section className="heading">
               <div>
@@ -1415,7 +1456,7 @@ function DashboardContent({
                         Digite só os números; os centavos são automáticos.
                       </small>
                     </label>
-                    <label>
+                    {!cardPurchase ? <label>
                       {isInstallment
                         ? "Vencimento da primeira parcela"
                         : modal === "expense"
@@ -1434,7 +1475,7 @@ function DashboardContent({
                             : month + "-01")
                         }
                       />
-                    </label>
+                    </label> : <input type="hidden" name="date" value={editing?.date || today()} />}
                   </div>
                   {isInstallment && (
                     <div className="installment-summary" role="status">
@@ -1457,9 +1498,7 @@ function DashboardContent({
                         <p>Informe um valor válido e de 2 a 120 parcelas.</p>
                       )}
                       <small>
-                        Uma parcela por mês a partir do vencimento acima. Cada
-                        pagamento será confirmado separadamente. Em meses mais
-                        curtos, o vencimento será no último dia.
+                        {cardPurchase ? "Uma parcela por fatura mensal, a partir da fatura escolhida abaixo. O pagamento será confirmado pela fatura." : "Uma parcela por mês a partir do vencimento acima. Cada pagamento será confirmado separadamente. Em meses mais curtos, o vencimento será no último dia."}
                       </small>
                     </div>
                   )}
@@ -1498,7 +1537,9 @@ function DashboardContent({
                       Forma de pagamento
                       <select
                         name="paymentMethod"
-                        defaultValue={editing?.payment_method ?? ""}
+                        value={chosenMethod}
+                        disabled={Boolean(editing?.credit_card_id)}
+                        onChange={(e) => { setChosenMethod(e.target.value); if (e.target.value === "credit_card") setPaymentConfirmed(false); }}
                       >
                         <option value="">Não informada</option>
                         {paymentMethods.map((method) => (
@@ -1515,9 +1556,14 @@ function DashboardContent({
                       )}
                     </label>
                   )}
-                  <label className="check">
+                  {modal === "expense" && chosenMethod === "credit_card" && editing?.payment_method === "credit_card" && !editing.credit_card_id && !editing.id.includes(":") && <button type="button" className="text-button" onClick={() => { setLinkLegacyCard(!linkLegacyCard); setPaymentConfirmed(linkLegacyCard ? Boolean(editing.confirmed) : false); }}>{linkLegacyCard ? "Manter compra antiga sem vínculo" : "Vincular esta compra antiga a um cartão"}</button>}
+                  {editing?.credit_card_id && <input type="hidden" name="paymentMethod" value="credit_card" />}
+                  {cardPurchase && <CardPurchaseFields key={editing?.id || modal} initial={editing ?? undefined} onReadyChange={setCardReady} />}
+                  {modal === "expense" && chosenMethod === "credit_card" && !cardPurchase && (entryMode === "recurring" || editing?.id.includes(":")) && <p className="field-hint">Recorrências não têm vínculo automático com cartão. Para acompanhar faturas, registre uma compra única ou parcelada.</p>}
+                  {!cardPurchase && <label className="check">
                     <input
                       type="checkbox"
+                      disabled={cardPurchase}
                       name="paymentStatus"
                       value="confirmed"
                       checked={paymentConfirmed}
@@ -1531,15 +1577,15 @@ function DashboardContent({
                       : isInstallment
                         ? "Confirmar pagamento da primeira parcela agora"
                         : "Confirmar pagamento agora"}
-                  </label>
-                  <p id="payment-status-help" className="field-hint">
+                  </label>}
+                  <p id="payment-status-help" className="field-hint" style={cardPurchase ? { display: "none" } : undefined}>
                     {modal === "income"
                       ? "Deixe desmarcado para lançar como a receber."
                       : isInstallment
                         ? "As demais parcelas ficam a pagar."
                         : "Deixe desmarcado para lançar como a pagar."}
                   </p>
-                  {modal === "expense" && paymentConfirmed && (
+                  {modal === "expense" && paymentConfirmed && !cardPurchase && (
                     <label>
                       Quem pagou?
                       <input
@@ -1608,7 +1654,7 @@ function DashboardContent({
                   {error && <p className="error">{error}</p>}
                   <button
                     className="primary save"
-                    disabled={busy || categoryPending}
+                    disabled={busy || categoryPending || (cardPurchase && !cardReady)}
                   >
                     {busy
                       ? "Salvando..."

@@ -5,17 +5,25 @@ import {
   monthSchema,
   installmentSchema,
 } from "@/lib/validation";
+import { cardErrorMessage } from "@/lib/credit-cards";
 import { upcomingEnd } from "@/lib/finance-reports";
 import { dateInSaoPaulo } from "@/lib/finance";
 export const dynamic = "force-dynamic";
 export async function GET(r: Request) {
   try {
     const { db, access } = await authenticated();
+    const entryId = new URL(r.url).searchParams.get("id");
+    if (entryId) {
+      if (entryId.length > 100) throw new ApiError("Lançamento inválido.", 400);
+      const { data, error } = await db.from("nc_entries").select("id,kind,description,amount,category,person,date,confirmed,confirmed_at,payer,payer_user_id,installment_group,installment_number,installment_count,payment_method,credit_card_id,card_invoice_id,purchase_date").eq("id", entryId).is("deleted_at", null);
+      if (error) throw error;
+      return Response.json(data, { headers: { "Cache-Control": "private, no-store" } });
+    }
     if (new URL(r.url).searchParams.get("due") === "true") {
       const { data, error } = await db
         .from("nc_entries")
         .select(
-          "id,kind,description,amount,category,person,date,confirmed,confirmed_at,payer,installment_group,installment_number,installment_count,payment_method",
+          "id,kind,description,amount,category,person,date,confirmed,confirmed_at,payer,installment_group,installment_number,installment_count,payment_method,credit_card_id,card_invoice_id,purchase_date",
         )
         .eq("kind", "expense")
         .eq("confirmed", false)
@@ -33,7 +41,7 @@ export async function GET(r: Request) {
       const { data, error } = await db
         .from("nc_entries")
         .select(
-          "id,kind,description,amount,category,person,date,confirmed,confirmed_at,payer,installment_group,installment_number,installment_count,payment_method",
+          "id,kind,description,amount,category,person,date,confirmed,confirmed_at,payer,installment_group,installment_number,installment_count,payment_method,credit_card_id,card_invoice_id,purchase_date",
         )
         .eq("confirmed", false)
         .is("deleted_at", null)
@@ -54,7 +62,7 @@ export async function GET(r: Request) {
       db
         .from("nc_entries")
         .select(
-          "id,kind,description,amount,category,person,date,confirmed,confirmed_at,payer,payer_user_id,installment_group,installment_number,installment_count,payment_method",
+          "id,kind,description,amount,category,person,date,confirmed,confirmed_at,payer,payer_user_id,installment_group,installment_number,installment_count,payment_method,credit_card_id,card_invoice_id,purchase_date",
         )
         .gte("date", month.data + "-01")
         .lt("date", nextMonth(month.data))
@@ -106,6 +114,14 @@ export async function POST(r: Request) {
     }
     if (!access.premium && (body.repeats || body.installmentCount !== undefined)) {
       throw new ApiError("Parcelamentos e recorrências fazem parte do Premium.", 403);
+    }
+    if (body.cardId) {
+      const schema = body.installmentCount !== undefined ? installmentSchema : entrySchema;
+      const parsed = schema.safeParse(body);
+      if (!parsed.success || !parsed.data.purchaseDate || !parsed.data.invoiceMonth) throw new ApiError("Selecione o cartão, a data da compra e a fatura.", 400);
+      const { data, error } = await db.rpc("nc_save_card_purchase", { p_entry: parsed.data });
+      if (error) throw new ApiError(cardErrorMessage(error.message), 400);
+      return Response.json(data, { status: 201 });
     }
     if (
       body.installmentCount !== undefined ||
@@ -165,7 +181,7 @@ export async function PATCH(r: Request) {
             : null,
       });
       if (error)
-        throw new ApiError("Não foi possível atualizar a confirmação.", 400);
+        throw new ApiError(cardErrorMessage(error.message), 400);
       return Response.json({ ok: true });
     }
     if (body.action === "stop") {
@@ -179,6 +195,12 @@ export async function PATCH(r: Request) {
     const parsed = editSchema.safeParse(body);
     if (!parsed.success)
       throw new ApiError("Confira os campos do lançamento.", 400);
+    if (parsed.data.cardId) {
+      if (!parsed.data.purchaseDate || !parsed.data.invoiceMonth) throw new ApiError("Confira a data da compra e a fatura.", 400);
+      const { data, error } = await db.rpc("nc_save_card_purchase", { p_entry: { ...parsed.data, kind: "expense" }, p_id: parsed.data.id });
+      if (error) throw new ApiError(cardErrorMessage(error.message), 400);
+      return Response.json(data);
+    }
     const { error } = await db.rpc("nc_edit_entry", {
       p_id: parsed.data.id,
       p_entry: parsed.data,
@@ -202,7 +224,7 @@ export async function DELETE(r: Request) {
     if (typeof id !== "string" || id.length > 100)
       throw new ApiError("Lançamento inválido.", 400);
     const { error } = await db.rpc("nc_delete_entry", { p_id: id });
-    if (error) throw new ApiError("Lançamento não encontrado.", 404);
+    if (error) throw new ApiError(cardErrorMessage(error.message), 400);
     return Response.json({ ok: true });
   } catch (e) {
     return failure(e);

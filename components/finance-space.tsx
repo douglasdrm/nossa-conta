@@ -33,6 +33,7 @@ export default async function FinanceSpace({
             initialMonth ? `/lancamentos?mes=${initialMonth}` : "/lancamentos",
           ),
         categories: "/login?next=/categorias",
+        cards: "/login?next=/cartoes",
         plan: "/login?next=/plano-do-mes",
         annual: "/login?next=/relatorio-anual",
       }[view],
