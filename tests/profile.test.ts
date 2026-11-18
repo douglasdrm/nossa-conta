@@ -6,14 +6,14 @@ import { prepareAvatar } from "../lib/avatar";
 test("profile names validate and usernames normalize without changing unrelated fields", () => {
   assert.deepEqual(
     profileSchema.parse({
-      name: " Douglas ",
-      username: "DOUGLAS_123",
+      name: " Alex ",
+      username: "ALEX_123",
       email: "ignored@test.com",
     }),
-    { name: "Douglas", username: "douglas_123" },
+    { name: "Alex", username: "alex_123" },
   );
   assert.equal(
-    profileSchema.safeParse({ name: "Douglas", username: "" }).success,
+    profileSchema.safeParse({ name: "Alex", username: "" }).success,
     true,
   );
   for (const username of [
@@ -54,3 +54,4 @@ test("profile photo processing produces a bounded WebP and rejects invalid conte
     ),
   );
 });
+

@@ -11,7 +11,7 @@ const entry = {
   description: "Luz",
   amount: 18700,
   category: "Contas",
-  person: "Douglas",
+  person: "Alex",
   date: "2026-11-05",
 };
 test("rejects impossible dates and accepts leap years", () => {
@@ -112,3 +112,4 @@ test("installment payloads reject incompatible modes, totals, counts and out-of-
       JSON.stringify(change),
     );
 });
+
