@@ -78,6 +78,8 @@ test("trial expiry preserves records, pauses shared access and paid Premium rest
       await as(member);
       assert.equal((await access()).can_access, false);
       assert.equal((await db.query("select * from nc_entries")).rows.length, 0);
+      await db.query("select nc_save_profile('Pessoa convidada',null)");
+      assert.equal((await db.query("select * from nc_user_profiles")).rows.length, 1);
       assert.equal((await db.query<{ value: string }>("select nc_ensure_household() as value")).rows[0].value, household);
       await assert.rejects(db.query("select nc_add_entry($1)", [entry]), /membership_required/);
     }

@@ -19,6 +19,41 @@ begin
   values (new.owner_id) on conflict (user_id) do nothing;
   return new;
 end $$;
+
+-- Personal profile and avatar access remain available while shared finances are paused.
+create function nossa_conta_private.confirmed_account() returns boolean
+language sql stable security definer set search_path = '' as $$
+  select exists(select 1 from auth.users where id=auth.uid() and email_confirmed_at is not null and not coalesce(is_anonymous,false))
+$$;
+revoke all on function nossa_conta_private.confirmed_account() from public, anon, authenticated, service_role;
+grant execute on function nossa_conta_private.confirmed_account() to authenticated;
+alter policy profile_read on public.nc_user_profiles
+  using(user_id=(select auth.uid()) and (select nossa_conta_private.confirmed_account()));
+alter policy nc_avatars_own_read on storage.objects
+  using(bucket_id='nc-avatars' and split_part(name,'/',1)=(select auth.uid())::text and (select nossa_conta_private.confirmed_account()));
+alter policy nc_avatars_own_insert on storage.objects
+  with check(bucket_id='nc-avatars' and split_part(name,'/',1)=(select auth.uid())::text and (select nossa_conta_private.confirmed_account()));
+alter policy nc_avatars_own_delete on storage.objects
+  using(bucket_id='nc-avatars' and split_part(name,'/',1)=(select auth.uid())::text and (select nossa_conta_private.confirmed_account()));
+
+create or replace function nossa_conta_private.save_profile(p_name text,p_username text) returns jsonb
+language plpgsql security definer set search_path = '' as $$
+declare n text:=trim(p_name); u text:=nullif(lower(trim(p_username)),''); r public.nc_user_profiles;
+begin
+  if not nossa_conta_private.confirmed_account() then raise exception 'confirmed_account_required'; end if;
+  if n is null or length(n) not between 1 and 60 or (u is not null and u !~ '^[a-z0-9_]{3,30}$') then raise exception 'invalid_profile'; end if;
+  insert into public.nc_user_profiles(user_id,display_name,username) values(auth.uid(),n,u)
+    on conflict(user_id) do update set display_name=excluded.display_name,username=excluded.username,updated_at=now() returning * into r;
+  return jsonb_build_object('display_name',r.display_name,'username',r.username);
+end $$;
+create or replace function nossa_conta_private.set_avatar(p_path text) returns void
+language plpgsql security definer set search_path = '' as $$
+begin
+  if not nossa_conta_private.confirmed_account() then raise exception 'confirmed_account_required'; end if;
+  if p_path is not null and p_path !~ ('^'||auth.uid()::text||'/[a-f0-9-]+[.]webp$') then raise exception 'invalid_avatar'; end if;
+  insert into public.nc_user_profiles(user_id,avatar_path) values(auth.uid(),p_path)
+    on conflict(user_id) do update set avatar_path=excluded.avatar_path,updated_at=now();
+end $$;
 revoke all on function nossa_conta_private.start_account_trial() from public, anon, authenticated, service_role;
 create trigger nc_start_account_trial after insert on public.nc_households
 for each row execute function nossa_conta_private.start_account_trial();
