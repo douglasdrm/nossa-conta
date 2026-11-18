@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Pricing from "./marketing/pricing";
+import ProductDemo from "./marketing/product-demo";
 import {
   ArrowDownLeft,
   ArrowRight,
@@ -55,12 +56,20 @@ const features = [
 
 const questions = [
   [
+    "O administrador consegue ver meu salário e meus gastos?",
+    "O painel administrativo do Nossa Conta não exibe os valores nem as descrições das suas receitas e despesas. Ele mostra dados de cadastro, nome do espaço, quantidade de participantes e situação da assinatura. A equipe responsável pela infraestrutura possui acesso técnico ao banco de dados; isso é diferente do acesso pelo painel. O sistema não oferece criptografia de ponta a ponta.",
+  ],
+  [
+    "Quem vê o que registro no espaço compartilhado?",
+    "Os participantes do mesmo espaço com acesso ativo podem ver os lançamentos, valores e quem pagou. Hoje não existe uma área de lançamentos privados dentro do espaço compartilhado. Outras contas não têm acesso ao seu espaço pelo aplicativo. Convide apenas pessoas com quem você deseja compartilhar essas informações.",
+  ],
+  [
     "Preciso informar o meu salário?",
     "Informar a renda é opcional. Ao cadastrar entradas recebidas e previstas, você passa a acompanhar também a previsão de saldo do mês.",
   ],
   [
     "Como compartilho com outra pessoa?",
-    "Crie seu espaço e envie um convite pela área Compartilhar. A outra pessoa entra com a própria conta para registrar e acompanhar as finanças junto com você.",
+    "Durante os sete dias grátis ou com Premium ativo, crie seu espaço e envie um convite pela área Compartilhar. A outra pessoa entra com a própria conta para registrar e acompanhar as finanças junto com você.",
   ],
   [
     "As Caixinhas guardam dinheiro?",
@@ -72,7 +81,7 @@ const questions = [
   ],
   [
     "Quanto custa o Premium?",
-    "A proposta é R$ 14,90 por mês, R$ 39,90 a cada três meses ou R$ 119,90 por ano (equivalente a R$ 9,99 por mês). A contratação está em preparação; nesta etapa não há cobrança e os recursos atuais continuam gratuitos.",
+    "O Premium custa R$ 14,90 por mês, R$ 39,90 a cada três meses ou R$ 119,90 por ano (equivalente a R$ 9,99 por mês). Você começa com sete dias grátis, sem cartão. Depois pode assinar ou continuar no modo gratuito individual.",
   ],
 ];
 
@@ -91,6 +100,7 @@ export default function LandingPage() {
           <a href="/conheca#recursos">Recursos</a>
           <a href="/conheca#como-funciona">Como funciona</a>
           <a href="/planos">Planos</a>
+          <a href="/conheca#privacidade">Privacidade</a>
         </nav>
         <a className="marketing-login" href="/login">
           Entrar <ArrowUpRight size={16} aria-hidden="true" />
@@ -290,9 +300,23 @@ export default function LandingPage() {
           </ol>
         </section>
 
+        <ProductDemo />
+
+        <section className="marketing-privacy" id="privacidade" aria-labelledby="privacy-title">
+          <span className="marketing-eyebrow"><ShieldCheck size={16} aria-hidden="true" /> PRIVACIDADE COM CLAREZA</span>
+          <h2 id="privacy-title">Suas finanças merecem cuidado.</h2>
+          <p>Saiba quem vê suas informações antes de começar. Seu salário é opcional, e os registros do seu espaço não ficam públicos no aplicativo.</p>
+          <div className="marketing-privacy-grid">
+            <div><h3>No espaço, vocês acompanham juntos</h3><p>Os participantes com acesso ativo veem os lançamentos e valores do espaço. Não há lançamentos privados entre os participantes.</p></div>
+            <div><h3>Administração sem lista de gastos</h3><p>O painel administrativo mostra cadastro e situação da assinatura. Não exibe salários, valores ou descrições das suas despesas.</p></div>
+            <div><h3>Transparência sobre o acesso técnico</h3><p>A equipe responsável pela infraestrutura possui acesso técnico ao banco de dados. O sistema não oferece criptografia de ponta a ponta.</p></div>
+          </div>
+          <a className="marketing-text-link" href="/conheca#faq">Tirar dúvidas sobre privacidade <ArrowRight size={16} aria-hidden="true" /></a>
+        </section>
+
         <Pricing />
 
-        <section className="marketing-faq" aria-labelledby="faq-title">
+        <section className="marketing-faq" id="faq" aria-labelledby="faq-title">
           <div className="marketing-section-heading">
             <span className="marketing-eyebrow">
               <CircleHelp size={16} aria-hidden="true" /> ANTES DE COMEÇAR
@@ -332,8 +356,10 @@ export default function LandingPage() {
         <a href="/controle-financeiro-familiar">Controle familiar</a>
         <a href="/guias/organizar-contas-do-casal">Guia do casal</a>
         <span>Desenvolvido pela UNODEV</span>
+        <a href="/conheca#privacidade">Privacidade e acesso aos dados</a>
         <a href="/login">Acessar minha conta</a>
       </footer>
     </div>
   );
 }
+
