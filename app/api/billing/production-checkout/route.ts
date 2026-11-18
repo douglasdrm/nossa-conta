@@ -5,7 +5,7 @@ import { z } from "zod";
 import { ApiError, authenticated, checkOrigin, failure } from "@/lib/api";
 import { checkoutSchema } from "@/lib/asaas";
 import {
-  productionCheckoutEnabled, productionCheckoutPilotAllows, productionCheckoutPayload, productionCheckoutUrl,
+  productionCheckoutEnabled, productionCheckoutPayload, productionCheckoutUrl,
   requestProductionCheckout,
 } from "@/lib/production-checkout";
 
@@ -32,10 +32,7 @@ export async function POST(request: Request) {
       throw new ApiError("Confirme seu e-mail para contratar o Premium.", 403);
     }
     const { data: offer, error: offerError } = await db.rpc("nc_pilot_offer_amount");
-    if (offerError) throw new ApiError("Não foi possível consultar as condições do piloto.", 503);
-    if (!productionCheckoutPilotAllows(user.id) && offer !== 500) {
-      throw new ApiError("A contratação ainda está indisponível para esta conta.", 403);
-    }
+    if (offerError) throw new ApiError("Não foi possível consultar as condições da contratação.", 503);
     const input = checkoutSchema.safeParse(await request.json().catch(() => null));
     if (!input.success) throw new ApiError("Escolha um plano e uma forma de pagamento.", 400);
     const { cycle, method } = input.data;

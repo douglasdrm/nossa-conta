@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  productionCheckoutPayload, productionCheckoutPilotAllows, productionCheckoutUrl, requestProductionCheckout,
+  productionCheckoutPayload, productionCheckoutUrl, requestProductionCheckout,
 } from "../lib/production-checkout";
 
 test("checkout uses catalog totals with recurring card and one-time Pix", () => {
@@ -36,20 +36,5 @@ test("the pilot discount changes only the monthly one-time Pix amount", () => {
   assert.equal(payload.subscription, undefined);
   assert.throws(() => productionCheckoutPayload("offer-order", "monthly", "card", 500, "fixture"));
   assert.throws(() => productionCheckoutPayload("offer-order", "yearly", "pix", 500, "fixture"));
-});
-
-test("production pilot permits only the configured account", () => {
-  const name = "NC_PRODUCTION_CHECKOUT_PILOT_USER_ID";
-  const previous = process.env[name];
-  try {
-    delete process.env[name];
-    assert.equal(productionCheckoutPilotAllows("account-one"), false);
-    process.env[name] = "account-one";
-    assert.equal(productionCheckoutPilotAllows("account-one"), true);
-    assert.equal(productionCheckoutPilotAllows("account-two"), false);
-  } finally {
-    if (previous === undefined) delete process.env[name];
-    else process.env[name] = previous;
-  }
 });
 

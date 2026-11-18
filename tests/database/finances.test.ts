@@ -1683,9 +1683,10 @@ test("migration, household isolation, invitations and recurring month edits", as
         "event",
       );
       await db.query(
-        "select nc_admin_courtesy($1,now()+interval '1 month','Partner trial')",
+        "select nc_admin_courtesy($1,'2051-01-01T02:59:59Z','Familiar')",
         [hAlice],
       );
+      assert.equal(new Date((await db.query<{ valid_until: string }>("select valid_until from nc_subscriptions where household_id=$1", [hAlice])).rows[0].valid_until).toISOString(), "2051-01-01T02:59:59.000Z");
       await as(outsider);
       assert.equal(
         (await db.query("select * from nc_subscriptions")).rows.length,
@@ -2220,3 +2221,4 @@ test("migration, household isolation, invitations and recurring month edits", as
   );
   await db.close();
 });
+

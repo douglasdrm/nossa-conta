@@ -5,10 +5,6 @@ import { plans, type BillingCycle } from "./plans";
 export const productionCheckoutEnabled = () =>
   process.env.NC_PRODUCTION_CHECKOUT_ENABLED === "true";
 
-export function productionCheckoutPilotAllows(userId: string) {
-  return process.env.NC_PRODUCTION_CHECKOUT_PILOT_USER_ID === userId;
-}
-
 const providerCheckout = z.object({ id: z.string().regex(/^[A-Za-z0-9_-]{10,100}$/) });
 
 export function productionCheckoutUrl(id: string) {

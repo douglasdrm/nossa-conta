@@ -33,7 +33,9 @@ export async function POST(request: Request) {
       throw new ApiError(
         result.error.code === "23505"
           ? "Já existe um lead com esse e-mail."
-          : "Não foi possível salvar. Confira os dados.",
+          : result.error.message === "invalid_expiration"
+            ? "Informe uma data de validade válida para a cortesia."
+            : "Não foi possível salvar. Confira os dados.",
         400,
       );
     return Response.json({ ok: true });
@@ -41,3 +43,4 @@ export async function POST(request: Request) {
     return failure(error);
   }
 }
+

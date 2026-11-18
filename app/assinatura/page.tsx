@@ -9,7 +9,7 @@ import { brl, plans, billingCycles } from "@/lib/plans";
 import MarketingFrame from "@/components/marketing/frame";
 import SubscriptionInterest from "@/components/subscription-interest";
 import ProductionCheckout from "@/components/production-checkout";
-import { productionCheckoutEnabled, productionCheckoutPilotAllows } from "@/lib/production-checkout";
+import { productionCheckoutEnabled } from "@/lib/production-checkout";
 export const dynamic = "force-dynamic";
 const paidSubscriptionSchema = z.object({
   cycle: z.enum(billingCycles), amount_cents: z.number().int().positive(),
@@ -39,7 +39,7 @@ export default async function Subscription({
   const access = await readAccountAccess(db);
   if (!access.can_access) return <MarketingFrame signedIn><section className="seo-intro"><h1>O compartilhamento está pausado.</h1><p>Peça ao responsável pelo espaço para renovar o Premium. Seus dados continuam guardados.</p><a href="/profile">Meu perfil</a></section></MarketingFrame>;
   const { data: offer, error: offerError } = await db.rpc("nc_pilot_offer_amount");
-  if (offerError) throw new Error("Não foi possível consultar as condições do piloto.");
+  if (offerError) throw new Error("Não foi possível consultar as condições da contratação.");
   const { data: member } = await db
     .from("nc_household_members")
     .select("household_id")
@@ -167,7 +167,7 @@ export default async function Subscription({
           </section>
 
           <section className="subscription-section" aria-label="Contratação">
-            {paymentsAvailable && (productionCheckoutPilotAllows(user.id) || offer === 500) ? (
+            {paymentsAvailable ? (
               <>
                 {retorno === "success" && <p className="notice" role="status">Confira abaixo a confirmação do pagamento.</p>}
                 {retorno === "cancel" && <p className="notice" role="status">Checkout cancelado.</p>}
