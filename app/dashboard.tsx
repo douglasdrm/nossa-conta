@@ -1390,6 +1390,34 @@ function DashboardContent({
                       </select>
                     </label>
                   )}
+                  {modal === "expense" && (
+                    <label>
+                      Forma de pagamento
+                      <select
+                        name="paymentMethod"
+                        value={chosenMethod}
+                        disabled={Boolean(editing?.credit_card_id)}
+                        onChange={(e) => { setChosenMethod(e.target.value); if (e.target.value === "credit_card") setPaymentConfirmed(false); }}
+                      >
+                        <option value="">Não informada</option>
+                        {paymentMethods.map((method) => (
+                          <option key={method} value={method}>
+                            {paymentMethodLabels[method]}
+                          </option>
+                        ))}
+                      </select>
+                      {!editing && entryMode === "recurring" && (
+                        <small className="field-hint">
+                          As próximas ocorrências herdam essa forma de
+                          pagamento.
+                        </small>
+                      )}
+                    </label>
+                  )}
+                  {modal === "expense" && chosenMethod === "credit_card" && editing?.payment_method === "credit_card" && !editing.credit_card_id && !editing.id.includes(":") && <button type="button" className="text-button" onClick={() => { setLinkLegacyCard(!linkLegacyCard); setPaymentConfirmed(linkLegacyCard ? Boolean(editing.confirmed) : false); }}>{linkLegacyCard ? "Manter compra antiga sem vínculo" : "Vincular esta compra antiga a um cartão"}</button>}
+                  {editing?.credit_card_id && <input type="hidden" name="paymentMethod" value="credit_card" />}
+                  {cardPurchase && <CardPurchaseFields key={`card:${editing?.id || modal}`} initial={editing ?? undefined} onReadyChange={setCardReady} />}
+                  {modal === "expense" && chosenMethod === "credit_card" && !cardPurchase && (entryMode === "recurring" || editing?.id.includes(":")) && <p className="field-hint">Recorrências não têm vínculo automático com cartão. Para acompanhar faturas, registre uma compra única ou parcelada.</p>}
                   {isInstallment && (
                     <div className="formgrid">
                       <label>
@@ -1498,13 +1526,13 @@ function DashboardContent({
                         <p>Informe um valor válido e de 2 a 120 parcelas.</p>
                       )}
                       <small>
-                        {cardPurchase ? "Uma parcela por fatura mensal, a partir da fatura escolhida abaixo. O pagamento será confirmado pela fatura." : "Uma parcela por mês a partir do vencimento acima. Cada pagamento será confirmado separadamente. Em meses mais curtos, o vencimento será no último dia."}
+                        {cardPurchase ? "Uma parcela por fatura mensal, a partir da fatura escolhida. O pagamento será confirmado pela fatura." : "Uma parcela por mês a partir do vencimento acima. Cada pagamento será confirmado separadamente. Em meses mais curtos, o vencimento será no último dia."}
                       </small>
                     </div>
                   )}
                   <CategoryPicker
                     onPendingChange={setCategoryPending}
-                    key={editing?.id || modal}
+                    key={`category:${editing?.id || modal}`}
                     kind={modal}
                     initial={editing?.category}
                     defaults={
@@ -1532,34 +1560,6 @@ function DashboardContent({
                       ))}
                     </datalist>
                   </label>
-                  {modal === "expense" && (
-                    <label>
-                      Forma de pagamento
-                      <select
-                        name="paymentMethod"
-                        value={chosenMethod}
-                        disabled={Boolean(editing?.credit_card_id)}
-                        onChange={(e) => { setChosenMethod(e.target.value); if (e.target.value === "credit_card") setPaymentConfirmed(false); }}
-                      >
-                        <option value="">Não informada</option>
-                        {paymentMethods.map((method) => (
-                          <option key={method} value={method}>
-                            {paymentMethodLabels[method]}
-                          </option>
-                        ))}
-                      </select>
-                      {!editing && entryMode === "recurring" && (
-                        <small className="field-hint">
-                          As próximas ocorrências herdam essa forma de
-                          pagamento.
-                        </small>
-                      )}
-                    </label>
-                  )}
-                  {modal === "expense" && chosenMethod === "credit_card" && editing?.payment_method === "credit_card" && !editing.credit_card_id && !editing.id.includes(":") && <button type="button" className="text-button" onClick={() => { setLinkLegacyCard(!linkLegacyCard); setPaymentConfirmed(linkLegacyCard ? Boolean(editing.confirmed) : false); }}>{linkLegacyCard ? "Manter compra antiga sem vínculo" : "Vincular esta compra antiga a um cartão"}</button>}
-                  {editing?.credit_card_id && <input type="hidden" name="paymentMethod" value="credit_card" />}
-                  {cardPurchase && <CardPurchaseFields key={editing?.id || modal} initial={editing ?? undefined} onReadyChange={setCardReady} />}
-                  {modal === "expense" && chosenMethod === "credit_card" && !cardPurchase && (entryMode === "recurring" || editing?.id.includes(":")) && <p className="field-hint">Recorrências não têm vínculo automático com cartão. Para acompanhar faturas, registre uma compra única ou parcelada.</p>}
                   {!cardPurchase && <label className="check">
                     <input
                       type="checkbox"
