@@ -58,3 +58,12 @@
   .subscription-heading h1 { font-size: 34px; }
   .subscription-total span { font-size: 14px; }
 }
+
+
+.subscription-summary { padding: 26px; margin-top: 30px; border: 1px solid #d8e5d9; border-radius: 16px; background: #f4f9f2; }
+.subscription-summary h2 { margin: 0 0 22px; color: #163e31; font-size: 24px; }
+.subscription-summary dl { margin: 0 0 28px; }
+.subscription-summary dl > div { display: flex; align-items: baseline; justify-content: space-between; gap: 20px; padding: 14px 0; border-bottom: 1px solid #dce6dc; }
+.subscription-summary dt { font-size: 15px; color: #5c7162; }
+.subscription-summary dd { font-size: 16px; font-weight: 700; text-align: right; margin: 0; color: #163e31; }
+@media(max-width:520px) { .subscription-summary { padding: 20px; } .subscription-summary dl > div { flex-direction: column; gap: 6px; } .subscription-summary dd { text-align: left; } }

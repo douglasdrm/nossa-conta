@@ -1,15 +1,20 @@
-import Image from "next/image";
+import { z } from "zod";
+import SubscriptionBenefits from "@/components/subscription-benefits";
 import "./subscription.css";
 import { readAccountAccess } from "@/lib/access";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isConfigured } from "@/lib/supabase/config";
-import { brl, plans, premiumFeatures } from "@/lib/plans";
+import { brl, plans, billingCycles } from "@/lib/plans";
 import MarketingFrame from "@/components/marketing/frame";
 import SubscriptionInterest from "@/components/subscription-interest";
 import ProductionCheckout from "@/components/production-checkout";
 import { productionCheckoutEnabled, productionCheckoutPilotAllows } from "@/lib/production-checkout";
 export const dynamic = "force-dynamic";
+const paidSubscriptionSchema = z.object({
+  cycle: z.enum(billingCycles), amount_cents: z.number().int().positive(),
+  method: z.enum(["pix", "card"]), valid_until: z.string().datetime({ offset: true }),
+});
 export default async function Subscription({
   searchParams,
 }: {
@@ -23,15 +28,16 @@ export default async function Subscription({
   const {
     data: { user },
   } = await db.auth.getUser();
-  if (!user || user.is_anonymous || !user.email_confirmed_at)
-    redirect(
-      "/login?mode=signup&next=" +
-        encodeURIComponent("/assinatura?periodo=" + plan.id),
-    );
+  if (!user || user.is_anonymous || !user.email_confirmed_at) {
+    const destination = new URLSearchParams({ periodo: plan.id });
+    if (retorno && ["success", "cancel", "expired"].includes(retorno)) destination.set("retorno", retorno);
+    if (pedido && z.string().uuid().safeParse(pedido).success) destination.set("pedido", pedido);
+    redirect("/login?next=" + encodeURIComponent("/assinatura?" + destination));
+  }
   const { error: ensureError } = await db.rpc("nc_ensure_household");
   if (ensureError) throw new Error("Não foi possível abrir sua assinatura.");
   const access = await readAccountAccess(db);
-  if (!access.can_access) return <MarketingFrame><section className="seo-intro"><h1>O compartilhamento está pausado.</h1><p>Peça ao responsável pelo espaço para renovar o Premium. Seus dados continuam guardados.</p><a href="/profile">Meu perfil</a></section></MarketingFrame>;
+  if (!access.can_access) return <MarketingFrame signedIn><section className="seo-intro"><h1>O compartilhamento está pausado.</h1><p>Peça ao responsável pelo espaço para renovar o Premium. Seus dados continuam guardados.</p><a href="/profile">Meu perfil</a></section></MarketingFrame>;
   const { data: offer, error: offerError } = await db.rpc("nc_pilot_offer_amount");
   if (offerError) throw new Error("Não foi possível consultar as condições do piloto.");
   const { data: member } = await db
@@ -46,11 +52,59 @@ export default async function Subscription({
     .gt("valid_until", new Date().toISOString())
     .maybeSingle();
   if (error) throw new Error("Não foi possível consultar sua assinatura.");
-  const paidUntil = paymentsAvailable ? await db.rpc("nc_production_paid_premium_until") : null;
-  if (paidUntil?.error) throw new Error("Não foi possível consultar o Premium pago.");
-  const paidDate = typeof paidUntil?.data === "string" ? paidUntil.data : null;
+  const { data: paidData, error: paidError } = await db.rpc("nc_paid_subscription_summary");
+  if (paidError) throw new Error("Não foi possível consultar sua assinatura paga.");
+  const paid = paidData ? paidSubscriptionSchema.parse(paidData) : null;
+  if (paid) {
+    const subscribedPlan = plans.find((option) => option.id === paid.cycle)!;
+    const validUntil = new Date(paid.valid_until).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+    return (
+      <MarketingFrame signedIn>
+        <div className="subscription-layout">
+          <div className="subscription-content">
+            <header className="subscription-heading">
+              <span className="marketing-eyebrow">MINHA ASSINATURA</span>
+              <h1>Seu Premium<br />está ativo.</h1>
+              <p>Seu pagamento foi confirmado. Os recursos completos estão disponíveis para o seu espaço e seus convidados.</p>
+            </header>
+            <section className="subscription-summary" aria-labelledby="subscription-summary-title">
+              <h2 id="subscription-summary-title">Premium {subscribedPlan.name.toLowerCase()}</h2>
+              <dl>
+                <div><dt>Situação</dt><dd>Ativa</dd></div>
+                <div><dt>Último pagamento confirmado</dt><dd>{brl(paid.amount_cents)}</dd></div>
+                <div><dt>Forma de pagamento</dt><dd>{paid.method === "pix" ? "Pix · pagamento por período" : "Cartão de crédito"}</dd></div>
+                <div><dt>Acesso Premium até</dt><dd>{validUntil}</dd></div>
+              </dl>
+              <a className="subscription-submit" href="/">Ir para meu espaço <span aria-hidden="true">→</span></a>
+            </section>
+          </div>
+          <SubscriptionBenefits />
+        </div>
+      </MarketingFrame>
+    );
+  }
+  if (retorno === "success" && pedido && z.string().uuid().safeParse(pedido).success) {
+    return (
+      <MarketingFrame signedIn>
+        <div className="subscription-layout">
+          <div className="subscription-content">
+            <header className="subscription-heading">
+              <span className="marketing-eyebrow">ACOMPANHAR PAGAMENTO</span>
+              <h1>Conferindo<br />seu pagamento.</h1>
+              <p>A confirmação será registrada assim que o Asaas comunicar o recebimento.</p>
+            </header>
+            <section className="subscription-section" aria-label="Consultar confirmação">
+              <ProductionCheckout cycle={plan.id} order={pedido} />
+            </section>
+            <a className="subscription-back" href="/">← Voltar ao meu espaço</a>
+          </div>
+          <SubscriptionBenefits />
+        </div>
+      </MarketingFrame>
+    );
+  }
   return (
-    <MarketingFrame>
+    <MarketingFrame signedIn>
       <div className="subscription-layout">
         <div className="subscription-content">
           <header className="subscription-heading">
@@ -61,11 +115,6 @@ export default async function Subscription({
 
           {access.kind === "trial" && access.trial_until && <p className="notice">Premium grátis até {new Date(access.trial_until).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}. Ao terminar, seu espaço passa ao modo gratuito individual.</p>}
           {offer === 500 && <p className="notice">Teste de compra desta conta — mensal por R$ 5,00 via Pix, com pagamento único.</p>}
-          {paidDate && (
-            <p className="notice" role="status">
-              Premium pago ativo até {new Date(paidDate).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}.
-            </p>
-          )}
           {courtesy && (
             <p className="notice">
               Sua cortesia Premium é válida até {new Date(courtesy.valid_until).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}.
@@ -95,9 +144,7 @@ export default async function Subscription({
                 {retorno === "success" && <p className="notice" role="status">Confira abaixo a confirmação do pagamento.</p>}
                 {retorno === "cancel" && <p className="notice" role="status">Checkout cancelado.</p>}
                 {retorno === "expired" && <p className="notice" role="status">O link do checkout expirou.</p>}
-                {(!paidDate || (retorno === "success" && pedido)) && (
-                  <ProductionCheckout key={pedido ?? plan.id} cycle={plan.id} offerAmount={offer === 500 && plan.id === "monthly" ? 500 : undefined} order={retorno === "success" ? pedido : undefined} />
-                )}
+                <ProductionCheckout key={plan.id} cycle={plan.id} offerAmount={offer === 500 && plan.id === "monthly" ? 500 : undefined} />
               </>
             ) : (
               <div className="subscription-interest">
@@ -110,18 +157,7 @@ export default async function Subscription({
           <a className="subscription-back" href="/">← Voltar ao meu espaço</a>
         </div>
 
-        <div className="subscription-story">
-          <Image src="/images/planning-together.webp"
-            alt="Casal planejando as finanças juntos em casa"
-            width={1200} height={800} priority
-            sizes="(max-width: 850px) 100vw, 40vw"
-            className="subscription-photo" />
-          <section className="subscription-benefits" aria-labelledby="subscription-benefits-title">
-            <span className="marketing-eyebrow">PARA ORGANIZAR A VIDA EM COMUM</span>
-            <h2 id="subscription-benefits-title">Um plano para<br />o espaço de vocês.</h2>
-            <ul>{premiumFeatures.map((feature) => <li key={feature}><span aria-hidden="true">✓</span>{feature}</li>)}</ul>
-          </section>
-        </div>
+        <SubscriptionBenefits />
       </div>
     </MarketingFrame>
   );
