@@ -51,7 +51,7 @@ export default function Pricing() {
               className="marketing-cta"
               href={`/assinatura?periodo=${plan.id}`}
             >
-              Tenho interesse no {plan.name.toLowerCase()}
+              Escolher plano {plan.name.toLowerCase()}
             </a>
           </article>
         ))}
@@ -59,7 +59,7 @@ export default function Pricing() {
       <p className="marketing-plan-footnote">
         Crie sua conta e experimente o Premium por sete dias, sem cartão. Depois,
         continue no modo gratuito individual ou assine para usar os recursos completos
-        e compartilhar o espaço. A contratação está em liberação gradual.
+        e compartilhar o espaço.
       </p>
     </section>
   );

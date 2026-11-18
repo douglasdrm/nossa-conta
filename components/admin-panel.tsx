@@ -426,7 +426,7 @@ export default function AdminPanel({
               </table>
             </div>
             <p>
-              Catálogo de contratação. O checkout está em piloto e usa os valores
+              Catálogo de contratação. O checkout está disponível ao público e usa os valores
               reservados pelo servidor. As cortesias são gerenciadas na aba Espaços e assinaturas.
             </p>
           </section>
