@@ -1394,6 +1394,7 @@ function DashboardContent({
                     <label>
                       Forma de pagamento
                       <select
+                        autoFocus={!editing}
                         name="paymentMethod"
                         value={chosenMethod}
                         disabled={Boolean(editing?.credit_card_id)}
@@ -1456,7 +1457,7 @@ function DashboardContent({
                   <label>
                     Descrição
                     <input
-                      autoFocus
+                      autoFocus={modal === "income"}
                       defaultValue={editing?.description}
                       name="description"
                       required
