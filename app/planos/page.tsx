@@ -23,15 +23,14 @@ export default function PlansPage() {
       </section>
       <Pricing />
       <section className="seo-copy">
-        <h2>Os dois precisam assinar?</h2>
+        <h2>Cada pessoa precisa assinar?</h2>
         <p>
-          Não. A proposta do Premium é uma assinatura por espaço compartilhado.
+          Uma assinatura Premium cobre o espaço compartilhado, com duas, três ou mais pessoas.
           As pessoas convidadas entram com a própria conta.
         </p>
-        <h2>Já posso pagar?</h2>
+        <h2>Como funcionam os sete dias grátis?</h2>
         <p>
-          A contratação está em preparação. Você pode registrar seu interesse,
-          sem pagamento ou compromisso. Não pedimos dados de cartão nesta etapa.
+          Ao criar seu primeiro espaço, você recebe sete dias de Premium completo, incluindo compartilhamento. O teste não exige cartão. Depois, o modo gratuito individual mantém receitas, despesas e resumo do mês. Os dados ficam guardados, e a assinatura libera os recursos avançados e o acesso dos convidados.
         </p>
         <h2>Como funciona o anual?</h2>
         <p>
@@ -42,3 +41,4 @@ export default function PlansPage() {
     </MarketingFrame>
   );
 }
+

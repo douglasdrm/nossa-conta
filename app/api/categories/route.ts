@@ -1,4 +1,4 @@
-import { authenticated, checkOrigin, failure, ApiError } from "@/lib/api";
+import { authenticatedFinance as authenticated, checkOrigin, failure, ApiError } from "@/lib/api";
 import { categoryCatalog } from "@/lib/category-catalog";
 import { z } from "zod";
 export const dynamic = "force-dynamic";
@@ -95,3 +95,4 @@ export async function PATCH(request: Request) {
     return failure(error);
   }
 }
+

@@ -57,10 +57,11 @@ export default function Pricing() {
         ))}
       </div>
       <p className="marketing-plan-footnote">
-        Contratação em preparação. Você já pode criar sua conta gratuitamente e
-        registrar seu interesse. Nenhuma cobrança será feita nesta etapa. Os
-        recursos atuais continuam disponíveis.
+        Crie sua conta e experimente o Premium por sete dias, sem cartão. Depois,
+        continue no modo gratuito individual ou assine para usar os recursos completos
+        e compartilhar o espaço. A contratação está em liberação gradual.
       </p>
     </section>
   );
 }
+

@@ -40,7 +40,7 @@ export async function verifyInitialCheckoutPayment(
   if (records.hasMore) return { status: "manual_review" } as const;
   // The worker already fetched this payment by ID from the authenticated Asaas API.
   // Some recurring checkouts return an empty list despite the exact ID on the payment.
-  const direct = order.method === "card" && records.data.length === 0
+  const direct = records.data.length === 0
     ? payment.safeParse(paymentDetails)
     : undefined;
   const payments = direct?.success && direct.data.checkoutSession === order.checkout_id
@@ -77,3 +77,4 @@ export async function verifyInitialCheckoutPayment(
     dueDate: row.dueDate, providerStatus: row.status,
   } as const;
 }
+

@@ -1,5 +1,6 @@
 import Image from "next/image";
 import "./subscription.css";
+import { readAccountAccess } from "@/lib/access";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isConfigured } from "@/lib/supabase/config";
@@ -29,6 +30,10 @@ export default async function Subscription({
     );
   const { error: ensureError } = await db.rpc("nc_ensure_household");
   if (ensureError) throw new Error("Não foi possível abrir sua assinatura.");
+  const access = await readAccountAccess(db);
+  if (!access.can_access) return <MarketingFrame><section className="seo-intro"><h1>O compartilhamento está pausado.</h1><p>Peça ao responsável pelo espaço para renovar o Premium. Seus dados continuam guardados.</p><a href="/profile">Meu perfil</a></section></MarketingFrame>;
+  const { data: offer, error: offerError } = await db.rpc("nc_pilot_offer_amount");
+  if (offerError) throw new Error("Não foi possível consultar as condições do piloto.");
   const { data: member } = await db
     .from("nc_household_members")
     .select("household_id")
@@ -54,6 +59,8 @@ export default async function Subscription({
             <p>Escolha o período e organize as finanças do seu espaço compartilhado.</p>
           </header>
 
+          {access.kind === "trial" && access.trial_until && <p className="notice">Premium grátis até {new Date(access.trial_until).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}. Ao terminar, seu espaço passa ao modo gratuito individual.</p>}
+          {offer === 500 && <p className="notice">Teste de compra desta conta — mensal por R$ 5,00 via Pix, com pagamento único.</p>}
           {paidDate && (
             <p className="notice" role="status">
               Premium pago ativo até {new Date(paidDate).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}.
@@ -73,8 +80,8 @@ export default async function Subscription({
                   key={option.id} href={"/assinatura?periodo=" + option.id}
                   aria-current={option.id === plan.id ? "page" : undefined}>
                   <span className="subscription-plan-name">{option.name}<span className="subscription-plan-radio" aria-hidden="true" /></span>
-                  <strong>{brl(option.total)}</strong>
-                  <span className="subscription-plan-period">{option.period}</span>
+                  <strong>{brl(offer === 500 && option.id === "monthly" ? 500 : option.total)}</strong>
+                  <span className="subscription-plan-period">{offer === 500 && option.id === "monthly" ? "Pix do piloto · 1 mês" : option.period}</span>
                   {option.months > 1 && <span className="subscription-equivalent">Equivale a {brl(option.monthly)}/mês</span>}
                   {option.saving > 0 && <span className="subscription-saving">Economize {brl(option.saving)}</span>}
                 </a>
@@ -83,13 +90,13 @@ export default async function Subscription({
           </section>
 
           <section className="subscription-section" aria-label="Contratação">
-            {paymentsAvailable && productionCheckoutPilotAllows(user.id) ? (
+            {paymentsAvailable && (productionCheckoutPilotAllows(user.id) || offer === 500) ? (
               <>
                 {retorno === "success" && <p className="notice" role="status">Confira abaixo a confirmação do pagamento.</p>}
                 {retorno === "cancel" && <p className="notice" role="status">Checkout cancelado.</p>}
                 {retorno === "expired" && <p className="notice" role="status">O link do checkout expirou.</p>}
                 {(!paidDate || (retorno === "success" && pedido)) && (
-                  <ProductionCheckout key={pedido ?? plan.id} cycle={plan.id} order={retorno === "success" ? pedido : undefined} />
+                  <ProductionCheckout key={pedido ?? plan.id} cycle={plan.id} offerAmount={offer === 500 && plan.id === "monthly" ? 500 : undefined} order={retorno === "success" ? pedido : undefined} />
                 )}
               </>
             ) : (
@@ -119,3 +126,4 @@ export default async function Subscription({
     </MarketingFrame>
   );
 }
+

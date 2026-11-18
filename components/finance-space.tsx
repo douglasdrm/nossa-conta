@@ -5,6 +5,8 @@ import { isConfigured } from "@/lib/supabase/config";
 import Setup from "@/components/setup";
 import { myProfile } from "@/lib/my-profile";
 import Dashboard, { type FinanceView } from "@/app/dashboard";
+import { readAccountAccess } from "@/lib/access";
+import Brand from "@/components/brand";
 export default async function FinanceSpace({
   view = "overview",
   initialMonth,
@@ -42,6 +44,16 @@ export default async function FinanceSpace({
       "Não foi possível abrir o espaço da família. Verifique a configuração do banco.",
     );
   const profile = await myProfile(db, user);
+  const access = await readAccountAccess(db);
+  if (!access.can_access) return (
+    <main className="auth-page"><section className="auth-card">
+      <Brand />
+      <h1>O compartilhamento está pausado.</h1>
+      <p>Peça ao responsável pelo espaço para renovar o Premium. Os dados e os participantes continuam guardados e o acesso compartilhado será retomado com a renovação.</p>
+      <a className="primary save" href="/profile">Meu perfil</a>
+      <form action="/auth/signout" method="post"><button className="text-button">Sair</button></form>
+    </section></main>
+  );
   return (
     <>
       <AcquisitionCapture register />
@@ -50,7 +62,9 @@ export default async function FinanceSpace({
         photo={profile.photo}
         view={view}
         initialMonth={initialMonth}
+        access={access}
       />
     </>
   );
 }
+

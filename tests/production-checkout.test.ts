@@ -30,6 +30,14 @@ test("checkout request targets production and validates the hosted link", async 
     Response.json({ id: "https://example.test" })), /checkout inválido/);
 });
 
+test("the pilot discount changes only the monthly one-time Pix amount", () => {
+  const payload = productionCheckoutPayload("offer-order", "monthly", "pix", 500, "fixture");
+  assert.equal(payload.items[0].value, 5);
+  assert.equal(payload.subscription, undefined);
+  assert.throws(() => productionCheckoutPayload("offer-order", "monthly", "card", 500, "fixture"));
+  assert.throws(() => productionCheckoutPayload("offer-order", "yearly", "pix", 500, "fixture"));
+});
+
 test("production pilot permits only the configured account", () => {
   const name = "NC_PRODUCTION_CHECKOUT_PILOT_USER_ID";
   const previous = process.env[name];
@@ -44,3 +52,4 @@ test("production pilot permits only the configured account", () => {
     else process.env[name] = previous;
   }
 });
+

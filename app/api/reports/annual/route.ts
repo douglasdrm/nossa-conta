@@ -1,5 +1,5 @@
 import { paymentMethods, type PaymentMethod } from "@/lib/payment-methods";
-import { authenticated, failure, ApiError } from "@/lib/api";
+import { authenticatedFinance as authenticated, failure, ApiError } from "@/lib/api";
 import { dateInSaoPaulo } from "@/lib/finance";
 import {
   annualPeriods,
@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   try {
-    const { db } = await authenticated();
+    const { db } = await authenticated(true);
     const today = dateInSaoPaulo();
     const params = new URL(request.url).searchParams;
     const selected = params.get("year") ?? "";
@@ -181,3 +181,4 @@ export async function GET(request: Request) {
     return failure(error);
   }
 }
+

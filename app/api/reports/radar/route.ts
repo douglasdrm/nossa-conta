@@ -1,10 +1,10 @@
-import { authenticated, failure } from "@/lib/api";
+import { authenticatedFinance as authenticated, failure } from "@/lib/api";
 import { dateInSaoPaulo } from "@/lib/finance";
 import { historyMonths, radarPatterns, type RadarExpense } from "@/lib/radar";
 
 export async function GET() {
   try {
-    const { db } = await authenticated();
+    const { db } = await authenticated(true);
     const today = dateInSaoPaulo();
     const [start] = historyMonths(today);
     const { data: household, error: householdError } = await db
@@ -45,3 +45,4 @@ export async function GET() {
     return failure(error);
   }
 }
+
