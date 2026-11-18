@@ -30,6 +30,7 @@ export default function MarketingFrame({
         <a href="/guias/organizar-contas-do-casal">Guia do casal</a>
         <a href="/guias/controlar-compras-parceladas">Compras parceladas</a>
         <a href="/planos">Planos</a>
+        <a href="/conheca#privacidade">Privacidade e acesso aos dados</a>
         <span>Desenvolvido pela UNODEV</span>
       </footer>
     </div>
