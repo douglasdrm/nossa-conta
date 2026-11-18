@@ -185,7 +185,7 @@ export default function ProfileEditor({
                 autoCapitalize="none"
                 autoCorrect="off"
                 autoComplete="username"
-                placeholder="Ex.: douglas_marinho"
+                placeholder="Ex.: meu_usuario"
               />
               <small className="field-hint">
                 Opcional · de 3 a 30 letras sem acento, números ou _. O login
@@ -460,3 +460,4 @@ export default function ProfileEditor({
     </main>
   );
 }
+

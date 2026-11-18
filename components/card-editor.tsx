@@ -29,7 +29,7 @@ export default function CardEditor({ card, onSave, onClose }: { card?: CreditCar
       <h2 id="card-editor-title">{card ? "Editar cartão" : "Cadastrar cartão"}</h2>
       <p>Só os dados para organizar suas faturas. Não informe número, senha ou código de segurança.</p>
       {error && <p role="alert" className="error">{error}</p>}
-      <label>Nome do cartão<input autoFocus required maxLength={60} value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex.: Nubank Douglas" /></label>
+      <label>Nome do cartão<input autoFocus required maxLength={60} value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex.: Cartão principal" /></label>
       <div className="formgrid">
         <label>Dia do vencimento<input required type="number" min={1} max={31} value={due || ""} onChange={(e) => { const value = Number(e.target.value); setDue(value); if (estimated && value >= 1 && value <= 31) setClosing(suggestedClosingDay(value)); }} /></label>
         <label>Dia do fechamento<input required type="number" min={1} max={31} value={closing || ""} onChange={(e) => { setClosing(Number(e.target.value)); setEstimated(false); }} /></label>
