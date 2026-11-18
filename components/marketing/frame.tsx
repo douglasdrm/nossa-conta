@@ -2,8 +2,10 @@ import Brand from "@/components/brand";
 import "@/components/landing-page.css";
 export default function MarketingFrame({
   children,
+  signedIn = false,
 }: {
   children: React.ReactNode;
+  signedIn?: boolean;
 }) {
   return (
     <div className="marketing">
@@ -16,8 +18,8 @@ export default function MarketingFrame({
           <a href="/controle-financeiro-familiar">Para famílias</a>
           <a href="/planos">Planos</a>
         </nav>
-        <a className="marketing-login" href="/login">
-          Entrar
+        <a className="marketing-login" href={signedIn ? "/" : "/login"}>
+          {signedIn ? "Meu espaço" : "Entrar"}
         </a>
       </header>
       <main className="marketing-main">{children}</main>
@@ -33,3 +35,4 @@ export default function MarketingFrame({
     </div>
   );
 }
+

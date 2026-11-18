@@ -40,6 +40,7 @@ test("trial expiry preserves records, pauses shared access and paid Premium rest
     await as(owner);
     const household = (await db.query<{ value: string }>("select nc_ensure_household() as value")).rows[0].value;
     assert.equal((await access()).kind, "trial");
+    assert.equal((await db.query<{ value: unknown }>("select nc_paid_subscription_summary() as value")).rows[0].value, null);
     const entry = { kind: "expense", description: "Conta preservada", amount: 1000, category: "Contas e serviços", person: "Responsável", date: "2026-11-18", repeats: false };
     await db.query("select nc_add_entry($1)", [entry]);
     await db.query("select nc_add_entry($1)", [{ ...entry, repeats: true, description: "Recorrente" }]);
@@ -89,6 +90,10 @@ test("trial expiry preserves records, pauses shared access and paid Premium rest
     for (const member of [owner, ...members]) {
       await as(member);
       assert.equal((await access()).kind, "paid");
+      const summary = (await db.query<{ value: { cycle: string; amount_cents: number; method: string } }>("select nc_paid_subscription_summary() as value")).rows[0].value;
+      assert.equal(summary.cycle, "monthly");
+      assert.equal(summary.amount_cents, 500);
+      assert.equal(summary.method, "pix");
       assert.equal((await access()).can_access, true);
       assert.equal((await db.query("select * from nc_household_members")).rows.length, 3);
     }
@@ -96,6 +101,7 @@ test("trial expiry preserves records, pauses shared access and paid Premium rest
     await db.query("update nossa_conta_private.nc_production_charges set status='REFUNDED' where provider_payment_id='pay_access_paid'");
     await as(members[0]);
     assert.equal((await access()).can_access, false);
+    assert.equal((await db.query<{ value: unknown }>("select nc_paid_subscription_summary() as value")).rows[0].value, null);
     await as(owner);
     assert.equal((await db.query<{ value: number | null }>("select nc_pilot_offer_amount() as value")).rows[0].value, null);
     await db.exec("reset role");

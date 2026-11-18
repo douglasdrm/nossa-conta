@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import { brl, plans, type BillingCycle } from "@/lib/plans";
 
 export default function ProductionCheckout({ cycle, order, offerAmount }: { cycle: BillingCycle; order?: string; offerAmount?: number }) {
+  const router = useRouter();
   const plan = plans.find((option) => option.id === cycle)!;
   const amount = offerAmount ?? plan.total;
   const [method, setMethod] = useState<"pix" | "card">("pix");
@@ -26,6 +28,7 @@ export default function ProductionCheckout({ cycle, order, offerAmount }: { cycl
       if (data.status === "confirmed" && typeof data.valid_until === "string") {
         const date = new Date(data.valid_until).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
         setPaymentStatus("Pagamento confirmado. Período Premium válido até " + date + ".");
+        router.refresh();
       } else if (data.status === "manual_review") {
         setError("O pagamento precisa ser conferido. Entre em contato com o suporte antes de tentar pagar novamente.");
       } else {
