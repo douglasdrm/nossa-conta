@@ -30,6 +30,7 @@ import { paymentMethodIcons } from "@/components/payment-method-icons";
 import CategoryName from "@/components/category-name";
 import CategoryManager from "@/components/category-manager";
 import CategoryPicker from "@/components/category-picker";
+import CardPaymentHelp from "@/components/card-payment-help";
 import CardPurchaseFields from "@/components/card-purchase-fields";
 import CreditCardsPanel from "@/components/credit-cards-panel";
 import SharePanel from "@/components/share-panel";
@@ -1425,6 +1426,7 @@ function DashboardContent({
                       )}
                     </label>
                   )}
+                  {modal === "expense" && chosenMethod === "credit_card" && <CardPaymentHelp />}
                   {modal === "expense" && chosenMethod === "credit_card" && editing?.payment_method === "credit_card" && !editing.credit_card_id && !editing.id.includes(":") && <button type="button" className="text-button" onClick={() => { setLinkLegacyCard(!linkLegacyCard); setPaymentConfirmed(linkLegacyCard ? Boolean(editing.confirmed) : false); }}>{linkLegacyCard ? "Manter compra antiga sem vínculo" : "Vincular esta compra antiga a um cartão"}</button>}
                   {editing?.credit_card_id && <input type="hidden" name="paymentMethod" value="credit_card" />}
                   {!editing && recurringMode && <label>Frequência<select value={intervalMonths} onChange={(e) => setIntervalMonths(Number(e.target.value))}><option value={1}>Mensal</option><option value={12}>Anual</option></select><small className="field-hint">{cardPurchase ? "Cada cobrança entra na fatura do cartão. O vencimento não precisa ser informado separadamente." : "O vencimento se repete na frequência escolhida. Você pode ajustar o valor de cada ocorrência."}</small></label>}

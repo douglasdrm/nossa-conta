@@ -39,3 +39,9 @@
 /* Keep every navigation item reachable on shorter desktop windows. */
 .shell > aside { overflow-y:auto; }
 .shell > aside > .nav,.shell > aside > .profile { flex-shrink:0; }
+
+.card-payment-help { margin:4px 0 16px;color:#567062;font-size:13px;line-height:1.7; }
+.card-payment-help summary { cursor:pointer;width:fit-content;text-decoration:underline;text-underline-offset:3px; }
+.card-payment-help > div {padding:4px 0 6px;max-width:65ch;}
+.card-payment-help p {margin:10px 0;}
+.card-payment-help summary:focus-visible {outline:3px solid #d4ad70;outline-offset:4px;}
