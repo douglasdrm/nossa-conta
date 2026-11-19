@@ -82,6 +82,8 @@ type Entry = {
   rule_id?: string | null;
   expense_type?: "recurring" | "subscription" | null;
   recurrence_interval?: number | null;
+  credit_card_name?: string | null;
+  rule_card_id?: string | null;
   credit_card_id?: string | null;
   card_invoice_id?: string | null;
   purchase_date?: string | null;
@@ -176,7 +178,7 @@ function DashboardContent({
   const [entryMode, setEntryMode] = useState("single");
   const [intervalMonths, setIntervalMonths] = useState(1);
   const recurringMode = entryMode === "recurring" || entryMode === "subscription";
-  const cardPurchase = modal === "expense" && chosenMethod === "credit_card" && (!editing?.id.includes(":") || Boolean(editing.credit_card_id)) && (!editing || Boolean(editing.credit_card_id) || editing.payment_method !== "credit_card" || linkLegacyCard);
+  const cardPurchase = modal === "expense" && chosenMethod === "credit_card" && (!editing?.id.includes(":") || Boolean(editing.credit_card_id || editing.rule_card_id)) && (!editing || Boolean(editing.credit_card_id) || editing.payment_method !== "credit_card" || linkLegacyCard);
 
   const [installmentMode, setInstallmentMode] =
     useState<InstallmentMode>("total");
@@ -651,8 +653,7 @@ function DashboardContent({
                         {e.category}
                       </span>
                       {e.expense_type && <small className="visual-badge">{e.expense_type === "subscription" ? "Assinatura" : "Conta recorrente"} · {e.recurrence_interval === 12 ? "Anual" : "Mensal"}</small>}
-                      {e.card_invoice_id && <a className="visual-badge" href="/cartoes">Na fatura do cartão</a>}
-                      {e.payment_method && MethodIcon && (
+                      {e.card_invoice_id ? <a className="entry-method" style={badgeStyle(paymentColors.credit_card)} href={`/cartoes?fatura=${e.card_invoice_id}`} aria-label={`Abrir fatura de ${e.credit_card_name || "cartão"}`}>{e.credit_card_name || "Cartão"}</a> : e.payment_method && MethodIcon && (
                         <small
                           className="entry-method"
                           style={badgeStyle(paymentColors[e.payment_method])}
@@ -1408,7 +1409,6 @@ function DashboardContent({
                         autoFocus={!editing}
                         name="paymentMethod"
                         value={chosenMethod}
-                        disabled={Boolean(editing?.credit_card_id)}
                         onChange={(e) => { setChosenMethod(e.target.value); if (e.target.value === "credit_card") setPaymentConfirmed(false); }}
                       >
                         <option value="">Não informada</option>
@@ -1428,10 +1428,9 @@ function DashboardContent({
                   )}
                   {modal === "expense" && chosenMethod === "credit_card" && <CardPaymentHelp />}
                   {modal === "expense" && chosenMethod === "credit_card" && editing?.payment_method === "credit_card" && !editing.credit_card_id && !editing.id.includes(":") && <button type="button" className="text-button" onClick={() => { setLinkLegacyCard(!linkLegacyCard); setPaymentConfirmed(linkLegacyCard ? Boolean(editing.confirmed) : false); }}>{linkLegacyCard ? "Manter compra antiga sem vínculo" : "Vincular esta compra antiga a um cartão"}</button>}
-                  {editing?.credit_card_id && <input type="hidden" name="paymentMethod" value="credit_card" />}
                   {!editing && recurringMode && <label>Frequência<select value={intervalMonths} onChange={(e) => setIntervalMonths(Number(e.target.value))}><option value={1}>Mensal</option><option value={12}>Anual</option></select><small className="field-hint">{cardPurchase ? "Cada cobrança entra na fatura do cartão. O vencimento não precisa ser informado separadamente." : "O vencimento se repete na frequência escolhida. Você pode ajustar o valor de cada ocorrência."}</small></label>}
-                  {cardPurchase && <CardPurchaseFields key={`card:${editing?.id || modal}`} recurring={recurringMode || Boolean(editing?.rule_id && editing.credit_card_id)} initial={editing ?? undefined} onReadyChange={setCardReady} />}
-                  {editing?.id.includes(":") && !editing.credit_card_id && chosenMethod === "credit_card" && <p className="field-hint">Esta recorrência antiga não está vinculada a uma fatura. Para usar o novo fluxo, encerre suas próximas ocorrências e cadastre a nova conta ou assinatura escolhendo um cartão. O histórico permanece guardado.</p>}
+                  {cardPurchase && <CardPurchaseFields key={`card:${editing?.id || modal}`} recurring={recurringMode || Boolean(editing?.rule_id && (editing.credit_card_id || editing.rule_card_id))} initial={editing ?? undefined} onReadyChange={setCardReady} />}
+                  {editing?.id.includes(":") && !editing.credit_card_id && !editing.rule_card_id && chosenMethod === "credit_card" && <p className="field-hint">Esta recorrência antiga não está vinculada a uma fatura. Para usar o novo fluxo, encerre suas próximas ocorrências e cadastre a nova conta ou assinatura escolhendo um cartão. O histórico permanece guardado.</p>}
                   {isInstallment && (
                     <div className="formgrid">
                       <label>
@@ -1574,6 +1573,7 @@ function DashboardContent({
                       ))}
                     </datalist>
                   </label>
+                  {(editing?.credit_card_id || editing?.rule_card_id) && chosenMethod !== "credit_card" && <p className="field-hint">Ao salvar, esta ocorrência fica fora da fatura do cartão. Informe seu vencimento e confirme o pagamento apenas se já aconteceu. Outras parcelas e próximas cobranças mantêm a forma de pagamento original.</p>}
                   {!cardPurchase && <label className="check">
                     <input
                       type="checkbox"
@@ -1623,22 +1623,22 @@ function DashboardContent({
                   )}
                   {editing?.id.includes(":") && (
                     <>
-                      <label className="check">
+                      {!((editing.credit_card_id || editing.rule_card_id) && chosenMethod !== "credit_card") && <label className="check">
                         <input type="checkbox" name="future" />{" "}
-                        {editing?.credit_card_id
+                        {(editing?.credit_card_id || editing?.rule_card_id)
                           ? "Aplicar este valor às próximas cobranças em aberto"
                           : modal === "expense"
                           ? "Usar valor e forma de pagamento como padrão nas próximas ocorrências"
                           : "Usar este valor como padrão nos próximos meses"}
-                        <small>{editing?.credit_card_id ? "Cobranças já pagas serão preservadas." : "Meses já registrados não serão alterados."}</small>
-                      </label>
+                        <small>{(editing?.credit_card_id || editing?.rule_card_id) ? "Cobranças já pagas serão preservadas." : "Meses já registrados não serão alterados."}</small>
+                      </label>}
                       <button
                         type="button"
                         className="text-button"
                         onClick={async () => {
                           if (
                             !confirm(
-                              editing?.credit_card_id ? "Encerrar após esta cobrança? As próximas cobranças em aberto sairão da previsão. As já pagas serão preservadas." : "Encerrar a recorrência após este mês? Os lançamentos já registrados serão mantidos.",
+                              (editing?.credit_card_id || editing?.rule_card_id) ? "Encerrar após esta cobrança? As próximas cobranças em aberto sairão da previsão. As já pagas serão preservadas." : "Encerrar a recorrência após este mês? Os lançamentos já registrados serão mantidos.",
                             )
                           )
                             return;

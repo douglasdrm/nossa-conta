@@ -9,6 +9,16 @@ import { cardErrorMessage } from "@/lib/credit-cards";
 import { upcomingEnd } from "@/lib/finance-reports";
 import { dateInSaoPaulo } from "@/lib/finance";
 export const dynamic = "force-dynamic";
+async function cardMetadata<T extends { credit_card_id?: string | null; rule_id?: string | null }>(db: Awaited<ReturnType<typeof authenticated>>["db"], entries: T[]) {
+  const cardIds = [...new Set(entries.map((e) => e.credit_card_id).filter((id): id is string => Boolean(id)))];
+  const ruleIds = [...new Set(entries.map((e) => e.rule_id).filter((id): id is string => Boolean(id)))];
+  const [cards, rules] = await Promise.all([
+    cardIds.length ? db.from("nc_credit_cards").select("id,name").in("id", cardIds) : { data: [], error: null },
+    ruleIds.length ? db.from("nc_recurring_rules").select("id,credit_card_id").in("id", ruleIds) : { data: [], error: null },
+  ]);
+  if (cards.error || rules.error) throw new ApiError("Não foi possível consultar os cartões dos lançamentos.", 503);
+  return entries.map((e) => ({ ...e, credit_card_name: cards.data?.find((c) => c.id === e.credit_card_id)?.name ?? null, rule_card_id: rules.data?.find((r) => r.id === e.rule_id)?.credit_card_id ?? null }));
+}
 export async function GET(r: Request) {
   try {
     const { db, access } = await authenticated();
@@ -17,7 +27,7 @@ export async function GET(r: Request) {
       if (entryId.length > 100) throw new ApiError("Lançamento inválido.", 400);
       const { data, error } = await db.from("nc_entries").select("id,kind,description,amount,category,person,date,confirmed,confirmed_at,payer,payer_user_id,installment_group,installment_number,installment_count,payment_method,credit_card_id,card_invoice_id,purchase_date,rule_id,expense_type,recurrence_interval").eq("id", entryId).is("deleted_at", null);
       if (error) throw error;
-      return Response.json(data, { headers: { "Cache-Control": "private, no-store" } });
+      return Response.json(await cardMetadata(db, data), { headers: { "Cache-Control": "private, no-store" } });
     }
     if (new URL(r.url).searchParams.get("due") === "true") {
       const { data, error } = await db
@@ -78,7 +88,7 @@ export async function GET(r: Request) {
     if (labels.error) throw labels.error;
     if (colors.error) throw colors.error;
     return Response.json(
-      entries.data.map((entry) => ({
+      (await cardMetadata(db, entries.data)).map((entry) => ({
         ...entry,
         profile_colors: colors.data?.[entry.id],
         payer_display: entry.payer_user_id
@@ -201,17 +211,17 @@ export async function PATCH(r: Request) {
       if (error) throw new ApiError(cardErrorMessage(error.message), 400);
       return Response.json(data);
     }
-    const { error } = await db.rpc("nc_edit_entry", {
+    const { data, error } = await db.rpc("nc_edit_entry_payment", {
       p_id: parsed.data.id,
       p_entry: parsed.data,
       p_future: parsed.data.future,
     });
     if (error)
       throw new ApiError(
-        "Não foi possível editar. Mantenha o mês original do lançamento.",
+        cardErrorMessage(error.message),
         400,
       );
-    return Response.json({ ok: true });
+    return Response.json(data);
   } catch (e) {
     return failure(e);
   }
