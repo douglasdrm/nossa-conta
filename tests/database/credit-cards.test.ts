@@ -74,6 +74,18 @@ test("card invoices isolate households, preserve history, round installments and
   assert.equal(paidTotal,13333);
   const legacy=await rpc("select nc_add_entry($1) as data",[{kind:"expense",description:"Compra antiga",amount:1234,category:"Outros",person:"Alex",date:"2026-10-10",paymentMethod:"credit_card",confirmed:true}]);
   assert.equal(legacy.credit_card_id,null);assert.equal(legacy.confirmed,true);
+  const editable = await rpc("select nc_save_card_purchase($1) as data",[{...base,cardId:otherCard.id,invoiceMonth:"2027-04",amount:2100}]);
+  const originalInvoice = (await db.query<any>("select card_invoice_id from nc_entries where id=$1",[editable.id])).rows[0].card_invoice_id;
+  assert.ok(originalInvoice);
+  const countBeforeChange = (await db.query("select id from nc_entries")).rows.length;
+  const detached = await rpc("select nc_edit_entry_payment($1,$2,false) as data",[editable.id,{description:"Corrigida para Pix",amount:2100,category:"Mercado",person:"Alex",date:"2027-03-15",paymentMethod:"pix",confirmed:true,payer:"Alex"}]);
+  assert.equal(detached.id,editable.id);assert.equal(detached.credit_card_id,null);assert.equal(detached.card_invoice_id,null);assert.equal(detached.purchase_date,null);assert.equal(detached.payment_method,"pix");assert.equal(detached.confirmed,true);assert.equal(detached.date,"2027-03-15");
+  assert.equal((await db.query("select id from nc_entries")).rows.length,countBeforeChange);
+  assert.equal((await db.query("select id from nc_entries where card_invoice_id=$1 and deleted_at is null",[originalInvoice])).rows.length,0);
+  await assert.rejects(db.query("select nc_edit_entry_payment($1,$2,false)",[purchase.id,{description:"Não alterar fatura paga",amount:10000,category:"Mercado",person:"Alex",date:"2027-02-15",paymentMethod:"pix"}]),/invoice_paid/);
+  await as(outsider);
+  await assert.rejects(db.query("select nc_edit_entry_payment($1,$2,false)",[editable.id,{description:"Invadido",amount:1,category:"Mercado",person:"Intruso",date:"2027-03-15",paymentMethod:"cash"}]),/entry_not_found/);
+  await as(owner);
   // Monthly subscriptions and ordinary recurring bills keep distinct labels.
   const recurringCard = await rpc("select nc_save_credit_card($1) as data",[{name:"Assinaturas",dueDay:5,closingDay:25}]);
   const recurring = {...base,cardId:recurringCard.id,description:"Google One",amount:1499,purchaseDate:"2026-11-20",invoiceMonth:"2026-12",repeats:true,intervalMonths:1,expenseType:"subscription"};
@@ -104,6 +116,16 @@ test("card invoices isolate households, preserve history, round installments and
   const shortCharge = await rpc("select nc_add_entry($1) as data",[{...recurring,cardId:shortCard.id,purchaseDate:"2027-01-31",invoiceMonth:"2027-02",expenseType:"recurring"}]);
   await db.query("select nc_sync_month('2027-03-01')");await db.query("select nc_sync_month('2027-04-01')");
   assert.deepEqual((await db.query<any>("select purchase_date from nc_entries where rule_id=$1 order by purchase_date",[shortCharge.rule_id])).rows.map(r=>day(r.purchase_date)),["2027-01-31","2027-02-28","2027-03-31"]);
+  const flexible = await rpc("select nc_add_entry($1) as data",[{...recurring,description:"Recorrência flexível",purchaseDate:"2027-04-20",invoiceMonth:"2027-05"}]);
+  await rpc("select nc_edit_entry_payment($1,$2,false) as data",[flexible.id,{description:"Só esta cobrança por Pix",amount:1499,category:"Mercado",person:"Alex",date:"2027-05-10",paymentMethod:"pix",confirmed:false}]);
+  await db.query("select nc_sync_month('2027-05-01')");await db.query("select nc_sync_month('2027-06-01')");
+  const flexibleRows = (await db.query<any>("select id,payment_method,credit_card_id from nc_entries where rule_id=$1 order by id",[flexible.rule_id])).rows;
+  assert.equal(flexibleRows.filter(r=>r.id===flexible.id).length,1);assert.equal(flexibleRows.find(r=>r.id===flexible.id).payment_method,"pix");
+  assert.ok(flexibleRows.some(r=>r.id!==flexible.id&&r.credit_card_id===recurringCard.id));
+  await rpc("select nc_edit_card_recurrence($1,$2) as data",[flexible.id,{...recurring,purchaseDate:"2027-04-20",invoiceMonth:"2027-05",future:true}]);
+  await rpc("select nc_edit_entry_payment($1,$2,false) as data",[flexible.id,{description:"Outra correção",amount:1499,category:"Mercado",person:"Alex",date:"2027-05-10",paymentMethod:"debit_card",confirmed:false}]);
+  await db.query("select nc_stop_recurring($1)",[flexible.id]);
+  assert.equal((await db.query("select id from nc_entries where rule_id=$1 and id<>$2 and deleted_at is null",[flexible.rule_id,flexible.id])).rows.length,0);
   // A new recurring charge cannot silently change an already-paid invoice.
   const blockedRule = await rpc("select nc_add_entry($1) as data",[{...recurring,description:"Cobrança a conferir",purchaseDate:"2026-10-20",invoiceMonth:"2026-11"}]);
   await db.exec("reset role");

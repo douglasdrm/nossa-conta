@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import CardEditor from "./card-editor";
 import type { CreditCard } from "@/lib/credit-cards";
 import { dateInSaoPaulo } from "@/lib/finance";
@@ -10,6 +10,7 @@ const money = (value: number) => new Intl.NumberFormat("pt-BR", { style: "curren
 const date = (value: string) => value.slice(0, 10).split("-").reverse().join("/");
 export default function CreditCardsPanel({ name, onEdit }: { name: string; onEdit: (id: string, month: string) => void }) {
   const [data, setData] = useState<{ cards: CreditCard[]; invoices: Invoice[]; entries: Purchase[]; blockedCharges?: number } | null>(null);
+  const linkedInvoice = useRef(false);
   const [editor, setEditor] = useState<CreditCard | "new" | null>(null);
   const [cardFilter, setCardFilter] = useState("");
   const [monthFilter, setMonthFilter] = useState("");
@@ -22,6 +23,13 @@ export default function CreditCardsPanel({ name, onEdit }: { name: string; onEdi
     catch (error) { setError(error instanceof Error ? error.message : "Não foi possível carregar."); }
   }
   useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    if (!data || linkedInvoice.current) return;
+    linkedInvoice.current = true;
+    const id = new URLSearchParams(window.location.search).get("fatura");
+    const invoice = data.invoices.find((i) => i.id === id);
+    if (invoice) { setCardFilter(invoice.card_id); setMonthFilter(invoice.invoice_month.slice(0, 7)); }
+  }, [data]);
   async function action(body: object, message: string, endpoint = "/api/cards") {
     if (busy) return; setBusy(true); setError(""); setNotice("");
     try { const r = await fetch(endpoint, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }); const result = await r.json(); if (!r.ok) throw Error(result.error); await load(); setNotice(message); }
