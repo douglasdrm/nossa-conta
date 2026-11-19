@@ -15,7 +15,7 @@ export async function GET(r: Request) {
     const entryId = new URL(r.url).searchParams.get("id");
     if (entryId) {
       if (entryId.length > 100) throw new ApiError("Lançamento inválido.", 400);
-      const { data, error } = await db.from("nc_entries").select("id,kind,description,amount,category,person,date,confirmed,confirmed_at,payer,payer_user_id,installment_group,installment_number,installment_count,payment_method,credit_card_id,card_invoice_id,purchase_date").eq("id", entryId).is("deleted_at", null);
+      const { data, error } = await db.from("nc_entries").select("id,kind,description,amount,category,person,date,confirmed,confirmed_at,payer,payer_user_id,installment_group,installment_number,installment_count,payment_method,credit_card_id,card_invoice_id,purchase_date,rule_id,expense_type,recurrence_interval").eq("id", entryId).is("deleted_at", null);
       if (error) throw error;
       return Response.json(data, { headers: { "Cache-Control": "private, no-store" } });
     }
@@ -23,7 +23,7 @@ export async function GET(r: Request) {
       const { data, error } = await db
         .from("nc_entries")
         .select(
-          "id,kind,description,amount,category,person,date,confirmed,confirmed_at,payer,installment_group,installment_number,installment_count,payment_method,credit_card_id,card_invoice_id,purchase_date",
+          "id,kind,description,amount,category,person,date,confirmed,confirmed_at,payer,installment_group,installment_number,installment_count,payment_method,credit_card_id,card_invoice_id,purchase_date,rule_id,expense_type,recurrence_interval",
         )
         .eq("kind", "expense")
         .eq("confirmed", false)
@@ -41,7 +41,7 @@ export async function GET(r: Request) {
       const { data, error } = await db
         .from("nc_entries")
         .select(
-          "id,kind,description,amount,category,person,date,confirmed,confirmed_at,payer,installment_group,installment_number,installment_count,payment_method,credit_card_id,card_invoice_id,purchase_date",
+          "id,kind,description,amount,category,person,date,confirmed,confirmed_at,payer,installment_group,installment_number,installment_count,payment_method,credit_card_id,card_invoice_id,purchase_date,rule_id,expense_type,recurrence_interval",
         )
         .eq("confirmed", false)
         .is("deleted_at", null)
@@ -62,7 +62,7 @@ export async function GET(r: Request) {
       db
         .from("nc_entries")
         .select(
-          "id,kind,description,amount,category,person,date,confirmed,confirmed_at,payer,payer_user_id,installment_group,installment_number,installment_count,payment_method,credit_card_id,card_invoice_id,purchase_date",
+          "id,kind,description,amount,category,person,date,confirmed,confirmed_at,payer,payer_user_id,installment_group,installment_number,installment_count,payment_method,credit_card_id,card_invoice_id,purchase_date,rule_id,expense_type,recurrence_interval",
         )
         .gte("date", month.data + "-01")
         .lt("date", nextMonth(month.data))
@@ -119,7 +119,7 @@ export async function POST(r: Request) {
       const schema = body.installmentCount !== undefined ? installmentSchema : entrySchema;
       const parsed = schema.safeParse(body);
       if (!parsed.success || !parsed.data.purchaseDate || !parsed.data.invoiceMonth) throw new ApiError("Selecione o cartão, a data da compra e a fatura.", 400);
-      const { data, error } = await db.rpc("nc_save_card_purchase", { p_entry: parsed.data });
+      const { data, error } = await db.rpc(parsed.data.repeats ? "nc_add_entry" : "nc_save_card_purchase", { p_entry: parsed.data });
       if (error) throw new ApiError(cardErrorMessage(error.message), 400);
       return Response.json(data, { status: 201 });
     }
@@ -197,7 +197,7 @@ export async function PATCH(r: Request) {
       throw new ApiError("Confira os campos do lançamento.", 400);
     if (parsed.data.cardId) {
       if (!parsed.data.purchaseDate || !parsed.data.invoiceMonth) throw new ApiError("Confira a data da compra e a fatura.", 400);
-      const { data, error } = await db.rpc("nc_save_card_purchase", { p_entry: { ...parsed.data, kind: "expense" }, p_id: parsed.data.id });
+      const { data, error } = await db.rpc("nc_edit_card_recurrence", { p_entry: { ...parsed.data, kind: "expense" }, p_id: parsed.data.id });
       if (error) throw new ApiError(cardErrorMessage(error.message), 400);
       return Response.json(data);
     }

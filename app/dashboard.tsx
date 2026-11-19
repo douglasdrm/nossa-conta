@@ -78,6 +78,9 @@ type Entry = {
   date: string;
   confirmed: boolean;
   payer: string | null;
+  rule_id?: string | null;
+  expense_type?: "recurring" | "subscription" | null;
+  recurrence_interval?: number | null;
   credit_card_id?: string | null;
   card_invoice_id?: string | null;
   purchase_date?: string | null;
@@ -170,7 +173,9 @@ function DashboardContent({
   const requestId = useRef(0);
   const installmentGroup = useRef("");
   const [entryMode, setEntryMode] = useState("single");
-  const cardPurchase = modal === "expense" && chosenMethod === "credit_card" && entryMode !== "recurring" && !editing?.id.includes(":") && (!editing || Boolean(editing.credit_card_id) || editing.payment_method !== "credit_card" || linkLegacyCard);
+  const [intervalMonths, setIntervalMonths] = useState(1);
+  const recurringMode = entryMode === "recurring" || entryMode === "subscription";
+  const cardPurchase = modal === "expense" && chosenMethod === "credit_card" && (!editing?.id.includes(":") || Boolean(editing.credit_card_id)) && (!editing || Boolean(editing.credit_card_id) || editing.payment_method !== "credit_card" || linkLegacyCard);
 
   const [installmentMode, setInstallmentMode] =
     useState<InstallmentMode>("total");
@@ -181,6 +186,7 @@ function DashboardContent({
     setCardReady(true);
     setLinkLegacyCard(false);
     setEntryMode("single");
+    setIntervalMonths(editing?.recurrence_interval ?? 1);
     setInstallmentMode("total");
     setInstallmentCount(3);
     setInputAmount(editing?.amount || 0);
@@ -365,7 +371,9 @@ function DashboardContent({
               ? String(f.get("payer") || name).trim()
               : undefined,
           id: editing?.id,
-          repeats: !editing && entryMode === "recurring",
+          repeats: !editing && recurringMode,
+          intervalMonths,
+          expenseType: modal === "expense" && recurringMode ? entryMode : undefined,
           ...(isInstallment
             ? {
                 installmentCount,
@@ -641,6 +649,7 @@ function DashboardContent({
                       >
                         {e.category}
                       </span>
+                      {e.expense_type && <small className="visual-badge">{e.expense_type === "subscription" ? "Assinatura" : "Conta recorrente"} · {e.recurrence_interval === 12 ? "Anual" : "Mensal"}</small>}
                       {e.card_invoice_id && <a className="visual-badge" href="/cartoes">Na fatura do cartão</a>}
                       {e.payment_method && MethodIcon && (
                         <small
@@ -1383,9 +1392,10 @@ function DashboardContent({
                         <option value="single">
                           {modal === "income" ? "Entrada única" : "Gasto único"}
                         </option>
-                        <option value="recurring" disabled={!access.premium}>Recorrente todo mês{!access.premium ? " · Premium" : ""}</option>
+                        <option value="recurring" disabled={!access.premium}>{modal === "income" ? "Entrada recorrente" : "Conta recorrente"}{!access.premium ? " · Premium" : ""}</option>
+                        {modal === "expense" && <option value="subscription" disabled={!access.premium}>Assinatura{!access.premium ? " · Premium" : ""}</option>}
                         {modal === "expense" && (
-                          <option value="installment" disabled={!access.premium}>Gasto parcelado{!access.premium ? " · Premium" : ""}</option>
+                          <option value="installment" disabled={!access.premium}>Compra parcelada{!access.premium ? " · Premium" : ""}</option>
                         )}
                       </select>
                     </label>
@@ -1407,7 +1417,7 @@ function DashboardContent({
                           </option>
                         ))}
                       </select>
-                      {!editing && entryMode === "recurring" && (
+                      {!editing && recurringMode && (
                         <small className="field-hint">
                           As próximas ocorrências herdam essa forma de
                           pagamento.
@@ -1417,8 +1427,9 @@ function DashboardContent({
                   )}
                   {modal === "expense" && chosenMethod === "credit_card" && editing?.payment_method === "credit_card" && !editing.credit_card_id && !editing.id.includes(":") && <button type="button" className="text-button" onClick={() => { setLinkLegacyCard(!linkLegacyCard); setPaymentConfirmed(linkLegacyCard ? Boolean(editing.confirmed) : false); }}>{linkLegacyCard ? "Manter compra antiga sem vínculo" : "Vincular esta compra antiga a um cartão"}</button>}
                   {editing?.credit_card_id && <input type="hidden" name="paymentMethod" value="credit_card" />}
-                  {cardPurchase && <CardPurchaseFields key={`card:${editing?.id || modal}`} initial={editing ?? undefined} onReadyChange={setCardReady} />}
-                  {modal === "expense" && chosenMethod === "credit_card" && !cardPurchase && (entryMode === "recurring" || editing?.id.includes(":")) && <p className="field-hint">Recorrências não têm vínculo automático com cartão. Para acompanhar faturas, registre uma compra única ou parcelada.</p>}
+                  {!editing && recurringMode && <label>Frequência<select value={intervalMonths} onChange={(e) => setIntervalMonths(Number(e.target.value))}><option value={1}>Mensal</option><option value={12}>Anual</option></select><small className="field-hint">{cardPurchase ? "Cada cobrança entra na fatura do cartão. O vencimento não precisa ser informado separadamente." : "O vencimento se repete na frequência escolhida. Você pode ajustar o valor de cada ocorrência."}</small></label>}
+                  {cardPurchase && <CardPurchaseFields key={`card:${editing?.id || modal}`} recurring={recurringMode || Boolean(editing?.rule_id && editing.credit_card_id)} initial={editing ?? undefined} onReadyChange={setCardReady} />}
+                  {editing?.id.includes(":") && !editing.credit_card_id && chosenMethod === "credit_card" && <p className="field-hint">Esta recorrência antiga não está vinculada a uma fatura. Para usar o novo fluxo, encerre suas próximas ocorrências e cadastre a nova conta ou assinatura escolhendo um cartão. O histórico permanece guardado.</p>}
                   {isInstallment && (
                     <div className="formgrid">
                       <label>
@@ -1489,7 +1500,7 @@ function DashboardContent({
                       {isInstallment
                         ? "Vencimento da primeira parcela"
                         : modal === "expense"
-                          ? "Vencimento"
+                          ? recurringMode && !editing ? "Primeiro vencimento" : "Vencimento"
                           : paymentConfirmed
                             ? "Data do recebimento"
                             : "Data prevista do recebimento"}
@@ -1603,21 +1614,21 @@ function DashboardContent({
                       </small>
                     </label>
                   )}
-                  {!editing && entryMode === "recurring" && (
+                  {!editing && recurringMode && (
                     <p className="field-hint">
-                      {modal === "income"
-                        ? "Esta entrada será repetida todo mês. O valor poderá ser ajustado por mês; as próximas ficam a receber até a confirmação."
-                        : "Esta conta será repetida todo mês. O valor poderá ser ajustado por mês; os próximos ficam a pagar até a confirmação."}
+                      {`A recorrência será ${intervalMonths === 12 ? "anual" : "mensal"}. As próximas ocorrências ficam ${modal === "income" ? "a receber" : "a pagar"} até a confirmação${cardPurchase ? " do pagamento da fatura" : ""}. Você pode corrigir o valor depois.`}
                     </p>
                   )}
                   {editing?.id.includes(":") && (
                     <>
                       <label className="check">
                         <input type="checkbox" name="future" />{" "}
-                        {modal === "expense"
-                          ? "Usar valor e forma de pagamento como padrão nos próximos meses"
+                        {editing?.credit_card_id
+                          ? "Aplicar este valor às próximas cobranças em aberto"
+                          : modal === "expense"
+                          ? "Usar valor e forma de pagamento como padrão nas próximas ocorrências"
                           : "Usar este valor como padrão nos próximos meses"}
-                        <small>Meses já registrados não serão alterados.</small>
+                        <small>{editing?.credit_card_id ? "Cobranças já pagas serão preservadas." : "Meses já registrados não serão alterados."}</small>
                       </label>
                       <button
                         type="button"
@@ -1625,7 +1636,7 @@ function DashboardContent({
                         onClick={async () => {
                           if (
                             !confirm(
-                              "Encerrar a recorrência após este mês? Os lançamentos já registrados serão mantidos.",
+                              editing?.credit_card_id ? "Encerrar após esta cobrança? As próximas cobranças em aberto sairão da previsão. As já pagas serão preservadas." : "Encerrar a recorrência após este mês? Os lançamentos já registrados serão mantidos.",
                             )
                           )
                             return;
@@ -1640,6 +1651,7 @@ function DashboardContent({
                             });
                             if (!r.ok) throw Error();
                             setModal("");
+                            setCardsVersion((value) => value + 1);
                             await reload();
                           } catch {
                             setError(
@@ -1648,7 +1660,7 @@ function DashboardContent({
                           }
                         }}
                       >
-                        Encerrar recorrência após este mês
+                        Encerrar recorrência após esta ocorrência
                       </button>
                     </>
                   )}

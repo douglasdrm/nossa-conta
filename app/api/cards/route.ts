@@ -16,12 +16,18 @@ export async function GET(request: Request) {
   try {
     const { db } = await authenticatedFinance();
     const catalogOnly = new URL(request.url).searchParams.get("catalog") === "true";
+    let blockedCharges = 0;
+    if (!catalogOnly) {
+      const sync = await db.rpc("nc_sync_card_forecast");
+      if (sync.error) throw new ApiError("Não foi possível atualizar as cobranças previstas.", 503);
+      blockedCharges = Number(sync.data) || 0;
+    }
     const [cards, invoices, entries] = await Promise.all([
       allRows((from, to) => db.from("nc_credit_cards").select("id,name,closing_day,due_day,closing_estimated,archived").order("created_at").order("id").range(from, to)),
       catalogOnly ? [] : allRows((from, to) => db.from("nc_card_invoices").select("id,card_id,invoice_month,due_date,paid_at,payer").order("invoice_month", { ascending: false }).order("id").range(from, to)),
-      catalogOnly ? [] : allRows((from, to) => db.from("nc_entries").select("id,description,amount,category,person,credit_card_id,card_invoice_id,purchase_date,date,confirmed,installment_number,installment_count").not("card_invoice_id", "is", null).is("deleted_at", null).order("date").order("id").range(from, to)),
+      catalogOnly ? [] : allRows((from, to) => db.from("nc_entries").select("id,description,amount,category,person,credit_card_id,card_invoice_id,purchase_date,date,confirmed,installment_number,installment_count,rule_id,expense_type,recurrence_interval").not("card_invoice_id", "is", null).is("deleted_at", null).order("date").order("id").range(from, to)),
     ]);
-    return Response.json({ cards, invoices, entries }, { headers: { "Cache-Control": "private, no-store" } });
+    return Response.json({ cards, invoices, entries, blockedCharges }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) { return failure(error); }
 }
 export async function POST(request: Request) {

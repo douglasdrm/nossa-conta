@@ -20,6 +20,8 @@ export const entrySchema = z.object({
   person: label(60),
   date: dateSchema,
   repeats: z.boolean().optional().default(false),
+  intervalMonths: z.union([z.literal(1), z.literal(12)]).optional().default(1),
+  expenseType: z.enum(["recurring", "subscription"]).optional(),
   confirmed: z.boolean().optional().default(false),
   payer: label(60).optional(),
   paymentMethod: z.enum(paymentMethods).nullish(),
