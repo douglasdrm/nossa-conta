@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import CardEditor from "./card-editor";
 import { cardDay, firstInvoiceMonth, type CreditCard } from "@/lib/credit-cards";
 import { dateInSaoPaulo, installmentDate } from "@/lib/finance";
-export default function CardPurchaseFields({ initial, onReadyChange }: { initial?: { credit_card_id?: string | null; purchase_date?: string | null; date: string; installment_number?: number | null }; onReadyChange: (ready: boolean) => void }) {
+export default function CardPurchaseFields({ initial, recurring = false, onReadyChange }: { recurring?: boolean; initial?: { credit_card_id?: string | null; purchase_date?: string | null; date: string; installment_number?: number | null }; onReadyChange: (ready: boolean) => void }) {
   const [cards, setCards] = useState<CreditCard[]>([]);
   const [selected, setSelected] = useState(initial?.credit_card_id ?? "");
   const [purchase, setPurchase] = useState(initial?.purchase_date ?? dateInSaoPaulo());
@@ -32,10 +32,10 @@ export default function CardPurchaseFields({ initial, onReadyChange }: { initial
       <option value="new">+ Cadastrar cartão</option>
     </select></label>
     <button className="text-button" type="button" onClick={() => setEditor(true)}>+ Cadastrar cartão rapidamente</button>
-    <div className="formgrid"><label>Data da compra<input required name="purchaseDate" type="date" min="2000-01-01" max="2099-12-31" value={purchase} onChange={(e) => setPurchase(e.target.value)} /></label>
-    <label>{initial?.installment_number ? "Fatura desta parcela" : "Primeira fatura"}<input required name="invoiceMonth" type="month" min="2000-01" max="2099-12" value={chosen} onChange={(e) => { setInvoice(e.target.value); setManual(true); }} /></label></div>
+    <div className="formgrid"><label>{recurring ? initial?.credit_card_id ? "Data desta cobrança" : "Data da próxima cobrança" : "Data da compra"}<input required name="purchaseDate" type="date" min="2000-01-01" max="2099-12-31" value={purchase} onChange={(e) => setPurchase(e.target.value)} /></label>
+    <label>{initial?.installment_number ? "Fatura desta parcela" : recurring ? "Fatura da cobrança" : "Primeira fatura"}<input required name="invoiceMonth" type="month" min="2000-01" max="2099-12" value={chosen} onChange={(e) => { setInvoice(e.target.value); setManual(true); }} /></label></div>
     {due && <p className="card-purchase-notice">{initial?.installment_number ? "Esta parcela vai para" : "A compra começa na"} fatura de <strong>{chosen.split("-").reverse().join("/")}</strong>, com vencimento padrão em <strong>{due.split("-").reverse().join("/")}</strong>. Se a fatura já existir, o vencimento dela será mantido. Você pode corrigir o mês acima.</p>}
-    <p className="field-hint">A compra fica a pagar na fatura. Confirme o pagamento em Cartões, quando ele acontecer. Compras no dia do fechamento entram na fatura que está fechando; ajuste o mês se seu banco processar de outra forma.</p>
+    <p className="field-hint">A compra ou cobrança fica a pagar na fatura. Confirme o pagamento em Cartões, quando ele acontecer. Compras no dia do fechamento entram na fatura que está fechando; ajuste o mês se seu banco processar de outra forma.</p>
     {editor && <CardEditor onClose={() => setEditor(false)} onSave={(saved) => { setCards((current) => [...current, saved]); setSelected(saved.id); setManual(false); setError(""); setEditor(false); }} />}
   </div>;
 }

@@ -13,6 +13,7 @@ export function firstInvoiceMonth(purchase: string, closingDay: number, dueDay: 
   return month;
 }
 export const cardErrorMessage = (message?: string) => ({
+  invalid_recurring_invoice: "A primeira fatura deve ficar entre o mês da cobrança e os dois meses seguintes.",
   invoice_paid: "Esta fatura já foi paga. Reabra a fatura em Cartões antes de corrigir suas compras.",
   pay_invoice_instead: "Esta compra pertence a uma fatura. Confirme o pagamento pela área Cartões.",
   card_not_found: "Selecione um cartão ativo do seu espaço.",

@@ -35,7 +35,7 @@ export default function CardEditor({ card, onSave, onClose }: { card?: CreditCar
         <label>Dia do fechamento<input required type="number" min={1} max={31} value={closing || ""} onChange={(e) => { setClosing(Number(e.target.value)); setEstimated(false); }} /></label>
       </div>
       <p className="field-hint">{estimated ? "Fechamento sugerido aproximadamente sete dias antes do vencimento. Confira no app do banco e altere aqui ou depois." : "Use o fechamento informado pelo banco. Você pode corrigir depois."} Em meses curtos, usamos o último dia do mês.</p>
-      {card && <><p className="field-hint">As datas valem para novas compras. Faturas existentes mantêm seus vencimentos e podem ser ajustadas separadamente quando estiverem em aberto.</p><label className="check"><input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} /> Arquivar cartão para novas compras. O histórico continua disponível.</label></>}
+      {card && <><p className="field-hint">As datas valem para novas compras. Faturas existentes mantêm seus vencimentos e podem ser ajustadas separadamente quando estiverem em aberto.</p><label className="check"><input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} /> Arquivar cartão para novas compras. O histórico continua disponível. Novas projeções recorrentes ficam pausadas enquanto o cartão estiver arquivado.</label></>}
       <div className="card-form-actions"><button className="primary" disabled={busy} type="submit">{busy ? "Salvando…" : "Salvar cartão"}</button><button type="button" className="secondary" disabled={busy} onClick={onClose}>Cancelar</button></div>
     </form>
   </dialog>, document.body);
