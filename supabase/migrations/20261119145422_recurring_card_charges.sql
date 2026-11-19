@@ -73,7 +73,7 @@ language plpgsql security definer set search_path='' as $$
 declare h uuid;rid uuid;eid text;d date;outrow public.nc_entries;paid boolean;paid_by text;c public.nc_credit_cards;charge date;natural_month date;chosen_month date;shift integer;period integer:=coalesce((p_entry->>'intervalMonths')::integer,1);
 begin
  h:=nossa_conta_private.current_household();if h is null then raise exception 'membership_required';end if;
- perform 1 from public.nc_households where id=h for share;
+ perform 1 from public.nc_households where id=h for update;
  perform nossa_conta_private.validate_entry(p_entry);d:=(p_entry->>'date')::date;
  if period not in (1,12) then raise exception 'invalid_frequency';end if;
  if coalesce((p_entry->>'repeats')::boolean,false) and nullif(p_entry->>'cardId','') is not null then
